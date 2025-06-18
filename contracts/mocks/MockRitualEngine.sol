@@ -4,22 +4,22 @@ pragma solidity ^0.8.0;
 import "../interfaces/IRitualEngine.sol";
 
 contract MockRitualEngine is IRitualEngine {
-    mapping(address => uint256) private ritualValues;
-    mapping(address => uint256) private carbonOffsets;
-    mapping(address => uint256) private longevityScores;
-    mapping(address => uint256) private lastUpdates;
+    mapping(address => uint256) private _ritualValues;
+    mapping(address => uint256) private _carbonOffsets;
+    mapping(address => uint256) private _longevityScores;
+    mapping(address => uint256) private _lastUpdates;
 
     function setRitualValue(address user, uint256 value) external {
-        ritualValues[user] = value;
+        _ritualValues[user] = value;
     }
 
     function incrementRitualValue(address user, uint256 amount) external {
-        ritualValues[user] += amount;
+        _ritualValues[user] += amount;
     }
 
     function processSymbolicGrowth(address user) external returns (uint256) {
-        uint256 growth = ritualValues[user] / 10;
-        ritualValues[user] += growth;
+        uint256 growth = _ritualValues[user] / 10;
+        _ritualValues[user] += growth;
         return growth;
     }
 
@@ -28,52 +28,54 @@ contract MockRitualEngine is IRitualEngine {
     ) external returns (uint256[] memory values) {
         values = new uint256[](users.length);
         for (uint256 i = 0; i < users.length; i++) {
-            values[i] = processSymbolicGrowth(users[i]);
+            values[i] = this.processSymbolicGrowth(users[i]);
         }
     }
 
     function updateLongevityMetrics(address user) external {
-        lastUpdates[user] = block.timestamp;
-        longevityScores[user]++;
+        _lastUpdates[user] = block.timestamp;
+        _longevityScores[user]++;
     }
 
     function batchUpdateLongevityMetrics(address[] calldata users) external {
         for (uint256 i = 0; i < users.length; i++) {
-            updateLongevityMetrics(users[i]);
+            this.updateLongevityMetrics(users[i]);
         }
     }
 
     function calculateLongevityScore(address user) external view returns (uint256) {
-        return longevityScores[user];
+        return _longevityScores[user];
     }
 
     function getRitualValue(address user) external view returns (uint256) {
-        return ritualValues[user];
+        return _ritualValues[user];
     }
 
     function setCarbonOffset(address user, uint256 amount) external {
-        carbonOffsets[user] = amount;
+        _carbonOffsets[user] = amount;
     }
 
     function getTotalCarbonOffset(address user) external view returns (uint256) {
-        return carbonOffsets[user];
+        return _carbonOffsets[user];
     }
 
     function getLongevityScore(address user) external view returns (uint256) {
-        return longevityScores[user];
+        return _longevityScores[user];
     }
 
     function recordCarbonOffset(uint256 amount, string calldata source, bytes32 proofHash) external {
-        carbonOffsets[msg.sender] += amount;
+        _carbonOffsets[msg.sender] += amount;
     }
 
     function batchRecordCarbonOffset(
         address[] calldata users,
         uint256[] calldata amounts,
-        string[] calldata sources
+        string[] calldata sources,
+        bytes32[] calldata proofHashes
     ) external {
-        require(users.length == amounts.length && amounts.length == sources.length, "Length mismatch");
+        require(users.length == amounts.length && amounts.length == sources.length && sources.length == proofHashes.length, "Length mismatch");
         for (uint256 i = 0; i < users.length; i++) {
+            _carbonOffsets[users[i]] += amounts[i];
             emit CarbonOffsetRecorded(users[i], amounts[i], sources[i]);
         }
     }
@@ -81,22 +83,34 @@ contract MockRitualEngine is IRitualEngine {
     function batchGetRitualStates(
         address[] calldata users
     ) external view returns (
-        uint256[] memory values,
-        uint256[] memory lastUpdateTimes,
-        bool[] memory isActive
+        uint256[] memory scores,
+        uint256[] memory offsets,
+        uint256[] memory values
     ) {
+        scores = new uint256[](users.length);
+        offsets = new uint256[](users.length);
         values = new uint256[](users.length);
-        lastUpdateTimes = new uint256[](users.length);
-        isActive = new bool[](users.length);
 
         for (uint256 i = 0; i < users.length; i++) {
-            values[i] = ritualValues[users[i]];
-            lastUpdateTimes[i] = lastUpdates[users[i]];
-            isActive[i] = true;
+            scores[i] = this.getLongevityScore(users[i]);
+            offsets[i] = this.getTotalCarbonOffset(users[i]);
+            values[i] = _ritualValues[users[i]];
         }
     }
 
     function claimWeeklyAllocation() external {
         // Mock implementation - does nothing
+    }
+
+    function processSymbolicGrowth() external {
+        uint256 growth = _ritualValues[msg.sender] / 10;
+        _ritualValues[msg.sender] += growth;
+        emit SymbolicGrowthOccurred(msg.sender, growth);
+    }
+
+    function updateLongevityMetrics() external {
+        _lastUpdates[msg.sender] = block.timestamp;
+        _longevityScores[msg.sender]++;
+        emit LongevityScoreUpdated(msg.sender, _longevityScores[msg.sender]);
     }
 } 

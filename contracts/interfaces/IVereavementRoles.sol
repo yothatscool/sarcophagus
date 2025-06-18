@@ -7,11 +7,6 @@ pragma solidity ^0.8.0;
  * @notice Interface for role management in the Vereavement protocol
  */
 interface IVereavementRoles {
-    // Role definitions
-    bytes32 constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 constant ORACLE_ROLE = keccak256("ORACLE_ROLE");
-    bytes32 constant MEDIATOR_ROLE = keccak256("MEDIATOR_ROLE");
-
     // Events
     event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);
     event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);

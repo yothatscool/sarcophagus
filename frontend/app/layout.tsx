@@ -1,4 +1,6 @@
 import { NotificationProvider } from './contexts/NotificationContext'
+import { WalletProvider } from './contexts/WalletContext'
+import { LoadingProvider } from './contexts/LoadingContext'
 import './globals.css'
 import { Inter } from 'next/font/google'
 
@@ -15,10 +17,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className="dark">
+      <body className={`${inter.className} bg-dark-900 min-h-screen`}>
         <NotificationProvider>
-          {children}
+          <WalletProvider>
+            <LoadingProvider>
+              {children}
+            </LoadingProvider>
+          </WalletProvider>
         </NotificationProvider>
       </body>
     </html>

@@ -210,13 +210,17 @@ abstract contract VereavementBase is AccessControl, ReentrancyGuard, Pausable {
         require(user != address(0), "Invalid address");
         require(!_isRegistered(user), "Already registered");
 
-        _storageLayout.vaults[user] = VereavementStorage.Vault({
-            beneficiaries: new VereavementStorage.Beneficiary[](0),
-            emergencyContact: address(0),
-            isLocked: false,
-            lastUpdate: uint32(block.timestamp),
-            actionCount: 0
-        });
+        VereavementStorage.Vault storage vault = _storageLayout.vaults[user];
+        vault.emergencyContact = address(0);
+        vault.isLocked = false;
+        vault.lastActivityTime = block.timestamp;
+        vault.inactivityThreshold = _storageLayout.treasuryConfig.defaultInactivityThreshold;
+        vault.hasCustomInactivityThreshold = false;
+        vault.isDeceased = false;
+        vault.deathTimestamp = 0;
+        vault.deathConfirmations = 0;
+        vault.inChallengePeriod = false;
+        vault.challengeEndTime = 0;
 
         emit VaultInitialized(user, block.timestamp);
     }
@@ -224,12 +228,14 @@ abstract contract VereavementBase is AccessControl, ReentrancyGuard, Pausable {
     function _initializeRitualState(address user) internal {
         require(user != address(0), "Invalid address");
         
-        _storageLayout.ritualStates[user] = VereavementStorage.RitualState({
-            lastProof: bytes32(0),
-            lastUpdate: uint32(block.timestamp),
-            proofCount: 0,
-            isActive: true
-        });
+        VereavementStorage.RitualState storage state = _storageLayout.ritualStates[user];
+        state.isActive = true;
+        state.lastUpdate = uint32(block.timestamp);
+        state.lastAction = uint32(block.timestamp);
+        state.actionCount = 0;
+        state.longevityScore = 0;
+        state.carbonOffset = 0;
+        state.totalValue = 0;
 
         emit RitualStateInitialized(user, block.timestamp);
     }

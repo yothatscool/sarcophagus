@@ -44,10 +44,12 @@ library VereavementStorage {
     }
 
     struct RitualState {
-        uint256 totalValue;
-        uint256 carbonOffset;
-        uint256 longevityScore;
-        uint256 lastGrowthTime;
+        uint96 longevityScore;
+        uint96 carbonOffset;
+        uint32 lastUpdate;
+        uint32 lastAction;
+        uint32 actionCount;
+        uint224 totalValue;
         bool isActive;
         string[] memorials;
     }
@@ -70,7 +72,8 @@ library VereavementStorage {
         uint256 paidAmount;
         bool conditionMet;
         AgeBasedVesting ageVesting;
-        MilestoneCondition[] milestones;
+        uint256 milestoneCount;
+        mapping(uint256 => MilestoneCondition) milestones;
     }
 
     struct MilestoneCondition {

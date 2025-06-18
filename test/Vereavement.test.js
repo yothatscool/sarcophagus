@@ -8,13 +8,11 @@ const {
     SECONDS_PER_DAY,
     SECONDS_PER_MONTH
 } = require("./helpers/RitualTestHelpers");
+const { ROLES, ZERO_ADDRESS, toWei, fromWei, generateProofHash } = require("./helpers/TestUtils");
 
 describe("Vereavement", function () {
-    let Vereavement;
     let vereavement;
-    let RitualEngine;
     let ritualEngine;
-    let VTHOManager;
     let vthoManager;
     let owner;
     let addr1;
@@ -45,35 +43,26 @@ describe("Vereavement", function () {
 
         // Deploy Ritual Engine
         const RitualEngine = await ethers.getContractFactory("RitualEngine");
-        ritualEngine = await RitualEngine.deploy(b3trToken.address);
+        ritualEngine = await RitualEngine.deploy(b3trToken.target);
 
         // Deploy main contract
         const Vereavement = await ethers.getContractFactory("Vereavement");
         vereavement = await Vereavement.deploy(
-            ethers.parseEther("500"), // Weekly allocation
-            ethers.parseEther("1000"), // Treasury yield
+            toWei("500"), // Weekly allocation
+            toWei("1000"), // Treasury yield
             3, // Min confirmations
-            vthoManager.address,
-            vnsResolver.address,
-            ritualEngine.address
+            vthoManager.target,
+            vnsResolver.target,
+            ritualEngine.target
         );
 
         // Setup roles
-        await vereavement.grantRole(
-            ethers.keccak256(ethers.toUtf8Bytes("ORACLE_ROLE")),
-            addr1.address
-        );
-        await vereavement.grantRole(
-            ethers.keccak256(ethers.toUtf8Bytes("MEDIATOR_ROLE")),
-            addr2.address
-        );
-        await ritualEngine.grantRole(
-            ethers.keccak256(ethers.toUtf8Bytes("ORACLE_ROLE")),
-            addr1.address
-        );
+        await vereavement.grantRole(ROLES.ORACLE_ROLE, addr1.address);
+        await vereavement.grantRole(ROLES.MEDIATOR_ROLE, addr2.address);
+        await ritualEngine.grantRole(ROLES.ORACLE_ROLE, addr1.address);
 
         // Fund contracts
-        await b3trToken.mint(ritualEngine.address, ethers.parseEther("1000000"));
+        await b3trToken.mint(ritualEngine.target, toWei("1000000"));
 
         // Initialize other variables
         user1 = addr1;
@@ -89,8 +78,8 @@ describe("Vereavement", function () {
 
         it("Should set the correct initial configuration", async function () {
             const config = await vereavement.getTreasuryConfig();
-            expect(config.flatWeeklyAllocation).to.equal(ethers.parseEther("500"));
-            expect(config.totalTreasuryYield).to.equal(ethers.parseEther("1000"));
+            expect(config.flatWeeklyAllocation).to.equal(toWei("500"));
+            expect(config.totalTreasuryYield).to.equal(toWei("1000"));
             expect(config.minConfirmationsRequired).to.equal(3);
         });
     });
@@ -131,7 +120,7 @@ describe("Vereavement", function () {
                     isConditional,
                     conditions
                 )
-            ).to.be.revertedWith("Percentages must total 100%");
+            ).to.be.rejectedWith("Percentages must total 100%");
         });
     });
 
@@ -162,7 +151,7 @@ describe("Vereavement", function () {
             await vereavement.connect(addr2).createRitualVault();
             await expect(
                 vereavement.connect(addr2).createRitualVault()
-            ).to.be.revertedWith("Ritual vault already exists");
+            ).to.be.rejectedWith("Ritual vault already exists");
         });
     });
 
@@ -287,8 +276,8 @@ describe("Vereavement Role Management", function () {
     let user2;
     
     // Role constants
-    const MEDIATOR_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MEDIATOR_ROLE"));
-    const ORACLE_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("ORACLE_ROLE"));
+    const MEDIATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MEDIATOR_ROLE"));
+    const ORACLE_ROLE = ethers.keccak256(ethers.toUtf8Bytes("ORACLE_ROLE"));
     
     beforeEach(async function () {
         [owner, mediator, oracle, user1, user2] = await ethers.getSigners();

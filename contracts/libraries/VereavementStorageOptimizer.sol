@@ -27,10 +27,55 @@ library VereavementStorageOptimizer {
         for (uint256 i = 0; i < length - 1; i++) {
             for (uint256 j = 0; j < length - i - 1; j++) {
                 if (beneficiaries[j].percentage < beneficiaries[j + 1].percentage) {
-                    // Swap beneficiaries
-                    VereavementStorage.Beneficiary memory temp = beneficiaries[j];
-                    beneficiaries[j] = beneficiaries[j + 1];
-                    beneficiaries[j + 1] = temp;
+                    // Swap beneficiaries by copying fields
+                    VereavementStorage.Beneficiary storage b1 = beneficiaries[j];
+                    VereavementStorage.Beneficiary storage b2 = beneficiaries[j + 1];
+
+                    // Store b2's values
+                    address tempRecipient = b2.recipient;
+                    uint256 tempPercentage = b2.percentage;
+                    uint256 tempVestingDuration = b2.vestingDuration;
+                    bool tempIsConditional = b2.isConditional;
+                    string memory tempCondition = b2.condition;
+                    bool tempIsApproved = b2.isApproved;
+                    uint256 tempPaidAmount = b2.paidAmount;
+                    bool tempConditionMet = b2.conditionMet;
+                    VereavementStorage.AgeBasedVesting memory tempAgeVesting = b2.ageVesting;
+                    uint256 tempMilestoneCount = b2.milestoneCount;
+
+                    // Copy b1 to b2
+                    b2.recipient = b1.recipient;
+                    b2.percentage = b1.percentage;
+                    b2.vestingDuration = b1.vestingDuration;
+                    b2.isConditional = b1.isConditional;
+                    b2.condition = b1.condition;
+                    b2.isApproved = b1.isApproved;
+                    b2.paidAmount = b1.paidAmount;
+                    b2.conditionMet = b1.conditionMet;
+                    b2.ageVesting = b1.ageVesting;
+                    b2.milestoneCount = b1.milestoneCount;
+
+                    // Copy b1's milestones to b2
+                    for (uint256 k = 0; k < b1.milestoneCount; k++) {
+                        b2.milestones[k] = b1.milestones[k];
+                    }
+
+                    // Copy temp values to b1
+                    b1.recipient = tempRecipient;
+                    b1.percentage = tempPercentage;
+                    b1.vestingDuration = tempVestingDuration;
+                    b1.isConditional = tempIsConditional;
+                    b1.condition = tempCondition;
+                    b1.isApproved = tempIsApproved;
+                    b1.paidAmount = tempPaidAmount;
+                    b1.conditionMet = tempConditionMet;
+                    b1.ageVesting = tempAgeVesting;
+                    b1.milestoneCount = tempMilestoneCount;
+
+                    // Copy temp milestones to b1
+                    for (uint256 k = 0; k < tempMilestoneCount; k++) {
+                        b1.milestones[k] = b2.milestones[k];
+                    }
                 }
             }
         }
@@ -60,18 +105,17 @@ library VereavementStorageOptimizer {
         address user,
         uint256 beneficiaryIndex
     ) internal {
-        VereavementStorage.MilestoneCondition[] storage milestones = 
-            s.vaults[user].beneficiaries[beneficiaryIndex].milestones;
-        uint256 length = milestones.length;
+        VereavementStorage.Beneficiary storage beneficiary = s.vaults[user].beneficiaries[beneficiaryIndex];
+        uint256 length = beneficiary.milestoneCount;
         
         // Sort milestones by amount (descending) for gas optimization
         for (uint256 i = 0; i < length - 1; i++) {
             for (uint256 j = 0; j < length - i - 1; j++) {
-                if (milestones[j].amount < milestones[j + 1].amount) {
+                if (beneficiary.milestones[j].amount < beneficiary.milestones[j + 1].amount) {
                     // Swap milestones
-                    VereavementStorage.MilestoneCondition memory temp = milestones[j];
-                    milestones[j] = milestones[j + 1];
-                    milestones[j + 1] = temp;
+                    VereavementStorage.MilestoneCondition memory temp = beneficiary.milestones[j];
+                    beneficiary.milestones[j] = beneficiary.milestones[j + 1];
+                    beneficiary.milestones[j + 1] = temp;
                 }
             }
         }
@@ -106,7 +150,7 @@ library VereavementStorageOptimizer {
         VereavementStorage.Layout storage s,
         address user
     ) internal {
-        string[] storage memorials = s.vaults[user].memorials;
+        string[] storage memorials = s.ritualStates[user].memorials;
         uint256 length = memorials.length;
         
         // Keep only the most recent memorials if exceeding limit

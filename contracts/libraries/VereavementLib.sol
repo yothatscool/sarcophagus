@@ -53,7 +53,6 @@ library VereavementLib {
         require(totalPercentage == VereavementConstants.BASIS_POINTS, "Invalid total percentage");
 
         VereavementStorage.Vault storage vault = s.vaults[user];
-        vault.isActive = true;
         vault.lastActivityTime = block.timestamp;
     }
 
@@ -133,7 +132,9 @@ library VereavementLib {
     ) internal {
         VereavementStorage.RitualState storage state = s.ritualStates[user];
         state.isActive = true;
-        state.lastGrowthTime = block.timestamp;
+        state.lastUpdate = uint32(block.timestamp);
+        state.lastAction = uint32(block.timestamp);
+        state.actionCount = 0;
         state.longevityScore = 0;
         state.carbonOffset = 0;
         state.totalValue = 0;
@@ -181,10 +182,14 @@ library VereavementLib {
         uint256 longevityScore
     ) internal {
         VereavementStorage.RitualState storage state = s.ritualStates[user];
-        state.totalValue = newValue;
-        state.carbonOffset = carbonOffset;
-        state.longevityScore = longevityScore;
-        state.lastGrowthTime = block.timestamp;
+        state.totalValue = uint224(newValue);
+        state.carbonOffset = uint96(carbonOffset);
+        state.longevityScore = uint96(longevityScore);
+        state.lastUpdate = uint32(block.timestamp);
+        state.lastAction = uint32(block.timestamp);
+        unchecked {
+            state.actionCount++;
+        }
     }
 
     function batchUpdateVaultState(

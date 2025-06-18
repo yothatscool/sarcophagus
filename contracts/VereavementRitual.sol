@@ -32,23 +32,26 @@ contract VereavementRitual is IVereavementRitual, AccessControl, ReentrancyGuard
     VereavementStorage.Layout private _storage;
 
     // Constants
-    uint256 private constant MAX_BATCH_SIZE = 100;
+    uint256 private constant MAX_BATCH_SIZE = 50;
     uint256 private constant MIN_UPDATE_INTERVAL = 1 days;
-    uint256 private constant RITUAL_UPDATE_COOLDOWN = 1 hours;
+    uint256 private constant RITUAL_POWER_BASE = 1000;
+    uint256 private constant GROWTH_RATE = 10;
+    uint256 private constant CARBON_MULTIPLIER = 100;
     uint256 private constant GROWTH_PERIOD = 1 days;
     uint256 private constant MIN_CARBON_OFFSET = 1;
     uint256 private constant MAX_CARBON_OFFSET = 1000;
-    uint256 private constant CARBON_MULTIPLIER = 100;
 
-    // Events
-    event RitualVaultCreated(address indexed user, uint256 value);
-    event RitualVaultUpdated(address indexed user, uint256 newValue);
-    event CarbonOffsetRecorded(address indexed user, uint256 amount, string source);
-    event LegacyRitualCompleted(address indexed user, string ritualType);
-    event MemorialPreserved(address indexed user, string memorialHash);
-    event SymbolicGrowthProcessed(address indexed user, uint256 growth);
-
-    // Custom errors
+    // Custom errors for gas optimization
+    error InvalidAmount();
+    error InvalidSource();
+    error InvalidProofHash();
+    error InvalidAddress();
+    error TooSoonToUpdate();
+    error TooSoonToClaim();
+    error NoAllocationAvailable();
+    error RateLimitExceeded();
+    error ArrayLengthMismatch();
+    error BatchSizeTooLarge();
     error RitualAlreadyActive();
     error RitualNotActive();
     error InvalidCarbonOffset(uint256 amount);
@@ -64,8 +67,8 @@ contract VereavementRitual is IVereavementRitual, AccessControl, ReentrancyGuard
         if (state.isActive) revert RitualAlreadyActive();
         
         state.isActive = true;
-        state.totalValue = 1 ether;
-        state.lastGrowthTime = uint32(block.timestamp);
+        state.totalValue = uint224(1 ether);
+        state.lastUpdate = uint32(block.timestamp);
         
         emit RitualVaultCreated(msg.sender, state.totalValue);
     }
@@ -87,8 +90,8 @@ contract VereavementRitual is IVereavementRitual, AccessControl, ReentrancyGuard
         if (!state.isActive) revert RitualNotActive();
         
         unchecked {
-            state.carbonOffset += uint32(amount);
-            state.totalValue += amount * CARBON_MULTIPLIER;
+            state.carbonOffset += uint96(amount);
+            state.totalValue = uint224(uint256(state.totalValue) + amount * CARBON_MULTIPLIER);
         }
         
         emit CarbonOffsetRecorded(msg.sender, amount, source);
@@ -126,22 +129,21 @@ contract VereavementRitual is IVereavementRitual, AccessControl, ReentrancyGuard
         VereavementStorage.RitualState storage state = _storage.ritualStates[msg.sender];
         if (!state.isActive) revert RitualNotActive();
         
-        uint256 timePassed = block.timestamp - state.lastGrowthTime;
+        uint256 timePassed = block.timestamp - state.lastUpdate;
         if (timePassed < GROWTH_PERIOD) {
             revert GrowthPeriodNotElapsed(GROWTH_PERIOD - timePassed);
         }
         
         uint256 growth = VereavementRitualLib.calculateCompoundGrowth(
             state.totalValue,
-            state.lastGrowthTime,
             timePassed
         );
         
         if (growth > 0) {
             unchecked {
-                state.totalValue += growth;
+                state.totalValue = uint224(uint256(state.totalValue) + growth);
             }
-            state.lastGrowthTime = uint32(block.timestamp);
+            state.lastUpdate = uint32(block.timestamp);
             emit SymbolicGrowthProcessed(msg.sender, growth);
         }
     }
@@ -149,24 +151,23 @@ contract VereavementRitual is IVereavementRitual, AccessControl, ReentrancyGuard
     function batchProcessGrowth(
         address[] calldata users
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        uint256 timestamp = block.timestamp;
+        uint32 timestamp = uint32(block.timestamp);
         
         for (uint256 i = 0; i < users.length;) {
             VereavementStorage.RitualState storage state = _storage.ritualStates[users[i]];
             if (state.isActive) {
-                uint256 timePassed = timestamp - state.lastGrowthTime;
+                uint256 timePassed = timestamp - state.lastUpdate;
                 if (timePassed >= GROWTH_PERIOD) {
                     uint256 growth = VereavementRitualLib.calculateCompoundGrowth(
                         state.totalValue,
-                        state.lastGrowthTime,
                         timePassed
                     );
                     
                     if (growth > 0) {
                         unchecked {
-                            state.totalValue += growth;
+                            state.totalValue = uint224(uint256(state.totalValue) + growth);
                         }
-                        state.lastGrowthTime = uint32(timestamp);
+                        state.lastUpdate = timestamp;
                         emit SymbolicGrowthProcessed(users[i], growth);
                     }
                 }

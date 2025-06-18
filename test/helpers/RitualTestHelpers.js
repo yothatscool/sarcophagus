@@ -1,77 +1,56 @@
 const { ethers } = require("hardhat");
-const { time } = require("@nomicfoundation/hardhat-network-helpers");
+const { ROLES, ZERO_ADDRESS, toWei } = require("./TestUtils");
 
 const SECONDS_PER_DAY = 86400;
 const SECONDS_PER_WEEK = SECONDS_PER_DAY * 7;
 const SECONDS_PER_MONTH = SECONDS_PER_DAY * 30;
 
 async function setupRitualEngine() {
-    const [owner, oracle, user1, user2] = await ethers.getSigners();
-    
-    // Deploy mock B3TR
-    const B3TRToken = await ethers.getContractFactory("MockB3TR");
-    const b3trToken = await B3TRToken.deploy();
-    await b3trToken.waitForDeployment();
-    
-    // Deploy RitualEngine
+    const [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
+
+    // Deploy mock B3TR token
+    const MockB3TR = await ethers.getContractFactory("MockB3TR");
+    const b3trToken = await MockB3TR.deploy();
+
+    // Deploy Ritual Engine
     const RitualEngine = await ethers.getContractFactory("RitualEngine");
-    const ritualEngine = await RitualEngine.deploy(await b3trToken.getAddress());
-    await ritualEngine.waitForDeployment();
-    
+    const ritualEngine = await RitualEngine.deploy(b3trToken.target);
+
     // Setup roles
-    const ORACLE_ROLE = ethers.keccak256(ethers.toUtf8Bytes("ORACLE_ROLE"));
-    await ritualEngine.grantRole(ORACLE_ROLE, await oracle.getAddress());
-    
-    // Fund contract
-    await b3trToken.mint(await ritualEngine.getAddress(), ethers.parseEther("1000000"));
-    
+    await ritualEngine.grantRole(ROLES.ORACLE_ROLE, addr1.address);
+
+    // Fund the ritual engine
+    await b3trToken.mint(ritualEngine.target, toWei("1000000"));
+
     return {
         owner,
-        oracle,
-        user1,
-        user2,
+        addr1,
+        addr2,
+        addrs,
         b3trToken,
         ritualEngine
     };
 }
 
-async function setupRitualState(ritualEngine, oracle, user, options = {}) {
-    const {
-        carbonOffset = 10,
-        longevityPeriods = 1,
-        growthPeriods = 1
-    } = options;
-    
-    // Record carbon offset
-    await ritualEngine.connect(oracle).recordCarbonOffset(
+async function setupRitualState(ritualEngine, user, carbonOffset = 50) {
+    await ritualEngine.connect(user).createRitualVault();
+    await ritualEngine.recordCarbonOffset(
+        user.address,
         carbonOffset,
-        "Test Source",
-        ethers.ZeroHash
+        "Major Carbon Offset",
+        ethers.keccak256(ethers.toUtf8Bytes("proof"))
     );
-    
-    // Setup longevity
-    await ritualEngine.connect(user).updateLongevityMetrics();
-    for (let i = 0; i < longevityPeriods; i++) {
-        await time.increase(SECONDS_PER_MONTH);
-        await ritualEngine.connect(user).updateLongevityMetrics();
-    }
-    
-    // Process growth
-    for (let i = 0; i < growthPeriods; i++) {
-        await time.increase(SECONDS_PER_DAY);
-        await ritualEngine.connect(user).processSymbolicGrowth();
-    }
 }
 
 async function getRitualState(ritualEngine, user) {
-    const metrics = await ritualEngine.getRitualMetrics(await user.getAddress());
+    const vault = await ritualEngine.getRitualVault(user.address);
+    const carbonOffsets = await ritualEngine.getCarbonOffsets(user.address);
+    const ritualValue = await ritualEngine.getRitualValue(user.address);
+    
     return {
-        ritualValue: metrics.ritualValue,
-        carbonOffset: metrics.carbonOffset,
-        longevityScore: metrics.longevityScore,
-        lastGrowth: metrics.lastGrowth,
-        b3trBalance: metrics.b3trBalance,
-        ritualPower: metrics.ritualPower
+        vault,
+        carbonOffsets,
+        ritualValue
     };
 }
 

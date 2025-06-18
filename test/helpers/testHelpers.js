@@ -1,4 +1,5 @@
 const { ethers } = require("hardhat");
+const { ROLES, ZERO_ADDRESS, toWei } = require("./TestUtils");
 
 const SECONDS_PER_DAY = 86400;
 const SECONDS_PER_MONTH = SECONDS_PER_DAY * 30;
@@ -6,51 +7,51 @@ const SECONDS_PER_MONTH = SECONDS_PER_DAY * 30;
 async function deployTestContracts() {
     const [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
 
+    // Deploy mock contracts
+    const MockB3TR = await ethers.getContractFactory("MockB3TR");
+    const b3trToken = await MockB3TR.deploy();
+
     // Deploy mock VNS Resolver
     const MockVNSResolver = await ethers.getContractFactory("MockVNSResolver");
-    const mockVNSResolver = await MockVNSResolver.deploy();
-    await mockVNSResolver.waitForDeployment();
+    const vnsResolver = await MockVNSResolver.deploy();
 
     // Deploy VTHO Manager
     const VTHOManager = await ethers.getContractFactory("VTHOManager");
     const vthoManager = await VTHOManager.deploy();
-    await vthoManager.waitForDeployment();
-
-    // Deploy mock B3TR token
-    const MockB3TR = await ethers.getContractFactory("MockB3TR");
-    const b3trToken = await MockB3TR.deploy();
-    await b3trToken.waitForDeployment();
 
     // Deploy Ritual Engine
     const RitualEngine = await ethers.getContractFactory("RitualEngine");
-    const ritualEngine = await RitualEngine.deploy(await b3trToken.getAddress());
-    await ritualEngine.waitForDeployment();
+    const ritualEngine = await RitualEngine.deploy(b3trToken.target);
 
     // Deploy main contract
     const Vereavement = await ethers.getContractFactory("Vereavement");
     const vereavement = await Vereavement.deploy(
-        ethers.parseEther("500"),
-        ethers.parseEther("1000"),
-        3,
-        await vthoManager.getAddress(),
-        await mockVNSResolver.getAddress(),
-        await ritualEngine.getAddress()
+        toWei("500"), // Weekly allocation
+        toWei("1000"), // Treasury yield
+        3, // Min confirmations
+        vthoManager.target,
+        vnsResolver.target,
+        ritualEngine.target
     );
-    await vereavement.waitForDeployment();
 
-    // Fund the ritual engine with B3TR tokens
-    await b3trToken.mint(await ritualEngine.getAddress(), ethers.parseEther("1000000"));
+    // Setup roles
+    await vereavement.grantRole(ROLES.ORACLE_ROLE, addr1.address);
+    await vereavement.grantRole(ROLES.MEDIATOR_ROLE, addr2.address);
+    await ritualEngine.grantRole(ROLES.ORACLE_ROLE, addr1.address);
+
+    // Fund contracts
+    await b3trToken.mint(ritualEngine.target, toWei("1000000"));
 
     return {
         owner,
         addr1,
         addr2,
         addrs,
-        mockVNSResolver,
+        b3trToken,
+        vnsResolver,
         vthoManager,
         ritualEngine,
-        vereavement,
-        b3trToken
+        vereavement
     };
 }
 

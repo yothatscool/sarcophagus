@@ -17,7 +17,27 @@ contract MilestoneManager is IMilestoneManager, AccessControl, ReentrancyGuard {
     using VereavementShared for *;
     using VereavementStorage for VereavementStorage.Layout;
 
+    // Struct definitions
+    struct UserMilestones {
+        uint256 milestoneCount;
+        uint32 lastUpdate;
+        uint32 totalActions;
+        bool isDeceased;
+        mapping(uint256 => Milestone) milestones;
+    }
+
+    struct Milestone {
+        uint96 amount;
+        uint32 achievementDate;
+        uint32 lastUpdate;
+        uint32 actionCount;
+        string description;
+        bytes32 oracleKey;
+        bool isAchieved;
+    }
+
     // Storage
+    mapping(address => UserMilestones) public userMilestones;
     VereavementStorage.Layout private _storage;
 
     // Custom errors for gas optimization
@@ -77,38 +97,30 @@ contract MilestoneManager is IMilestoneManager, AccessControl, ReentrancyGuard {
      * @notice Add a single milestone
      */
     function addMilestone(
-        address user,
-        address beneficiary,
+        uint256 beneficiaryIndex,
+        uint128 amount,
         string calldata description,
-        uint256 reward,
-        uint256 deadline
-    ) external nonReentrant {
-        require(user != address(0) && beneficiary != address(0), "Invalid address");
+        bytes32 oracleKey
+    ) external {
+        require(amount > 0, "Invalid amount");
         require(bytes(description).length > 0, "Empty description");
-        require(reward > 0, "Invalid reward");
-        require(deadline > block.timestamp, "Invalid deadline");
+        require(oracleKey != bytes32(0), "Invalid oracle key");
 
-        VereavementStorage.Vault storage vault = _storage.vaults[user];
-        require(vault.beneficiaries.length > 0, "No beneficiaries");
+        VereavementStorage.Vault storage vault = _storage.vaults[msg.sender];
+        require(beneficiaryIndex < vault.beneficiaries.length, "Invalid beneficiary index");
 
-        bool found = false;
-        for (uint256 i = 0; i < vault.beneficiaries.length;) {
-            if (vault.beneficiaries[i].recipient == beneficiary) {
-                vault.beneficiaries[i].milestones.push(VereavementStorage.MilestoneCondition({
-                    amount: uint128(reward),
-                    achievementDate: 0,
-                    description: description,
-                    oracleKey: bytes32(0),
-                    isAchieved: false
-                }));
-                found = true;
-                break;
-            }
-            unchecked { ++i; }
-        }
+        VereavementStorage.Beneficiary storage beneficiary = vault.beneficiaries[beneficiaryIndex];
+        uint256 milestoneIndex = beneficiary.milestoneCount;
+        beneficiary.milestones[milestoneIndex] = VereavementStorage.MilestoneCondition({
+            amount: amount,
+            achievementDate: 0,
+            description: description,
+            oracleKey: oracleKey,
+            isAchieved: false
+        });
+        beneficiary.milestoneCount++;
 
-        require(found, "Beneficiary not found");
-        emit MilestoneAdded(user, beneficiary, description, reward, deadline);
+        emit MilestoneAdded(msg.sender, beneficiary.recipient, description);
     }
 
     /**
@@ -121,25 +133,22 @@ contract MilestoneManager is IMilestoneManager, AccessControl, ReentrancyGuard {
         bytes[] calldata proofs,
         bytes[] calldata signatures
     ) external nonReentrant onlyRole(ORACLE_ROLE) {
-        uint256 length = indices.length;
-        if (length > MAX_BATCH_SIZE) revert BatchSizeTooLarge();
-        if (length != oracleKeys.length || length != proofs.length || length != signatures.length)
+        if (indices.length > MAX_BATCH_SIZE) revert BatchSizeTooLarge();
+        if (indices.length != oracleKeys.length || indices.length != proofs.length || indices.length != signatures.length)
             revert ArrayLengthMismatch();
 
         UserMilestones storage userState = userMilestones[user];
         if (!userState.isDeceased) revert UserNotDeceased(user);
 
         uint32 timestamp = uint32(block.timestamp);
-        bool[] memory achievements = new bool[](length);
 
-        for (uint256 i = 0; i < length;) {
+        for (uint256 i = 0; i < indices.length;) {
             if (_achieveMilestone(user, indices[i], oracleKeys[i], proofs[i], signatures[i], timestamp)) {
-                achievements[i] = true;
+                Milestone storage milestone = userState.milestones[indices[i]];
+                emit MilestoneAchieved(user, address(0), indices[i], milestone.amount);
             }
             unchecked { ++i; }
         }
-
-        emit MilestoneBatchUpdated(user, indices, achievements, timestamp);
     }
 
     /**
@@ -147,30 +156,28 @@ contract MilestoneManager is IMilestoneManager, AccessControl, ReentrancyGuard {
      */
     function achieveMilestone(
         address user,
-        address beneficiary,
-        uint256 milestoneIndex
-    ) external nonReentrant onlyRole(ORACLE_ROLE) {
-        require(user != address(0) && beneficiary != address(0), "Invalid address");
+        uint256 beneficiaryIndex,
+        uint256 milestoneIndex,
+        bytes32 oracleKey,
+        bytes calldata proof,
+        bytes calldata signature
+    ) external {
+        require(user != address(0), "Invalid address");
+        require(beneficiaryIndex < _storage.vaults[user].beneficiaries.length, "Invalid beneficiary index");
         
         VereavementStorage.Vault storage vault = _storage.vaults[user];
-        require(vault.beneficiaries.length > 0, "No beneficiaries");
+        VereavementStorage.Beneficiary storage beneficiary = vault.beneficiaries[beneficiaryIndex];
+        require(milestoneIndex < beneficiary.milestoneCount, "Invalid milestone index");
+        
+        VereavementStorage.MilestoneCondition storage milestone = beneficiary.milestones[milestoneIndex];
+        require(!milestone.isAchieved, "Already achieved");
+        require(milestone.oracleKey == oracleKey, "Invalid oracle key");
+        require(verifyOracleSignature(oracleKey, proof, signature), "Invalid signature");
 
-        bool found = false;
-        for (uint256 i = 0; i < vault.beneficiaries.length;) {
-            if (vault.beneficiaries[i].recipient == beneficiary) {
-                require(milestoneIndex < vault.beneficiaries[i].milestones.length, "Invalid milestone index");
-                require(!vault.beneficiaries[i].milestones[milestoneIndex].isAchieved, "Already achieved");
+        milestone.isAchieved = true;
+        milestone.achievementDate = uint32(block.timestamp);
 
-                vault.beneficiaries[i].milestones[milestoneIndex].isAchieved = true;
-                vault.beneficiaries[i].milestones[milestoneIndex].achievementDate = uint32(block.timestamp);
-                found = true;
-                break;
-            }
-            unchecked { ++i; }
-        }
-
-        require(found, "Beneficiary not found");
-        emit MilestoneAchieved(user, beneficiary, milestoneIndex, block.timestamp);
+        emit MilestoneAchieved(user, beneficiary.recipient, milestoneIndex, milestone.amount);
     }
 
     /**
@@ -216,42 +223,37 @@ contract MilestoneManager is IMilestoneManager, AccessControl, ReentrancyGuard {
         address beneficiary
     ) external view returns (
         string[] memory descriptions,
-        uint256[] memory rewards,
-        uint256[] memory deadlines,
-        bool[] memory completionStatus,
-        uint256[] memory completionTimes
+        uint256[] memory amounts,
+        bool[] memory achievements,
+        uint256[] memory dates
     ) {
         VereavementStorage.Vault storage vault = _storage.vaults[user];
         require(vault.beneficiaries.length > 0, "No beneficiaries");
 
         uint256 milestoneCount = 0;
+        uint256 beneficiaryIndex = type(uint256).max;
         for (uint256 i = 0; i < vault.beneficiaries.length;) {
             if (vault.beneficiaries[i].recipient == beneficiary) {
-                milestoneCount = vault.beneficiaries[i].milestones.length;
+                milestoneCount = vault.beneficiaries[i].milestoneCount;
+                beneficiaryIndex = i;
                 break;
             }
             unchecked { ++i; }
         }
+        require(beneficiaryIndex != type(uint256).max, "Beneficiary not found");
 
         descriptions = new string[](milestoneCount);
-        rewards = new uint256[](milestoneCount);
-        deadlines = new uint256[](milestoneCount);
-        completionStatus = new bool[](milestoneCount);
-        completionTimes = new uint256[](milestoneCount);
+        amounts = new uint256[](milestoneCount);
+        achievements = new bool[](milestoneCount);
+        dates = new uint256[](milestoneCount);
 
-        for (uint256 i = 0; i < vault.beneficiaries.length;) {
-            if (vault.beneficiaries[i].recipient == beneficiary) {
-                for (uint256 j = 0; j < milestoneCount;) {
-                    VereavementStorage.MilestoneCondition storage milestone = vault.beneficiaries[i].milestones[j];
-                    descriptions[j] = milestone.description;
-                    rewards[j] = milestone.amount;
-                    deadlines[j] = 0; // Not used in MilestoneCondition
-                    completionStatus[j] = milestone.isAchieved;
-                    completionTimes[j] = milestone.achievementDate;
-                    unchecked { ++j; }
-                }
-                break;
-            }
+        VereavementStorage.Beneficiary storage beneficiaryData = vault.beneficiaries[beneficiaryIndex];
+        for (uint256 i = 0; i < milestoneCount;) {
+            VereavementStorage.MilestoneCondition storage milestone = beneficiaryData.milestones[i];
+            descriptions[i] = milestone.description;
+            amounts[i] = milestone.amount;
+            achievements[i] = milestone.isAchieved;
+            dates[i] = milestone.achievementDate;
             unchecked { ++i; }
         }
     }
@@ -261,37 +263,28 @@ contract MilestoneManager is IMilestoneManager, AccessControl, ReentrancyGuard {
      */
     function getMilestoneDetails(
         address user,
-        address beneficiary,
+        uint256 beneficiaryIndex,
         uint256 milestoneIndex
     ) external view returns (
+        uint256 amount,
+        uint256 achievementDate,
         string memory description,
-        uint256 reward,
-        uint256 deadline,
-        bool isCompleted,
-        uint256 completionTime
+        bool isAchieved
     ) {
-        require(user != address(0) && beneficiary != address(0), "Invalid address");
+        require(user != address(0), "Invalid address");
+        require(beneficiaryIndex < _storage.vaults[user].beneficiaries.length, "Invalid beneficiary index");
         
         VereavementStorage.Vault storage vault = _storage.vaults[user];
-        require(vault.beneficiaries.length > 0, "No beneficiaries");
-
-        bool found = false;
-        for (uint256 i = 0; i < vault.beneficiaries.length;) {
-            if (vault.beneficiaries[i].recipient == beneficiary) {
-                require(milestoneIndex < vault.beneficiaries[i].milestones.length, "Invalid milestone index");
-                VereavementStorage.MilestoneCondition storage milestone = vault.beneficiaries[i].milestones[milestoneIndex];
-                return (
-                    milestone.description,
-                    milestone.amount,
-                    0, // Not used in MilestoneCondition
-                    milestone.isAchieved,
-                    milestone.achievementDate
-                );
-            }
-            unchecked { ++i; }
-        }
-
-        revert("Beneficiary not found");
+        VereavementStorage.Beneficiary storage beneficiary = vault.beneficiaries[beneficiaryIndex];
+        require(milestoneIndex < beneficiary.milestoneCount, "Invalid milestone index");
+        
+        VereavementStorage.MilestoneCondition storage milestone = beneficiary.milestones[milestoneIndex];
+        return (
+            milestone.amount,
+            milestone.achievementDate,
+            milestone.description,
+            milestone.isAchieved
+        );
     }
 
     function getMilestoneCount(address user) external view returns (uint256) {
@@ -330,7 +323,7 @@ contract MilestoneManager is IMilestoneManager, AccessControl, ReentrancyGuard {
             milestone.actionCount = 1;
         }
 
-        emit MilestoneCreated(user, index, amount, oracleKey, timestamp);
+        emit MilestoneAdded(user, address(0), description);
     }
 
     function _achieveMilestone(
@@ -357,7 +350,7 @@ contract MilestoneManager is IMilestoneManager, AccessControl, ReentrancyGuard {
             milestone.actionCount++;
         }
 
-        emit MilestoneAchieved(user, milestoneIndex, milestone.amount, timestamp);
+        emit MilestoneAchieved(user, address(0), milestoneIndex, milestone.amount);
         return true;
     }
 

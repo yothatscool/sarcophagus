@@ -13,14 +13,14 @@ contract MockAttacker {
 
     // Function to start the attack
     function attack() external {
-        vereavement.payoutVault(msg.sender, address(0));
+        vereavement.initialize();
     }
 
     // Fallback function to attempt reentrancy
     receive() external payable {
         if (attackCount < 3) {
             attackCount++;
-            vereavement.payoutVault(msg.sender, address(0));
+            vereavement.initialize();
         }
     }
 } 

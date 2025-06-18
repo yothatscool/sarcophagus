@@ -35,16 +35,7 @@ contract RitualEngine is IRitualEngine, AccessControl, ReentrancyGuard, Pausable
     uint256 private constant ACTION_COOLDOWN = 1 hours;
 
     // Custom errors for gas optimization
-    error InvalidAmount();
-    error InvalidSource();
-    error InvalidProofHash();
-    error InvalidAddress();
-    error TooSoonToUpdate();
-    error TooSoonToClaim();
-    error NoAllocationAvailable();
-    error RateLimitExceeded();
-    error ArrayLengthMismatch();
-    error BatchSizeTooLarge();
+    error RitualNotActive();
 
     constructor() {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -181,7 +172,7 @@ contract RitualEngine is IRitualEngine, AccessControl, ReentrancyGuard, Pausable
         uint256 newValue = _calculateGrowth(user, timestamp);
         
         unchecked {
-            state.totalValue = newValue;
+            state.totalValue = uint224(newValue);
             state.actionCount++;
             state.lastAction = timestamp;
         }
@@ -235,5 +226,28 @@ contract RitualEngine is IRitualEngine, AccessControl, ReentrancyGuard, Pausable
     function calculateLongevityScore(address user) external view override returns (uint256) {
         if (user == address(0)) revert InvalidAddress();
         return _calculateLongevityScore(user, uint32(block.timestamp));
+    }
+
+    function batchGetRitualStates(
+        address[] calldata users
+    ) external view returns (
+        uint256[] memory scores,
+        uint256[] memory offsets,
+        uint256[] memory values
+    ) {
+        uint256 length = users.length;
+        if (length > MAX_BATCH_SIZE) revert BatchSizeTooLarge();
+
+        scores = new uint256[](length);
+        offsets = new uint256[](length);
+        values = new uint256[](length);
+
+        for (uint256 i = 0; i < length;) {
+            VereavementStorage.RitualState storage state = _storage.ritualStates[users[i]];
+            scores[i] = state.longevityScore;
+            offsets[i] = state.carbonOffset;
+            values[i] = state.totalValue;
+            unchecked { ++i; }
+        }
     }
 } 

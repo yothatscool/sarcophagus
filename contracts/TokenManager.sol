@@ -52,35 +52,32 @@ contract TokenManager is ITokenManager, AccessControl, ReentrancyGuard {
     }
 
     // Constants
-    uint256 private constant MAX_BATCH_SIZE = 100;
+    uint256 private constant MAX_BATCH_SIZE = 50;
+    uint256 private constant MIN_UPDATE_INTERVAL = 1 days;
     uint256 private constant MIN_CLAIM_INTERVAL = 1 hours;
     uint256 private constant MAX_TOKENS_PER_USER = 1000;
     address private constant VTHO_ADDRESS = 0x0000000000000000000000000000456E65726779;
 
     // Storage
+    VereavementStorage.Layout private _storage;
     mapping(address => UserTokens) private userTokens;
     mapping(address => mapping(address => bool)) private enabledTokens;
     mapping(address => mapping(address => uint256)) private tokenBalances;
     
     // Immutable addresses for gas savings
-    address public immutable VTHO;
     address public immutable b3trToken;
     IVTHOManager public immutable vthoManager;
-
-    // Events with indexed parameters
-    event TokenAdded(address indexed user, address indexed token, uint32 timestamp);
-    event TokenStatusUpdated(address indexed user, address indexed token, bool isEnabled);
-    event TokenDeposited(address indexed user, address indexed token, uint256 amount);
-    event VTHOClaimed(address indexed user, uint256 amount, uint32 timestamp);
-    event B3TRUpdated(address indexed oldToken, address indexed newToken);
 
     constructor(address _vthoManager, address _b3trToken) {
         if (_vthoManager == address(0) || _b3trToken == address(0)) revert InvalidTokenAddress(address(0));
 
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         vthoManager = IVTHOManager(_vthoManager);
-        VTHO = VTHO_ADDRESS;
         b3trToken = _b3trToken;
+    }
+
+    function VTHO() external pure override returns (address) {
+        return VTHO_ADDRESS;
     }
 
     /**
@@ -166,7 +163,7 @@ contract TokenManager is ITokenManager, AccessControl, ReentrancyGuard {
      */
     function claimVTHO() external override nonReentrant {
         UserTokens storage user = userTokens[msg.sender];
-        TokenState storage vthoState = user.tokenStates[VTHO];
+        TokenState storage vthoState = user.tokenStates[VTHO_ADDRESS];
         
         // Check claim interval
         uint32 timestamp = uint32(block.timestamp);
@@ -193,7 +190,6 @@ contract TokenManager is ITokenManager, AccessControl, ReentrancyGuard {
                 user.lastAllocated = timestamp;
                 vthoState.lastClaim = timestamp;
                 vthoState.actionCount++;
-                emit VTHOClaimed(msg.sender, vthoGenerated, timestamp);
             }
         }
     }
@@ -204,7 +200,7 @@ contract TokenManager is ITokenManager, AccessControl, ReentrancyGuard {
     function updateB3TRToken(address newAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (newAddress == address(0)) revert InvalidTokenAddress(newAddress);
         address oldAddress = b3trToken;
-        emit B3TRUpdated(oldAddress, newAddress);
+        emit B3TRTokenUpdated(oldAddress, newAddress);
     }
 
     // Internal functions
@@ -220,30 +216,26 @@ contract TokenManager is ITokenManager, AccessControl, ReentrancyGuard {
         unchecked {
             userState.totalTokens++;
         }
-        
-        emit TokenAdded(user, token, timestamp);
     }
 
     function _setTokenStatus(address user, address token, bool isEnabled) internal {
-        if (token != VTHO && token != b3trToken) revert TokenNotSupported(token);
+        if (token != VTHO_ADDRESS && token != b3trToken) revert TokenNotSupported(token);
 
         TokenState storage tokenState = userTokens[user].tokenStates[token];
-        if (token == VTHO) {
+        if (token == VTHO_ADDRESS) {
             tokenState.isVthoEnabled = isEnabled;
         } else {
             tokenState.isB3trEnabled = isEnabled;
         }
         tokenState.lastUpdate = uint32(block.timestamp);
-        
-        emit TokenStatusUpdated(user, token, isEnabled);
     }
 
     function _depositToken(address user, address token, uint256 amount) internal {
         if (amount == 0) revert InvalidAmount(amount);
-        if (token != VTHO && token != b3trToken) revert TokenNotSupported(token);
+        if (token != VTHO_ADDRESS && token != b3trToken) revert TokenNotSupported(token);
 
         TokenState storage tokenState = userTokens[user].tokenStates[token];
-        if (token == VTHO) {
+        if (token == VTHO_ADDRESS) {
             if (!tokenState.isVthoEnabled) revert TokenNotEnabled(token);
         } else {
             if (!tokenState.isB3trEnabled) revert TokenNotEnabled(token);
@@ -256,7 +248,6 @@ contract TokenManager is ITokenManager, AccessControl, ReentrancyGuard {
         tokenState.lastUpdate = uint32(block.timestamp);
 
         IVIP180(token).transferFrom(user, address(this), amount);
-        emit TokenDeposited(user, token, amount);
     }
 
     // View functions

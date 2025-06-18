@@ -90,23 +90,24 @@ contract Vereavement is VereavementBase {
         }
         require(totalPercentage <= 100, "Total percentage exceeds 100");
 
-        vault.beneficiaries.push(VereavementStorage.Beneficiary({
-            recipient: beneficiary,
-            percentage: percentage,
-            vestingDuration: 0,
-            isConditional: false,
-            condition: "",
-            isApproved: false,
-            paidAmount: 0,
-            conditionMet: false,
-            ageVesting: VereavementStorage.AgeBasedVesting({
-                fullAccessAge: 0,
-                monthlyAllowance: 0,
-                guardian: address(0),
-                guardianBalance: 0
-            }),
-            milestones: new VereavementStorage.MilestoneCondition[](0)
-        }));
+        uint256 index = vault.beneficiaries.length;
+        vault.beneficiaries.push();
+        VereavementStorage.Beneficiary storage newBeneficiary = vault.beneficiaries[index];
+        newBeneficiary.recipient = beneficiary;
+        newBeneficiary.percentage = percentage;
+        newBeneficiary.vestingDuration = 0;
+        newBeneficiary.isConditional = false;
+        newBeneficiary.condition = "";
+        newBeneficiary.isApproved = false;
+        newBeneficiary.paidAmount = 0;
+        newBeneficiary.conditionMet = false;
+        newBeneficiary.ageVesting = VereavementStorage.AgeBasedVesting({
+            fullAccessAge: 0,
+            monthlyAllowance: 0,
+            guardian: address(0),
+            guardianBalance: 0
+        });
+        newBeneficiary.milestoneCount = 0;
 
         emit BeneficiaryAdded(msg.sender, beneficiary, percentage);
     }
@@ -132,18 +133,37 @@ contract Vereavement is VereavementBase {
         }
         require(found, "Beneficiary not found");
 
-        // Remove beneficiary by swapping with the last element and popping
+        // Move the last element to the removed position
         if (index != vault.beneficiaries.length - 1) {
-            vault.beneficiaries[index] = vault.beneficiaries[vault.beneficiaries.length - 1];
+            VereavementStorage.Beneficiary storage lastBeneficiary = vault.beneficiaries[vault.beneficiaries.length - 1];
+            VereavementStorage.Beneficiary storage removedBeneficiary = vault.beneficiaries[index];
+            
+            // Copy all fields except the mapping
+            removedBeneficiary.recipient = lastBeneficiary.recipient;
+            removedBeneficiary.percentage = lastBeneficiary.percentage;
+            removedBeneficiary.vestingDuration = lastBeneficiary.vestingDuration;
+            removedBeneficiary.isConditional = lastBeneficiary.isConditional;
+            removedBeneficiary.condition = lastBeneficiary.condition;
+            removedBeneficiary.isApproved = lastBeneficiary.isApproved;
+            removedBeneficiary.paidAmount = lastBeneficiary.paidAmount;
+            removedBeneficiary.conditionMet = lastBeneficiary.conditionMet;
+            removedBeneficiary.ageVesting = lastBeneficiary.ageVesting;
+            removedBeneficiary.milestoneCount = lastBeneficiary.milestoneCount;
+
+            // Copy the milestones mapping
+            for (uint256 i = 0; i < lastBeneficiary.milestoneCount; i++) {
+                removedBeneficiary.milestones[i] = lastBeneficiary.milestones[i];
+            }
         }
+
         vault.beneficiaries.pop();
 
         emit BeneficiaryRemoved(msg.sender, beneficiary);
     }
 
     // Override storage function to use base implementation
-    function _storage() internal pure returns (VereavementStorage.Layout storage) {
-        return super._storage();
+    function _storage() internal view returns (VereavementStorage.Layout storage) {
+        return _getStorage();
     }
 
     // Additional functions for milestone and token management...

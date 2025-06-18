@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { ROLES, ZERO_ADDRESS, toWei } = require("./helpers/TestUtils");
 
 describe("MilestoneManager", function () {
   let milestoneManager;
@@ -14,65 +15,128 @@ describe("MilestoneManager", function () {
     // Deploy VereavementAccess
     const VereavementAccess = await ethers.getContractFactory("VereavementAccess");
     vereavementAccess = await VereavementAccess.deploy();
-    await vereavementAccess.deployed();
     
     // Deploy MilestoneManager
     const MilestoneManager = await ethers.getContractFactory("MilestoneManager");
-    milestoneManager = await MilestoneManager.deploy(vereavementAccess.address);
-    await milestoneManager.deployed();
-    
-    // Authorize MilestoneManager contract
-    await vereavementAccess.authorizeContract(
-      milestoneManager.address,
-      "MilestoneManager"
-    );
+    milestoneManager = await MilestoneManager.deploy(vereavementAccess.target);
     
     // Grant necessary permissions
     await vereavementAccess.grantPermission(
-      milestoneManager.address,
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("STORAGE_WRITE"))
+      milestoneManager.target,
+      ROLES.STORAGE_WRITE
     );
   });
 
   describe("Milestone Management", function () {
     it("Should create milestone correctly", async function () {
-      await milestoneManager.createMilestone(
-        "Test Milestone",
-        ethers.utils.parseEther("100"),
-        86400 // 1 day
-      );
+      const milestone = {
+        amount: toWei("100"),
+        condition: "Complete 10 carbon offsets",
+        isCompleted: false
+      };
+
+      await milestoneManager.createMilestone(addr1.address, milestone.amount, milestone.condition);
+      const [amount, condition, isCompleted] = await milestoneManager.getMilestone(addr1.address, 0);
       
-      const milestone = await milestoneManager.getMilestone(0);
-      expect(milestone.name).to.equal("Test Milestone");
-      expect(milestone.reward).to.equal(ethers.utils.parseEther("100"));
+      expect(amount).to.equal(milestone.amount);
+      expect(condition).to.equal(milestone.condition);
+      expect(isCompleted).to.equal(milestone.isCompleted);
     });
 
     it("Should complete milestone correctly", async function () {
-      await milestoneManager.createMilestone(
-        "Test Milestone",
-        ethers.utils.parseEther("100"),
-        86400
-      );
+      const milestone = {
+        amount: toWei("100"),
+        condition: "Complete 10 carbon offsets",
+        isCompleted: false
+      };
+
+      await milestoneManager.createMilestone(addr1.address, milestone.amount, milestone.condition);
+      await milestoneManager.completeMilestone(addr1.address, 0);
       
-      await milestoneManager.completeMilestone(0, addr1.address);
-      expect(await milestoneManager.isMilestoneCompleted(0, addr1.address)).to.be.true;
+      const [, , isCompleted] = await milestoneManager.getMilestone(addr1.address, 0);
+      expect(isCompleted).to.be.true;
+    });
+
+    it("Should not allow completing non-existent milestone", async function () {
+      await expect(
+        milestoneManager.completeMilestone(addr1.address, 0)
+      ).to.be.revertedWithCustomError(milestoneManager, "MilestoneNotFound");
+    });
+  });
+
+  describe("Batch Operations", function () {
+    it("Should create multiple milestones in batch", async function () {
+      const milestones = [
+        {
+          amount: toWei("100"),
+          condition: "First milestone",
+          isCompleted: false
+        },
+        {
+          amount: toWei("200"),
+          condition: "Second milestone",
+          isCompleted: false
+        }
+      ];
+
+      const amounts = milestones.map(m => m.amount);
+      const conditions = milestones.map(m => m.condition);
+
+      await milestoneManager.createMilestonesBatch(addr1.address, amounts, conditions);
+
+      for (let i = 0; i < milestones.length; i++) {
+        const [amount, condition, isCompleted] = await milestoneManager.getMilestone(addr1.address, i);
+        expect(amount).to.equal(milestones[i].amount);
+        expect(condition).to.equal(milestones[i].condition);
+        expect(isCompleted).to.equal(milestones[i].isCompleted);
+      }
+    });
+
+    it("Should complete multiple milestones in batch", async function () {
+      const milestones = [
+        {
+          amount: toWei("100"),
+          condition: "First milestone",
+          isCompleted: false
+        },
+        {
+          amount: toWei("200"),
+          condition: "Second milestone",
+          isCompleted: false
+        }
+      ];
+
+      const amounts = milestones.map(m => m.amount);
+      const conditions = milestones.map(m => m.condition);
+
+      await milestoneManager.createMilestonesBatch(addr1.address, amounts, conditions);
+      await milestoneManager.completeMilestonesBatch(addr1.address, [0, 1]);
+
+      for (let i = 0; i < milestones.length; i++) {
+        const [, , isCompleted] = await milestoneManager.getMilestone(addr1.address, i);
+        expect(isCompleted).to.be.true;
+      }
     });
   });
 
   describe("Access Control", function () {
-    it("Should respect milestone creation permissions", async function () {
+    it("Should respect storage permissions", async function () {
       await vereavementAccess.revokePermission(
-        milestoneManager.address,
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("STORAGE_WRITE"))
+        milestoneManager.target,
+        ROLES.STORAGE_WRITE
       );
       
       await expect(
-        milestoneManager.createMilestone(
-          "Test Milestone",
-          ethers.utils.parseEther("100"),
-          86400
-        )
-      ).to.be.revertedWith("Permission not granted");
+        milestoneManager.createMilestone(addr1.address, toWei("100"), "Test milestone")
+      ).to.be.revertedWithCustomError(milestoneManager, "PermissionNotGranted");
+    });
+
+    it("Should not allow non-oracle to complete milestone", async function () {
+      await milestoneManager.createMilestone(addr1.address, toWei("100"), "Test milestone");
+      
+      await expect(
+        milestoneManager.connect(addr1).completeMilestone(addr1.address, 0)
+      ).to.be.revertedWithCustomError(milestoneManager, "AccessControlUnauthorizedAccount");
     });
   });
 }); 
