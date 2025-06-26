@@ -1,22 +1,19 @@
 import { useState, useEffect } from 'react';
-import { ethers, BrowserProvider, JsonRpcSigner, Contract } from 'ethers';
+import { ethers } from 'ethers';
+import { useWallet } from '../contexts/WalletContext';
 
 export function useContract(contractAddress: string, contractABI: any) {
-  const [contract, setContract] = useState<Contract | null>(null);
-  const [provider, setProvider] = useState<BrowserProvider | null>(null);
-  const [signer, setSigner] = useState<JsonRpcSigner | null>(null);
+  const { address } = useWallet();
+  const [contract, setContract] = useState<ethers.Contract | null>(null);
 
   useEffect(() => {
     const initContract = async () => {
-      if (typeof window.ethereum !== 'undefined') {
+      if (typeof window !== 'undefined' && (window as any).ethereum && address) {
         try {
-          const provider = new BrowserProvider(window.ethereum);
+          const provider = new ethers.BrowserProvider((window as any).ethereum);
           const signer = await provider.getSigner();
-          const contract = new Contract(contractAddress, contractABI, signer);
-          
-          setProvider(provider);
-          setSigner(signer);
-          setContract(contract);
+          const ethersContract = new ethers.Contract(contractAddress, contractABI, signer);
+          setContract(ethersContract);
         } catch (error) {
           console.error('Error initializing contract:', error);
         }
@@ -24,7 +21,7 @@ export function useContract(contractAddress: string, contractABI: any) {
     };
 
     initContract();
-  }, [contractAddress, contractABI]);
+  }, [address, contractAddress, contractABI]);
 
-  return { contract, provider, signer };
+  return { contract, address };
 } 

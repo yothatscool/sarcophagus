@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vereavement Protocol - VeChain</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #f7fafc;
+        }
+        .section h2 {
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 5px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+        .error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+        .info {
+            background: #bee3f8;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .balance {
+            background: #e6fffa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #81e6d9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏛️ Vereavement Protocol - VeChain</h1>
+        
+        <div class="section">
+            <h2>🔗 Connect Wallet</h2>
+            <button id="connectWallet">Connect VeChain Wallet</button>
+            <div id="walletStatus" class="status info" style="display: none;">
+                Connected: <span id="walletAddress"></span>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>💰 Token Balances</h2>
+            <div class="grid">
+                <div class="balance">
+                    <strong>VET:</strong> <span id="vetBalance">0</span>
+                </div>
+                <div class="balance">
+                    <strong>VTHO:</strong> <span id="vthoBalance">0</span>
+                </div>
+                <div class="balance">
+                    <strong>B3TR:</strong> <span id="b3trBalance">0</span>
+                </div>
+            </div>
+            <button id="refreshBalances">Refresh Balances</button>
+        </div>
+
+        <div class="section">
+            <h2>📋 User Verification</h2>
+            <div class="form-group">
+                <label for="userAddress">User Address:</label>
+                <input type="text" id="userAddress" placeholder="0x...">
+            </div>
+            <div class="form-group">
+                <label for="userAge">Age:</label>
+                <input type="number" id="userAge" min="18" max="120">
+            </div>
+            <div class="form-group">
+                <label for="verificationHash">Verification Hash:</label>
+                <input type="text" id="verificationHash" placeholder="ipfs://...">
+            </div>
+            <button id="verifyUser">Verify User</button>
+        </div>
+
+        <div class="section">
+            <h2>⚰️ Create Sarcophagus</h2>
+            <div class="form-group">
+                <label for="beneficiaryAddresses">Beneficiary Addresses (comma-separated):</label>
+                <textarea id="beneficiaryAddresses" rows="3" placeholder="0x..., 0x..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="beneficiaryPercentages">Percentages (comma-separated):</label>
+                <input type="text" id="beneficiaryPercentages" placeholder="6000, 4000 (in basis points)">
+            </div>
+            <button id="createSarcophagus">Create Sarcophagus</button>
+        </div>
+
+        <div class="section">
+            <h2>💎 Deposit Tokens</h2>
+            <div class="form-group">
+                <label for="vetAmount">VET Amount:</label>
+                <input type="number" id="vetAmount" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+                <label for="vthoAmount">VTHO Amount:</label>
+                <input type="number" id="vthoAmount" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+                <label for="b3trAmount">B3TR Amount:</label>
+                <input type="number" id="b3trAmount" step="0.01" min="0">
+            </div>
+            <button id="depositTokens">Deposit Tokens</button>
+        </div>
+
+        <div class="section">
+            <h2>⚰️ Death Verification (Oracle Only)</h2>
+            <div class="form-group">
+                <label for="deceasedAddress">Deceased Address:</label>
+                <input type="text" id="deceasedAddress" placeholder="0x...">
+            </div>
+            <div class="form-group">
+                <label for="deathAge">Age at Death:</label>
+                <input type="number" id="deathAge" min="0" max="150">
+            </div>
+            <div class="form-group">
+                <label for="lifeExpectancy">Life Expectancy:</label>
+                <input type="number" id="lifeExpectancy" min="0" max="150">
+            </div>
+            <div class="form-group">
+                <label for="proofHash">Proof Hash:</label>
+                <input type="text" id="proofHash" placeholder="ipfs://...">
+            </div>
+            <button id="verifyDeath">Verify Death</button>
+        </div>
+
+        <div class="section">
+            <h2>💰 Claim Inheritance</h2>
+            <div class="form-group">
+                <label for="deceasedUserAddress">Deceased User Address:</label>
+                <input type="text" id="deceasedUserAddress" placeholder="0x...">
+            </div>
+            <button id="claimInheritance">Claim Inheritance</button>
+        </div>
+
+        <div id="status" class="status" style="display: none;"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html> 

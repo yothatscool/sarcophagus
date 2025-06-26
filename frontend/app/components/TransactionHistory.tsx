@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '../contexts/WalletContext';
-import { Framework } from '@vechain/connex-framework';
 
 interface Transaction {
   txid: string;
@@ -11,65 +10,50 @@ interface Transaction {
   status: 'success' | 'failed' | 'pending';
 }
 
-interface VeChainEvent {
-  meta: {
-    blockNumber: number;
-    txID: string;
-  };
-  topics: string[];
-}
-
 export default function TransactionHistory() {
-  const { connex, address } = useWallet();
+  const { address } = useWallet();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (connex && address) {
+    if (address) {
       fetchTransactionHistory();
     }
-  }, [connex, address]);
+  }, [address]);
 
   const fetchTransactionHistory = async () => {
-    if (!connex || !address) return;
+    if (!address) return;
 
     setIsLoading(true);
     try {
-      const filter = connex.thor.filter('event', [
-        { address: address }
-      ]);
+      // For demo purposes, we'll simulate transaction history
+      // In production, you would fetch from the blockchain
+      const mockTransactions: Transaction[] = [
+        {
+          txid: '0x1234567890abcdef1234567890abcdef12345678',
+          timestamp: Date.now() / 1000 - 3600,
+          type: 'Create Vault',
+          status: 'success'
+        },
+        {
+          txid: '0xabcdef1234567890abcdef1234567890abcdef12',
+          timestamp: Date.now() / 1000 - 7200,
+          type: 'Add Beneficiary',
+          status: 'success'
+        },
+        {
+          txid: '0x567890abcdef1234567890abcdef1234567890ab',
+          timestamp: Date.now() / 1000 - 10800,
+          type: 'Deposit Tokens',
+          status: 'success'
+        }
+      ];
 
-      const events = await filter.apply(0, 10);
-      const txs: Transaction[] = await Promise.all(
-        events.map(async (event: VeChainEvent) => {
-          const block = await connex.thor.block(event.meta.blockNumber).get();
-          const receipt = await connex.thor.transaction(event.meta.txID).getReceipt();
-
-          return {
-            txid: event.meta.txID,
-            timestamp: block?.timestamp ?? 0,
-            type: getTransactionType(event.topics[0]),
-            status: receipt?.reverted ? 'failed' : 'success',
-          };
-        })
-      );
-
-      setTransactions(txs);
+      setTransactions(mockTransactions);
     } catch (error) {
       console.error('Error fetching transaction history:', error);
     }
     setIsLoading(false);
-  };
-
-  const getTransactionType = (topic: string): string => {
-    // Map event signatures to human-readable names
-    const eventTypes: { [key: string]: string } = {
-      'VaultCreated': 'Create Vault',
-      'BeneficiaryAdded': 'Add Beneficiary',
-      'RitualCompleted': 'Complete Ritual',
-      'MemorialPreserved': 'Preserve Memorial'
-    };
-    return eventTypes[topic] || 'Transaction';
   };
 
   const formatDate = (timestamp: number): string => {

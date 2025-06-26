@@ -4,46 +4,70 @@ const { ethers } = require('hardhat');
 
 async function main() {
     const [deployer] = await ethers.getSigners();
-    console.log('Deploying contracts with the account:', deployer.address);
+    console.log('Deploying Sarcophagus Protocol contracts with the account:', deployer.address);
 
-    // Deploy AgeVerification
-    const AgeVerification = await ethers.getContractFactory('AgeVerification');
-    const ageVerification = await AgeVerification.deploy();
-    await ageVerification.deployed();
-    console.log('AgeVerification deployed to:', ageVerification.address);
+    // Deploy MockB3TR for testing
+    const MockB3TR = await ethers.getContractFactory('MockB3TR');
+    const mockB3TR = await MockB3TR.deploy();
+    await mockB3TR.deployed();
+    console.log('MockB3TR deployed to:', mockB3TR.address);
 
-    // Deploy TokenManager
-    const TokenManager = await ethers.getContractFactory('TokenManager');
-    const tokenManager = await TokenManager.deploy(
-        deployer.address, // VTHO manager address - replace with actual
-        deployer.address  // B3TR token address - replace with actual
+    // Deploy MockVTHOManager for testing
+    const MockVTHOManager = await ethers.getContractFactory('MockVTHOManager');
+    const mockVTHOManager = await MockVTHOManager.deploy();
+    await mockVTHOManager.deployed();
+    console.log('MockVTHOManager deployed to:', mockVTHOManager.address);
+
+    // Deploy DeathVerifier
+    const DeathVerifier = await ethers.getContractFactory('DeathVerifier');
+    const deathVerifier = await DeathVerifier.deploy();
+    await deathVerifier.deployed();
+    console.log('DeathVerifier deployed to:', deathVerifier.address);
+
+    // Deploy OBOL token
+    const OBOL = await ethers.getContractFactory('OBOL');
+    const obol = await OBOL.deploy();
+    await obol.deployed();
+    console.log('OBOL deployed to:', obol.address);
+
+    // Deploy B3TRRewards
+    const B3TRRewards = await ethers.getContractFactory('B3TRRewards');
+    const b3trRewards = await B3TRRewards.deploy(mockB3TR.address);
+    await b3trRewards.deployed();
+    console.log('B3TRRewards deployed to:', b3trRewards.address);
+
+    // Deploy MultiSigWallet
+    const MultiSigWallet = await ethers.getContractFactory('MultiSigWallet');
+    const multiSigWallet = await MultiSigWallet.deploy([
+        deployer.address,
+        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
+    ], 2); // 2 out of 3 signatures required
+    await multiSigWallet.deployed();
+    console.log('MultiSigWallet deployed to:', multiSigWallet.address);
+
+    // Deploy Sarcophagus (main protocol contract)
+    const Sarcophagus = await ethers.getContractFactory('Sarcophagus');
+    const sarcophagus = await Sarcophagus.deploy(
+        mockVTHOManager.address, // VTHO token address
+        mockB3TR.address,        // B3TR token address
+        obol.address,            // OBOL token address
+        deathVerifier.address,   // Death verifier address
+        obol.address             // OBOL contract address
     );
-    await tokenManager.deployed();
-    console.log('TokenManager deployed to:', tokenManager.address);
+    await sarcophagus.deployed();
+    console.log('Sarcophagus deployed to:', sarcophagus.address);
 
-    // Deploy RitualEngine
-    const RitualEngine = await ethers.getContractFactory('RitualEngine');
-    const ritualEngine = await RitualEngine.deploy();
-    await ritualEngine.deployed();
-    console.log('RitualEngine deployed to:', ritualEngine.address);
-
-    // Deploy Vereavement
-    const Vereavement = await ethers.getContractFactory('Vereavement');
-    const vereavement = await Vereavement.deploy(
-        ageVerification.address,
-        tokenManager.address,
-        ritualEngine.address,
-        deployer.address, // VTHO manager address - replace with actual
-        deployer.address  // VNS resolver address - replace with actual
-    );
-    await vereavement.deployed();
-    console.log('Vereavement deployed to:', vereavement.address);
+    // Grant roles to Sarcophagus contract
+    await obol.grantRole(await obol.VAULT_ROLE(), sarcophagus.address);
+    await deathVerifier.grantRole(await deathVerifier.ORACLE_ROLE(), deployer.address);
 
     // Create .env file for frontend
-    const envContent = `NEXT_PUBLIC_VEREAVEMENT_ADDRESS="${vereavement.address}"
-NEXT_PUBLIC_RITUAL_ENGINE_ADDRESS="${ritualEngine.address}"
-NEXT_PUBLIC_TOKEN_MANAGER_ADDRESS="${tokenManager.address}"
-NEXT_PUBLIC_AGE_VERIFICATION_ADDRESS="${ageVerification.address}"`;
+    const envContent = `NEXT_PUBLIC_SARCOPHAGUS_ADDRESS="${sarcophagus.address}"
+NEXT_PUBLIC_OBOL_ADDRESS="${obol.address}"
+NEXT_PUBLIC_B3TR_REWARDS_ADDRESS="${b3trRewards.address}"
+NEXT_PUBLIC_DEATH_VERIFIER_ADDRESS="${deathVerifier.address}"
+NEXT_PUBLIC_MULTISIG_WALLET_ADDRESS="${multiSigWallet.address}"`;
 
     fs.writeFileSync(
         path.join(__dirname, '../frontend/.env.local'),
@@ -52,13 +76,16 @@ NEXT_PUBLIC_AGE_VERIFICATION_ADDRESS="${ageVerification.address}"`;
 
     // Create deployment info file
     const deploymentInfo = {
-        network: network.name,
+        network: 'localhost',
         timestamp: new Date().toISOString(),
         contracts: {
-            Vereavement: vereavement.address,
-            RitualEngine: ritualEngine.address,
-            TokenManager: tokenManager.address,
-            AgeVerification: ageVerification.address
+            Sarcophagus: sarcophagus.address,
+            OBOL: obol.address,
+            B3TRRewards: b3trRewards.address,
+            DeathVerifier: deathVerifier.address,
+            MultiSigWallet: multiSigWallet.address,
+            MockB3TR: mockB3TR.address,
+            MockVTHOManager: mockVTHOManager.address
         }
     };
 
@@ -69,6 +96,7 @@ NEXT_PUBLIC_AGE_VERIFICATION_ADDRESS="${ageVerification.address}"`;
 
     console.log('Deployment info saved to deployments.json');
     console.log('Frontend environment variables saved to frontend/.env.local');
+    console.log('\n=== Sarcophagus Protocol Deployment Complete ===');
 }
 
 main()

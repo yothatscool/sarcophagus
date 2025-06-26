@@ -12,9 +12,9 @@ async function setupRitualEngine() {
     const MockB3TR = await ethers.getContractFactory("MockB3TR");
     const b3trToken = await MockB3TR.deploy();
 
-    // Deploy Ritual Engine
+    // Deploy Ritual Engine (no constructor parameters)
     const RitualEngine = await ethers.getContractFactory("RitualEngine");
-    const ritualEngine = await RitualEngine.deploy(b3trToken.target);
+    const ritualEngine = await RitualEngine.deploy();
 
     // Setup roles
     await ritualEngine.grantRole(ROLES.ORACLE_ROLE, addr1.address);

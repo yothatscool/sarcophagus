@@ -1,310 +1,500 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Framework } from '@vechain/connex-framework'
-import { Driver, SimpleNet } from '@vechain/connex-driver'
-import { useVereavementContract } from './hooks/useVereavementContract'
-import { useRitualContract } from './hooks/useRitualContract'
+import { ethers } from 'ethers'
+import { useSarcophagusContract } from './hooks/useSarcophagusContract'
 import { useContractEvents } from './hooks/useContractEvents'
 import { useNotification } from './contexts/NotificationContext'
-import { ethers } from 'ethers'
 import { useWallet } from './contexts/WalletContext'
 import { useLoading } from './contexts/LoadingContext'
-import TransactionHistory from './components/TransactionHistory'
 import BeneficiaryModal from './components/BeneficiaryModal'
-import MemorialModal from './components/MemorialModal'
-import RitualModal from './components/RitualModal'
+import OnboardingFlow from './components/OnboardingFlow'
+import VaultManagementModal from './components/VaultManagementModal'
+import { calculateLifeExpectancy, type LifeExpectancyResult } from './utils/lifeExpectancy'
+import { getCurrentNetworkAddresses } from './config/contracts'
+import UserJourney from './components/UserJourney'
+import Header from './components/Header'
+import LegalDisclosure from './components/LegalDisclosure'
+import { useLegalAcceptance } from './hooks/useLegalAcceptance'
+import Dashboard from './components/Dashboard'
+
+interface VaultData {
+  id: string;
+  owner: string;
+  beneficiaries: { address: string; percentage: number }[];
+  totalValue: string;
+  lifeExpectancy: number;
+  createdAt: Date;
+  status: 'active' | 'pending' | 'distributed';
+  obolRewards: string;
+  obolLocked: string;
+  vetAmount: string;
+  vthoAmount: string;
+  b3trAmount: string;
+  isDeceased: boolean;
+  deathTimestamp?: number;
+  actualAge?: number;
+}
+
+interface OBOLTokenomics {
+  totalSupply: string;
+  initialSupply: string;
+  rewardSupply: string;
+  rewardRate: string;
+  remainingRewards: string;
+  vestingProgress: number;
+  dailyAPY: number;
+  bonusAPY: number;
+  userStake: {
+    lockedValue: string;
+    lastClaimTime: number;
+    startTime: number;
+    totalEarned: string;
+    pendingRewards: string;
+    dailyRewardRate: string;
+    isLongTermHolder: boolean;
+  };
+}
+
+interface B3TRTokenomics {
+  totalSupply: string;
+  carbonOffsetRate: string;
+  legacyBonusRate: string;
+  grandfatheringMultiplier: string;
+  userRewards: {
+    carbonOffset: string;
+    legacyBonus: string;
+    grandfatheringEligible: boolean;
+    timeRemaining: string;
+  };
+}
 
 export default function Home() {
-  const { connect, disconnect, isConnected, address } = useWallet()
+  const { account, disconnect } = useWallet()
+  const isConnected = !!account
   const { showNotification, showTransactionNotification } = useNotification()
   const { isLoading, setLoading } = useLoading()
   const [isBeneficiaryModalOpen, setBeneficiaryModalOpen] = useState(false)
-  const [isMemorialModalOpen, setMemorialModalOpen] = useState(false)
-  const [isRitualModalOpen, setRitualModalOpen] = useState(false)
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(true)
+  const [userAge, setUserAge] = useState('')
+  const [verificationHash, setVerificationHash] = useState('')
+  const [vetAmount, setVetAmount] = useState('')
+  const [vthoAmount, setVthoAmount] = useState('')
+  const [b3trAmount, setB3trAmount] = useState('')
+  const [obolAmount, setObolAmount] = useState('')
+  const [deceasedAddress, setDeceasedAddress] = useState('')
+  const [deathAge, setDeathAge] = useState('')
+  const [lifeExpectancy, setLifeExpectancy] = useState('')
+  const [deathProofHash, setDeathProofHash] = useState('')
+  const [showVaultManagement, setShowVaultManagement] = useState(false)
+  const [selectedVault, setSelectedVault] = useState<VaultData | null>(null)
+  const [vaultModalTab, setVaultModalTab] = useState<'deposit' | 'obol' | 'b3tr' | 'beneficiaries' | 'info'>('deposit')
+  const [userLifeExpectancy, setUserLifeExpectancy] = useState<LifeExpectancyResult | null>(null)
+  const [vaults, setVaults] = useState<VaultData[]>([])
+  const [obolTokenomics, setObolTokenomics] = useState<OBOLTokenomics | null>(null)
+  const [userObolBalance, setUserObolBalance] = useState('0')
+  const [userObolRewards, setUserObolRewards] = useState('0')
+  const [b3trTokenomics, setB3trTokenomics] = useState<B3TRTokenomics | null>(null)
+  const [userB3TRRewards, setUserB3TRRewards] = useState('0')
+  
+  // Security features
+  const [securityStatus, setSecurityStatus] = useState({
+    maxBeneficiaries: 5,
+    minimumDeposit: '0.1',
+    isPaused: false,
+    totalUsers: 0,
+    totalValueLocked: '0'
+  })
 
   const {
-    ritualValue,
-    carbonOffset,
-    longevityScore,
-    createRitualVault,
-    recordCarbonOffset,
-    processSymbolicGrowth,
-    refreshData
-  } = useVereavementContract()
+    userSarcophagus,
+    userBeneficiaries,
+    isUserVerified,
+    hasSarcophagus,
+    verifyUser,
+    createSarcophagus,
+    depositTokens,
+    lockObolTokens,
+    claimObolRewards,
+    verifyDeath,
+    claimInheritance,
+    refreshUserData
+  } = useSarcophagusContract()
 
-  const ritual = useRitualContract()
+  const { 
+    hasAcceptedAllTerms, 
+    showLegalDisclosure, 
+    acceptAllTerms, 
+    declineTerms 
+  } = useLegalAcceptance(account)
 
   // Handle contract events
   useContractEvents((eventName, data) => {
     switch (eventName) {
-      case 'VaultCreated':
-        showNotification(`New vault created by ${data.owner}`, 'success')
+      case 'UserVerified':
+        showNotification(`User ${data.user} verified successfully`, 'success')
         break
-      case 'RitualCompleted':
-        showNotification(`Ritual "${data.ritualType}" completed by ${data.user}`, 'success')
+      case 'SarcophagusCreated':
+        showNotification(`Sarcophagus created for ${data.user}`, 'success')
         break
-      case 'CarbonOffsetRecorded':
-        showNotification(`${data.amount} tons of carbon offset recorded`, 'success')
+      case 'TokensDeposited':
+        showNotification(`${data.vetAmount} VET deposited`, 'success')
         break
-      case 'LongevityScoreUpdated':
-        showNotification(`Longevity score updated to ${data.newScore}`, 'info')
+      case 'ObolTokensLocked':
+        showNotification(`${data.obolAmount} OBOL locked in vault`, 'success')
         break
-      case 'SymbolicGrowthOccurred':
-        showNotification(`Ritual value increased to ${ethers.formatEther(data.newValue)} ETH`, 'success')
+      case 'VaultRewardMinted':
+        showNotification(`${data.amount} OBOL rewards earned!`, 'success')
+        break
+      case 'DeathVerified':
+        showNotification(`Death verified for ${data.user}`, 'info')
+        break
+      case 'InheritanceClaimed':
+        showNotification(`Inheritance claimed: ${data.vetShare} VET`, 'success')
+        break
+      case 'ContinuousRewardClaimed':
+        showNotification(`${data.amount} OBOL continuous rewards claimed!`, 'success')
         break
     }
   })
 
   useEffect(() => {
-    const initConnex = async () => {
-      try {
-        // Connect to VeChain node (testnet for development)
-        const net = new SimpleNet('https://testnet.veblocks.net')
-        const driver = await Driver.connect(net)
-        const connexInstance = new Framework(driver)
-      } catch (error) {
-        console.error('Failed to initialize Connex:', error)
-        showNotification('Failed to connect to VeChain network', 'error')
-      }
+    if (isConnected && account) {
+      refreshUserData()
+      loadB3TRData()
+      loadSecurityStatus()
+      loadOBOLData()
     }
+  }, [isConnected, account])
 
-    initConnex()
-  }, [])
-
-  useEffect(() => {
-    if (isConnected && address) {
-      fetchContractStates()
-    }
-  }, [isConnected, address])
-
-  const fetchContractStates = async () => {
+  const loadB3TRData = async () => {
     try {
-      await ritual.refreshState()
-    } catch (error) {
-      console.error('Error fetching contract states:', error)
-      showNotification('Failed to fetch contract states', 'error')
-    }
-  }
-
-  useEffect(() => {
-    checkConnection()
-  }, [])
-
-  async function checkConnection() {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' })
-        if (accounts.length > 0) {
-          connect(accounts[0])
+      // Enhanced B3TR tokenomics data based on personalized carbon calculations
+      setB3trTokenomics({
+        totalSupply: 'Unlimited (from Vebetter DAO)',
+        carbonOffsetRate: 'Years saved × personalized CO2 footprint/year',
+        legacyBonusRate: '100 B3TR for reaching life expectancy + 100 B3TR per year past it',
+        grandfatheringMultiplier: 'N/A',
+        userRewards: {
+          carbonOffset: '0',
+          legacyBonus: '0',
+          grandfatheringEligible: false,
+          timeRemaining: '0 days'
         }
-      } catch (error) {
-        console.error('Error checking connection:', error)
-        showNotification('Failed to check wallet connection', 'error')
-      }
+      })
+      
+      // Mock user B3TR data
+      setUserB3TRRewards('0')
+    } catch (error) {
+      console.error('Error loading B3TR data:', error)
     }
   }
 
-  const handleCreateVault = async () => {
-    if (!isConnected) {
-      showNotification('Please connect your wallet first', 'warning')
+  const loadSecurityStatus = async () => {
+    try {
+      // Mock security status - in real implementation, fetch from contract
+      setSecurityStatus({
+        maxBeneficiaries: 5,
+        minimumDeposit: '0.1',
+        isPaused: false,
+        totalUsers: 1250,
+        totalValueLocked: '45,250'
+      })
+    } catch (error) {
+      console.error('Error loading security status:', error)
+    }
+  }
+
+  const loadOBOLData = async () => {
+    try {
+      // Enhanced OBOL tokenomics data with more realistic rates
+      setObolTokenomics({
+        totalSupply: '100,000,000',
+        initialSupply: '5,000,000',
+        rewardSupply: '95,000,000',
+        rewardRate: '1 OBOL per 1 VET deposited',
+        remainingRewards: '85,000,000',
+        vestingProgress: 10.5,
+        dailyAPY: 8.5,
+        bonusAPY: 2.1,
+        userStake: {
+          lockedValue: '0',
+          lastClaimTime: 0,
+          startTime: 0,
+          totalEarned: '0',
+          pendingRewards: '0',
+          dailyRewardRate: '0',
+          isLongTermHolder: false
+        }
+      })
+      
+      // Mock user OBOL data
+      setUserObolBalance('0')
+      setUserObolRewards('0')
+    } catch (error) {
+      console.error('Error loading OBOL data:', error)
+    }
+  }
+
+  const handleVerifyUser = async () => {
+    if (!userAge || !verificationHash) {
+      showNotification('Please fill in all required fields', 'error')
       return
     }
-    setLoading('createVault', true)
-    try {
-      const tx = await createRitualVault()
-      showNotification('Creating ritual vault...', 'info')
-      await tx.wait()
-      showNotification('Ritual vault created successfully!', 'success')
-      await refreshData()
-    } catch (error) {
-      console.error('Error creating vault:', error)
-      showNotification('Failed to create ritual vault', 'error')
-    }
-    setLoading('createVault', false)
-  }
-
-  const handleRecordOffset = async () => {
-    if (!isConnected) {
-      showNotification('Please connect your wallet first', 'warning')
+    if (!account) {
+      showNotification('Please connect your wallet before verifying.', 'error')
       return
     }
-    setLoading('recordOffset', true)
+    setLoading('verifyUser', true)
     try {
-      const tx = await recordCarbonOffset('1', 'Test Offset')
-      showNotification('Recording carbon offset...', 'info')
+      const tx = await verifyUser(account, parseInt(userAge), verificationHash)
       await tx.wait()
-      showNotification('Carbon offset recorded successfully!', 'success')
-      await refreshData()
+      showNotification('User verified successfully!', 'success')
+      await refreshUserData()
     } catch (error) {
-      console.error('Error recording offset:', error)
-      showNotification('Failed to record carbon offset', 'error')
+      console.error('Error verifying user:', error)
+      showNotification('Failed to verify user', 'error')
     }
-    setLoading('recordOffset', false)
+    setLoading('verifyUser', false)
   }
 
-  const handleProcessGrowth = async () => {
-    if (!isConnected) {
-      showNotification('Please connect your wallet first', 'warning')
+  const handleCreateSarcophagus = async (beneficiaries: string[], percentages: number[]) => {
+    if (beneficiaries.length === 0) {
+      showNotification('Please add at least one beneficiary', 'error')
       return
     }
-    setLoading('processGrowth', true)
+
+    const totalPercentage = percentages.reduce((sum, p) => sum + p, 0)
+    if (Math.abs(totalPercentage - 100) > 0.01) {
+      showNotification('Beneficiary percentages must total 100%', 'error')
+      return
+    }
+
+    setLoading('createSarcophagus', true)
     try {
-      const tx = await processSymbolicGrowth()
-      showNotification('Processing symbolic growth...', 'info')
+      const tx = await createSarcophagus(beneficiaries, percentages)
       await tx.wait()
-      showNotification('Symbolic growth processed successfully!', 'success')
-      await refreshData()
+      showNotification('Sarcophagus created successfully!', 'success')
+      await refreshUserData()
+      setBeneficiaryModalOpen(false)
     } catch (error) {
-      console.error('Error processing growth:', error)
-      showNotification('Failed to process symbolic growth', 'error')
+      console.error('Error creating sarcophagus:', error)
+      showNotification('Failed to create sarcophagus', 'error')
     }
-    setLoading('processGrowth', false)
+    setLoading('createSarcophagus', false)
   }
 
-  const handleConnect = async () => {
+  const handleDepositTokens = async () => {
+    if (!vetAmount && !vthoAmount && !b3trAmount) {
+      showNotification('Please enter at least one token amount', 'error')
+      return
+    }
+
+    setLoading('depositTokens', true)
     try {
-      await connect()
+      const tx = await depositTokens(
+        vthoAmount || '0',
+        b3trAmount || '0'
+      )
+      await tx.wait()
+      showNotification('Tokens deposited successfully!', 'success')
+      await refreshUserData()
+      
+      // Clear form
+      setVetAmount('')
+      setVthoAmount('')
+      setB3trAmount('')
     } catch (error) {
-      console.error('Error connecting wallet:', error)
-      showNotification('Failed to connect wallet', 'error')
+      console.error('Error depositing tokens:', error)
+      showNotification('Failed to deposit tokens', 'error')
     }
+    setLoading('depositTokens', false)
   }
 
+  const handleLockObolTokens = async () => {
+    if (!obolAmount) {
+      showNotification('Please enter OBOL amount', 'error')
+      return
+    }
+
+    setLoading('lockObolTokens', true)
+    try {
+      const tx = await lockObolTokens(obolAmount)
+      await tx.wait()
+      showNotification('OBOL tokens locked successfully!', 'success')
+      await refreshUserData()
+      setObolAmount('')
+    } catch (error) {
+      console.error('Error locking OBOL tokens:', error)
+      showNotification('Failed to lock OBOL tokens', 'error')
+    }
+    setLoading('lockObolTokens', false)
+  }
+
+  const handleClaimB3TRRewards = async () => {
+    setLoading('claimB3TRRewards', true)
+    try {
+      // Mock B3TR claim - implement actual contract call
+      showNotification('B3TR rewards claimed successfully!', 'success')
+    } catch (error) {
+      console.error('Error claiming B3TR rewards:', error)
+      showNotification('Failed to claim B3TR rewards', 'error')
+    }
+    setLoading('claimB3TRRewards', false)
+  }
+
+  const handleVerifyDeath = async () => {
+    if (!deceasedAddress || !deathAge || !deathProofHash) {
+      showNotification('Please fill in all required fields', 'error')
+      return
+    }
+
+    setLoading('verifyDeath', true)
+    try {
+      const tx = await verifyDeath(deceasedAddress, parseInt(deathAge), deathProofHash)
+      await tx.wait()
+      showNotification('Death verified successfully!', 'success')
+      
+      // Clear form
+      setDeceasedAddress('')
+      setDeathAge('')
+      setDeathProofHash('')
+    } catch (error) {
+      console.error('Error verifying death:', error)
+      showNotification('Failed to verify death', 'error')
+    }
+    setLoading('verifyDeath', false)
+  }
+
+  const handleClaimInheritance = async () => {
+    if (!deceasedAddress) {
+      showNotification('Please enter the deceased user\'s address', 'error')
+      return
+    }
+    if (!account) {
+      showNotification('Please connect your wallet to claim.', 'error')
+      return
+    }
+
+    setLoading('claimInheritance', true)
+    try {
+      const tx = await claimInheritance(deceasedAddress)
+      await tx.wait()
+      showNotification('Inheritance claimed successfully!', 'success')
+      setDeceasedAddress('')
+    } catch (error) {
+      console.error('Error claiming inheritance:', error)
+      showNotification('Failed to claim inheritance', 'error')
+    }
+    setLoading('claimInheritance', false)
+  }
+
+  const handleManageVault = (vault: VaultData) => {
+    setSelectedVault(vault)
+    setShowVaultManagement(true)
+  }
+
+  const handleOnboardingComplete = async (data: any) => {
+    setLoading('createSarcophagus', true);
+
+    try {
+      const beneficiaries = data.beneficiaries.map((b: any) => b.address);
+      const percentages = data.beneficiaries.map((b: any) => parseInt(b.percentage, 10));
+
+      const tx = await createSarcophagus(beneficiaries, percentages);
+      await tx.wait();
+
+      showNotification('Sarcophagus vault created successfully!', 'success');
+      await refreshUserData();
+      
+      // Only close onboarding after successful vault creation
+      setIsOnboardingOpen(false);
+    } catch (error) {
+      console.error('Error creating sarcophagus from onboarding:', error);
+      showNotification('Failed to create Sarcophagus vault.', 'error');
+      // Don't close onboarding on error - let user try again
+    }
+
+    setLoading('createSarcophagus', false);
+  };
+
+  const handleBeneficiaryModalComplete = async (beneficiaries: any[], charityAddress?: string) => {
+    setLoading('createSarcophagus', true);
+
+    try {
+      const addresses = beneficiaries.map((b: any) => b.address);
+      const percentages = beneficiaries.map((b: any) => b.percentage);
+
+      const tx = await createSarcophagus(addresses, percentages);
+      await tx.wait();
+
+      showNotification('Sarcophagus vault created successfully!', 'success');
+      await refreshUserData();
+      
+      // Close the beneficiary modal
+      setBeneficiaryModalOpen(false);
+    } catch (error) {
+      console.error('Error creating sarcophagus from beneficiary modal:', error);
+      showNotification('Failed to create Sarcophagus vault.', 'error');
+    }
+
+    setLoading('createSarcophagus', false);
+  };
+
+  const handleClaimObolRewards = async () => {
+    setLoading('claimObolRewards', true);
+    try {
+      const tx = await claimObolRewards();
+      await tx.wait();
+      showNotification('OBOL rewards claimed successfully!', 'success');
+      await loadOBOLData();
+    } catch (error) {
+      console.error('Error claiming OBOL rewards:', error);
+      showNotification('Failed to claim OBOL rewards', 'error');
+    }
+    setLoading('claimObolRewards', false);
+  };
+
+  // Show legal disclosure if user hasn't accepted terms
+  if (showLegalDisclosure && account) {
+    return (
+      <LegalDisclosure
+        onAccept={acceptAllTerms}
+        onDecline={declineTerms}
+        userAddress={account}
+      />
+    )
+  }
+
+  // Show main content only if user has accepted terms or is not connected
   return (
-    <main className="min-h-screen bg-black text-white p-8">
-      <div className="container mx-auto">
-        {/* Header */}
-        <header className="flex justify-between items-center mb-16">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
-            Vereavement Protocol
-          </h1>
-          <button
-            onClick={handleConnect}
-            disabled={isLoading.connect}
-            className={`px-8 py-3 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold text-lg hover:opacity-90 transition-opacity ${
-              isLoading.connect ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {isLoading.connect ? 'Connecting...' : isConnected ? 'Connected' : 'Connect Wallet'}
-          </button>
-        </header>
-
-        {/* Main Content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-          {/* Ritual Value Card */}
-          <div className="bg-[#1a1f2e]/80 rounded-2xl p-8 backdrop-blur-sm">
-            <h2 className="text-xl font-semibold mb-4 text-purple-400">Ritual Value</h2>
-            <p className="text-4xl font-bold text-white mb-6">{ritualValue} ETH</p>
-            <button
-              onClick={handleProcessGrowth}
-              disabled={isLoading.processGrowth || !isConnected}
-              className={`w-full bg-purple-600 hover:bg-purple-700 py-3 rounded-lg text-lg font-semibold transition-colors ${
-                (isLoading.processGrowth || !isConnected) ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {isLoading.processGrowth ? 'Processing...' : 'Process Growth'}
-            </button>
-          </div>
-
-          {/* Carbon Offset Card */}
-          <div className="bg-[#1a1f2e]/80 rounded-2xl p-8 backdrop-blur-sm">
-            <h2 className="text-xl font-semibold mb-4 text-green-400">Carbon Offset</h2>
-            <p className="text-4xl font-bold text-white mb-6">{carbonOffset} tons</p>
-            <button
-              onClick={handleRecordOffset}
-              disabled={isLoading.recordOffset || !isConnected}
-              className={`w-full bg-green-600 hover:bg-green-700 py-3 rounded-lg text-lg font-semibold transition-colors ${
-                (isLoading.recordOffset || !isConnected) ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {isLoading.recordOffset ? 'Recording...' : 'Record Offset'}
-            </button>
-          </div>
-
-          {/* Longevity Score Card */}
-          <div className="bg-[#1a1f2e]/80 rounded-2xl p-8 backdrop-blur-sm">
-            <h2 className="text-xl font-semibold mb-4 text-blue-400">Longevity Score</h2>
-            <p className="text-4xl font-bold text-white mb-6">{longevityScore} points</p>
-            <button
-              onClick={refreshData}
-              disabled={isLoading.refresh || !isConnected}
-              className={`w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg text-lg font-semibold transition-colors ${
-                (isLoading.refresh || !isConnected) ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {isLoading.refresh ? 'Updating...' : 'Update Score'}
-            </button>
-          </div>
-        </div>
-
-        {/* Actions Section */}
-        <div className="mb-16">
-          <h2 className="text-3xl font-bold mb-8 text-purple-400">Available Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button
-              onClick={handleCreateVault}
-              disabled={isLoading.createVault || !isConnected}
-              className={`bg-gradient-to-r from-purple-600 to-indigo-600 py-4 px-6 rounded-xl text-lg font-semibold hover:opacity-90 transition-opacity ${
-                (isLoading.createVault || !isConnected) ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {isLoading.createVault ? 'Creating...' : 'Create Ritual Vault'}
-            </button>
-            <button
-              onClick={() => setBeneficiaryModalOpen(true)}
-              disabled={!isConnected}
-              className={`bg-gradient-to-r from-pink-600 to-rose-600 py-4 px-6 rounded-xl text-lg font-semibold hover:opacity-90 transition-opacity ${
-                !isConnected ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              Manage Beneficiaries
-            </button>
-            <button
-              onClick={() => setRitualModalOpen(true)}
-              disabled={!isConnected}
-              className={`bg-gradient-to-r from-amber-600 to-yellow-600 py-4 px-6 rounded-xl text-lg font-semibold hover:opacity-90 transition-opacity ${
-                !isConnected ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              Complete Ritual
-            </button>
-            <button
-              onClick={() => setMemorialModalOpen(true)}
-              disabled={!isConnected}
-              className={`bg-gradient-to-r from-teal-600 to-emerald-600 py-4 px-6 rounded-xl text-lg font-semibold hover:opacity-90 transition-opacity ${
-                !isConnected ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              Preserve Memorial
-            </button>
-          </div>
-        </div>
-
-        {/* Transaction History */}
-        <TransactionHistory />
-
-        {/* Status Section */}
-        {isConnected && address && (
-          <div className="mt-8 text-sm text-gray-400">
-            Connected Account: {`${address.substring(0, 6)}...${address.substring(address.length - 4)}`}
-          </div>
+    <div className="min-h-screen bg-gray-900 text-white">
+      <Header />
+      <main className="container mx-auto p-4">
+        {account && hasAcceptedAllTerms ? (
+          <Dashboard />
+        ) : (
+          <UserJourney />
         )}
+      </main>
 
-        {/* Modals */}
-        <BeneficiaryModal
-          isOpen={isBeneficiaryModalOpen}
-          onClose={() => setBeneficiaryModalOpen(false)}
-        />
-        <MemorialModal
-          isOpen={isMemorialModalOpen}
-          onClose={() => setMemorialModalOpen(false)}
-        />
-        <RitualModal
-          isOpen={isRitualModalOpen}
-          onClose={() => setRitualModalOpen(false)}
-        />
-      </div>
-    </main>
+      {/* Modals are managed here, outside of the main content flow */}
+      <OnboardingFlow
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onComplete={handleOnboardingComplete}
+      />
+      <BeneficiaryModal
+        isOpen={isBeneficiaryModalOpen}
+        onClose={() => setBeneficiaryModalOpen(false)}
+        onComplete={handleBeneficiaryModalComplete}
+      />
+      <VaultManagementModal
+        vault={selectedVault}
+        isOpen={showVaultManagement}
+        onClose={() => setShowVaultManagement(false)}
+        defaultTab={vaultModalTab}
+      />
+    </div>
   )
 } 

@@ -1,131 +1,181 @@
-# Vereavement Protocol Frontend
+# 🏺 Sarcophagus Protocol Frontend
 
-A decentralized application for preserving digital legacies on the VeChain blockchain.
+A modern, responsive frontend for the Sarcophagus Protocol - Digital Inheritance on VeChain.
 
-## Features
+## 🚀 Features
 
-- **Ritual Vault Management**: Create and manage digital legacy vaults
-- **Beneficiary System**: Add and manage beneficiaries with percentage-based allocations
-- **Ritual Completion**: Perform various types of rituals to enhance your digital legacy
-- **Memorial Preservation**: Store and preserve memorial messages
-- **Transaction History**: Track all interactions with the protocol
-- **Carbon Offset Tracking**: Monitor environmental impact
-- **Longevity Scoring**: Track the permanence of your digital legacy
+- **Digital Inheritance Management**: Create and manage secure vaults for digital assets
+- **Multi-Token Support**: VET, VTHO, B3TR, and OBOL token integration
+- **Beneficiary Management**: Add and manage inheritance beneficiaries
+- **Death Verification**: Oracle-based death verification system
+- **Reward System**: OBOL token rewards for participation
+- **Carbon Offset**: B3TR rewards for environmental impact
+- **Multi-Signature Security**: Enhanced security for critical operations
+- **Real-time Updates**: Live contract state monitoring
 
-## Getting Started
+## 🛠️ Tech Stack
 
-### Prerequisites
+- **Framework**: Next.js 14 with TypeScript
+- **Styling**: Tailwind CSS
+- **Blockchain**: Connex for VeChain integration
+- **Wallet**: VeWorld/Sync2 via Connex
+- **Testing**: Jest, Cypress, React Testing Library
+- **State Management**: React Context + Hooks
 
-- Node.js (v14 or higher)
-- npm or yarn
-- VeChain Thor Wallet (Sync2)
-- Access to VeChain Thor network (testnet or mainnet)
+## 📦 Installation
 
-### Installation
-
-1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/vereavement-protocol.git
-cd vereavement-contracts/frontend
-```
-
-2. Install dependencies:
-```bash
+# Install dependencies
 npm install
+
+# Set up environment variables
+cp env.local.example .env.local
+# Edit .env.local with your configuration
 ```
 
-3. Create a `.env.local` file in the frontend directory:
-```env
-NEXT_PUBLIC_VECHAIN_NODE=https://testnet.veblocks.net
-NEXT_PUBLIC_NETWORK=testnet
-```
+## 🔧 Configuration
 
-4. Start the development server:
+### Environment Variables
+
+Create a `.env.local` file:
+
 ```bash
+# VeChain RPC URLs
+NEXT_PUBLIC_VECHAIN_TESTNET_RPC=https://testnet.veblocks.net
+NEXT_PUBLIC_VECHAIN_MAINNET_RPC=https://mainnet.veblocks.net
+
+# Contract addresses (will be auto-updated after deployment)
+NEXT_PUBLIC_TESTNET_SARCOPHAGUS=0x...
+NEXT_PUBLIC_TESTNET_DEATH_VERIFIER=0x...
+NEXT_PUBLIC_TESTNET_OBOL=0x...
+NEXT_PUBLIC_TESTNET_B3TR_REWARDS=0x...
+NEXT_PUBLIC_TESTNET_MULTISIG=0x...
+```
+
+## 🚀 Development
+
+```bash
+# Start development server
 npm run dev
-```
 
-The application will be available at `http://localhost:3000`.
-
-## Smart Contract Integration
-
-The frontend interacts with the following smart contracts:
-
-- `Vereavement.sol`: Main protocol contract
-- `RitualVault.sol`: Individual vault management
-- `BeneficiaryManager.sol`: Beneficiary system
-- `MemorialStorage.sol`: Memorial data storage
-
-### Contract Functions
-
-#### Ritual Vault
-- `createRitualVault()`: Create a new vault
-- `processSymbolicGrowth()`: Process growth calculations
-- `getRitualValue()`: Get current ritual value
-
-#### Beneficiary Management
-- `addBeneficiary(address, uint256)`: Add a beneficiary with allocation
-- `removeBeneficiary(address)`: Remove a beneficiary
-- `getBeneficiaries()`: List all beneficiaries
-
-#### Ritual System
-- `completeRitual(string)`: Complete a ritual
-- `getRitualHistory()`: Get ritual completion history
-- `getLongevityScore()`: Get current longevity score
-
-#### Memorial System
-- `preserveMemorial(string)`: Store a memorial message
-- `getMemorial(uint256)`: Retrieve a memorial
-
-## Development
-
-### Project Structure
-
-```
-frontend/
-├── app/
-│   ├── components/     # React components
-│   ├── contexts/       # React contexts
-│   ├── hooks/         # Custom hooks
-│   ├── utils/         # Utility functions
-│   └── config/        # Configuration files
-├── public/            # Static assets
-└── tests/            # Test files
-```
-
-### Testing
-
-Run the test suite:
-```bash
+# Run tests
 npm test
-```
 
-Run tests in watch mode:
-```bash
-npm test:watch
-```
+# Run e2e tests
+npm run e2e
 
-### Building for Production
-
-```bash
+# Build for production
 npm run build
 ```
 
-## Contributing
+## 🧪 Testing
+
+### Unit Tests
+```bash
+npm test
+npm run test:watch
+npm run test:coverage
+```
+
+### E2E Tests
+```bash
+npm run cypress:open
+npm run cypress:run
+```
+
+## 📱 Usage
+
+### For Users
+1. **Install VeWorld/Sync2**: Download and install a VeChain wallet
+2. **Connect Wallet**: Use VeWorld or Sync2 wallet via Connex
+3. **Switch to VeChain Testnet**: Ensure you're on Chain ID 39
+4. **Create Vault**: Set up your digital inheritance
+5. **Add Beneficiaries**: Specify who gets your assets
+6. **Deposit Tokens**: Add VET, VTHO, B3TR to your vault
+7. **Lock OBOL**: Earn rewards for participation
+
+### For Developers
+1. **Testnet Deployment**: Use `scripts/deploy-testnet.js`
+2. **Frontend Integration**: Contract addresses auto-update
+3. **Local Testing**: Use Hardhat local network
+4. **Contract Interaction**: All functions available via Connex
+
+## 🔗 Contract Integration
+
+The frontend automatically integrates with deployed contracts via Connex:
+
+- **Sarcophagus**: Main vault contract
+- **DeathVerifier**: Oracle verification system
+- **OBOL**: Reward token (100M supply)
+- **B3TRRewards**: Bonus rewards system
+- **MultiSigWallet**: Enhanced security
+
+## 🎨 UI Components
+
+- **Vault Management**: Create and manage vaults
+- **Beneficiary Modal**: Add/remove beneficiaries
+- **Token Deposits**: Deposit VET, VTHO, B3TR
+- **OBOL Rewards**: Lock tokens and earn rewards
+- **Death Verification**: Oracle verification interface
+- **Inheritance Claims**: Claim inherited assets
+
+## 🔒 Security
+
+- **Access Control**: Role-based permissions
+- **Multi-Signature**: Enhanced security
+- **Input Validation**: Client-side validation
+- **Error Handling**: Comprehensive error management
+- **Gas Optimization**: Efficient contract calls
+
+## 📊 Performance
+
+- **Optimized Builds**: Next.js optimization
+- **Code Splitting**: Automatic code splitting
+- **Image Optimization**: Next.js image optimization
+- **Caching**: Efficient caching strategies
+
+## 🚀 Deployment
+
+### Testnet
+```bash
+# Deploy contracts
+npx hardhat run scripts/deploy-testnet.js --network vechain_testnet
+
+# Update frontend config
+node scripts/update-frontend-config.js
+
+# Start frontend
+npm run dev
+```
+
+### Production
+```bash
+# Build for production
+npm run build
+
+# Start production server
+npm start
+```
+
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Ensure all tests pass
+6. Submit a pull request
 
-## Security
+## 📄 License
 
-- All contract interactions require wallet signatures
-- Beneficiary management includes percentage validation
-- Memorial data is hashed and stored securely
-- Error handling for all contract interactions
+MIT License - see LICENSE file for details.
 
-## License
+## 🆘 Support
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+- **Documentation**: Check the docs folder
+- **Issues**: Create an issue on GitHub
+- **Security**: Report security issues privately
+
+---
+
+**Ready for testnet launch with VeWorld/Sync2!** 🎉 

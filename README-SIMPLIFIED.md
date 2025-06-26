@@ -22,8 +22,9 @@ Users lock their VET, VTHO, and B3TR tokens in a "sarcophagus" that only unlocks
 - IPFS storage of verification documents
 
 ### 🎁 Bonus System
-- **Carbon Offset Bonus**: 50 B3TR per year under life expectancy (max 20 years)
-- **Legacy Bonus**: 25 B3TR per year over life expectancy (max 20 years)
+- **Carbon Offset Bonus**: 10% B3TR per year saved by dying before life expectancy (max 20 years)
+- **Legacy Bonus**: 5% base + 2% per year in system + 1% per 1000 VET deposited (max 50%)
+- **Grace Period**: No bonus if death occurs within 5 years of life expectancy (standard inheritance)
 
 ### 🛡️ Anti-Farming Measures
 - KYC verification required before creating sarcophagus
@@ -75,15 +76,23 @@ Handles:
 
 ### Carbon Offset Bonus (Early Death)
 - Life Expectancy: 80 years
-- Actual Death: 65 years
-- Years Early: 15 years
-- Bonus: 15 × 50 = 750 B3TR
+- Actual Death: 65 years (15 years early, 10 years outside grace period)
+- Bonus: 10% × 10 years = 100% of B3TR tokens
+- Example: 1000 B3TR → 2000 B3TR (+1000 B3TR bonus)
 
-### Legacy Bonus (Late Death)
+### Legacy Bonus (Longevity + Participation)
 - Life Expectancy: 80 years
-- Actual Death: 95 years
-- Years Late: 15 years
-- Bonus: 15 × 25 = 375 B3TR
+- Actual Death: 90 years (10 years late, 5 years outside grace period)
+- Years in System: 15 years
+- Total Deposits: 5000 VET equivalent
+- Bonus: 5% base + (15 × 2%) + (5 × 1%) = 40% of B3TR tokens
+- Example: 1000 B3TR → 1400 B3TR (+400 B3TR bonus)
+
+### Standard Inheritance (No Bonus)
+- Life Expectancy: 80 years
+- Actual Death: 77 years (within 5-year grace period)
+- Bonus: 0% (standard inheritance)
+- Example: 1000 B3TR → 1000 B3TR (no bonus)
 
 ## Deployment
 

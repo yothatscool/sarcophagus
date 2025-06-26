@@ -1,213 +1,388 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useVereavementContract } from '../hooks/useVereavementContract';
-import { useNotification } from '../contexts/NotificationContext';
-import { useLoading } from '../contexts/LoadingContext';
+import React, { useState } from 'react';
+import { useWallet } from '../contexts/WalletContext';
+import { useContract } from '../hooks/useContract';
 import { TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
-
-interface BeneficiaryModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
 
 interface Beneficiary {
   address: string;
   percentage: number;
+  age: number;
+  guardian?: string;
+  contingentBeneficiary?: string;
+  survivorshipPeriod?: number;
+  successorGuardian?: string;
+  contactInfo?: string;
 }
 
-export default function BeneficiaryModal({ isOpen, onClose }: BeneficiaryModalProps) {
-  const [address, setAddress] = useState('');
-  const [percentage, setPercentage] = useState('');
-  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const { addBeneficiary, getBeneficiaries, removeBeneficiary } = useVereavementContract();
-  const { showNotification } = useNotification();
-  const { isLoading, setLoading } = useLoading();
+interface BeneficiaryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onComplete: (beneficiaries: Beneficiary[], charityAddress?: string) => void;
+}
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchBeneficiaries();
+// Mock ABI for now - replace with actual ABI import
+const SARCOPHAGUS_ABI = [
+  'function createSarcophagusWithGuardians(address[] memory beneficiaries, uint256[] memory percentages, address[] memory guardians, uint256[] memory ages) external',
+  'function updateBeneficiaryEnhanced(uint256 index, address contingentBeneficiary, uint256 survivorshipPeriod, address successorGuardian, string memory contactInfo) external',
+  'function designateCharity(address charityAddress) external'
+];
+
+export default function BeneficiaryModal({ isOpen, onClose, onComplete }: BeneficiaryModalProps) {
+  const { account } = useWallet();
+  const { contract: sarcophagusContract } = useContract('SARCOPHAGUS_CONTRACT_ADDRESS', SARCOPHAGUS_ABI);
+  
+  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([
+    { address: '', percentage: 100, age: 18 }
+  ]);
+  const [charityAddress, setCharityAddress] = useState<string>('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const addBeneficiary = () => {
+    if (beneficiaries.length < 5) {
+      setBeneficiaries([...beneficiaries, { address: '', percentage: 0, age: 18 }]);
     }
-  }, [isOpen]);
+  };
 
-  const fetchBeneficiaries = async () => {
-    setLoading('fetchBeneficiaries', true);
+  const removeBeneficiary = (index: number) => {
+    if (beneficiaries.length > 1) {
+      const newBeneficiaries = beneficiaries.filter((_, i) => i !== index);
+      // Recalculate percentages
+      const totalPercentage = newBeneficiaries.reduce((sum, b) => sum + b.percentage, 0);
+      if (totalPercentage !== 100) {
+        // Distribute remaining percentage equally
+        const equalShare = Math.floor(100 / newBeneficiaries.length);
+        const remainder = 100 - (equalShare * newBeneficiaries.length);
+        newBeneficiaries.forEach((beneficiary, i) => {
+          beneficiary.percentage = equalShare + (i < remainder ? 1 : 0);
+        });
+      }
+      setBeneficiaries(newBeneficiaries);
+    }
+  };
+
+  const updateBeneficiary = (index: number, field: keyof Beneficiary, value: any) => {
+    const newBeneficiaries = [...beneficiaries];
+    newBeneficiaries[index] = { ...newBeneficiaries[index], [field]: value };
+    
+    // If percentage changed, recalculate others
+    if (field === 'percentage') {
+      const currentTotal = newBeneficiaries.reduce((sum, b, i) => i === index ? sum : sum + b.percentage, 0);
+      const newTotal = currentTotal + value;
+      
+      if (newTotal > 100) {
+        // Reduce other percentages proportionally
+        const excess = newTotal - 100;
+        const otherBeneficiaries = newBeneficiaries.filter((_, i) => i !== index);
+        const otherTotal = otherBeneficiaries.reduce((sum, b) => sum + b.percentage, 0);
+        
+        if (otherTotal > 0) {
+          otherBeneficiaries.forEach((beneficiary, i) => {
+            const reduction = (beneficiary.percentage / otherTotal) * excess;
+            beneficiary.percentage = Math.max(0, beneficiary.percentage - reduction);
+          });
+        }
+      }
+    }
+    
+    setBeneficiaries(newBeneficiaries);
+  };
+
+  const validateBeneficiaries = (): boolean => {
+    const totalPercentage = beneficiaries.reduce((sum, b) => sum + b.percentage, 0);
+    if (totalPercentage !== 100) return false;
+    
+    for (const beneficiary of beneficiaries) {
+      if (!beneficiary.address || beneficiary.address === account) return false;
+      if (beneficiary.age < 0 || beneficiary.age > 120) return false;
+      if (beneficiary.age < 18 && !beneficiary.guardian) return false;
+      if (beneficiary.survivorshipPeriod && beneficiary.survivorshipPeriod > 365) return false;
+    }
+    
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateBeneficiaries()) return;
+    
+    setIsLoading(true);
     try {
-      const result = await getBeneficiaries();
-      setBeneficiaries(result);
+      // Call the enhanced contract function
+      const addresses = beneficiaries.map(b => b.address);
+      const percentages = beneficiaries.map(b => b.percentage * 100); // Convert to basis points
+      const guardians = beneficiaries.map(b => b.guardian || '0x0000000000000000000000000000000000000000');
+      const ages = beneficiaries.map(b => b.age);
+      
+      if (sarcophagusContract) {
+        const tx = await sarcophagusContract.createSarcophagusWithGuardians(
+          addresses,
+          percentages,
+          guardians,
+          ages
+        );
+        await tx.wait();
+        
+        // Update beneficiaries with enhanced information
+        for (let i = 0; i < beneficiaries.length; i++) {
+          const beneficiary = beneficiaries[i];
+          if (beneficiary.contingentBeneficiary || beneficiary.survivorshipPeriod || 
+              beneficiary.successorGuardian || beneficiary.contactInfo) {
+            await sarcophagusContract.updateBeneficiaryEnhanced(
+              i,
+              beneficiary.contingentBeneficiary || '0x0000000000000000000000000000000000000000',
+              beneficiary.survivorshipPeriod || 0,
+              beneficiary.successorGuardian || '0x0000000000000000000000000000000000000000',
+              beneficiary.contactInfo || ''
+            );
+          }
+        }
+        
+        // Designate charity if provided
+        if (charityAddress) {
+          await sarcophagusContract.designateCharity(charityAddress);
+        }
+      }
+      
+      onComplete(beneficiaries, charityAddress);
     } catch (error) {
-      console.error('Error fetching beneficiaries:', error);
-      showNotification('Failed to fetch beneficiaries', 'error');
+      console.error('Error creating sarcophagus:', error);
+    } finally {
+      setIsLoading(false);
     }
-    setLoading('fetchBeneficiaries', false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!address || !percentage) {
-      showNotification('Please fill in all fields', 'warning');
-      return;
-    }
-
-    const percentageNum = parseInt(percentage);
-    if (isNaN(percentageNum) || percentageNum <= 0 || percentageNum > 100) {
-      showNotification('Percentage must be between 1 and 100', 'warning');
-      return;
-    }
-
-    // Check total percentage
-    const totalPercentage = beneficiaries.reduce((sum, b) => sum + b.percentage, 0) + percentageNum;
-    if (totalPercentage > 100) {
-      showNotification('Total percentage cannot exceed 100%', 'warning');
-      return;
-    }
-
-    setLoading('addBeneficiary', true);
-    try {
-      const tx = await addBeneficiary(address, percentageNum);
-      showNotification('Adding beneficiary...', 'info');
-      await tx.wait();
-      showNotification('Beneficiary added successfully!', 'success');
-      await fetchBeneficiaries();
-      setAddress('');
-      setPercentage('');
-      setShowAddForm(false);
-    } catch (error) {
-      console.error('Error adding beneficiary:', error);
-      showNotification('Failed to add beneficiary', 'error');
-    }
-    setLoading('addBeneficiary', false);
-  };
-
-  const handleRemove = async (beneficiaryAddress: string) => {
-    setLoading(`removeBeneficiary-${beneficiaryAddress}`, true);
-    try {
-      const tx = await removeBeneficiary(beneficiaryAddress);
-      showNotification('Removing beneficiary...', 'info');
-      await tx.wait();
-      showNotification('Beneficiary removed successfully!', 'success');
-      await fetchBeneficiaries();
-    } catch (error) {
-      console.error('Error removing beneficiary:', error);
-      showNotification('Failed to remove beneficiary', 'error');
-    }
-    setLoading(`removeBeneficiary-${beneficiaryAddress}`, false);
-  };
-
-  const shortenAddress = (addr: string) => {
-    return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
-  };
+  const totalPercentage = beneficiaries.reduce((sum, b) => sum + b.percentage, 0);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-[#1a1f2e] rounded-2xl p-8 max-w-2xl w-full">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-pink-400">Manage Beneficiaries</h2>
+          <h2 className="text-2xl font-bold text-gray-800">Designate Beneficiaries</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-300"
+            className="text-gray-500 hover:text-gray-700 text-xl"
           >
-            ✕
+            ×
           </button>
         </div>
 
-        {/* Beneficiaries List */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-300">Current Beneficiaries</h3>
+        <div className="space-y-6">
+          {/* Basic Beneficiary Information */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Primary Beneficiaries</h3>
+            {beneficiaries.map((beneficiary, index) => (
+              <div key={index} className="border rounded-lg p-4 mb-4 bg-gray-50">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Beneficiary Address
+                    </label>
+                    <input
+                      type="text"
+                      value={beneficiary.address}
+                      onChange={(e) => updateBeneficiary(index, 'address', e.target.value)}
+                      placeholder="0x..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Percentage ({beneficiary.percentage}%)
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={beneficiary.percentage}
+                      onChange={(e) => updateBeneficiary(index, 'percentage', parseInt(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Age
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="120"
+                      value={beneficiary.age}
+                      onChange={(e) => updateBeneficiary(index, 'age', parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Guardian for minors */}
+                {beneficiary.age < 18 && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Guardian Address (Required for minors)
+                    </label>
+                    <input
+                      type="text"
+                      value={beneficiary.guardian || ''}
+                      onChange={(e) => updateBeneficiary(index, 'guardian', e.target.value)}
+                      placeholder="0x..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                {/* Advanced Options */}
+                {showAdvanced && (
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="font-medium text-gray-700">Advanced Options</h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Contingent Beneficiary
+                        </label>
+                        <input
+                          type="text"
+                          value={beneficiary.contingentBeneficiary || ''}
+                          onChange={(e) => updateBeneficiary(index, 'contingentBeneficiary', e.target.value)}
+                          placeholder="Backup beneficiary address"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Survivorship Period (days)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="365"
+                          value={beneficiary.survivorshipPeriod || 0}
+                          onChange={(e) => updateBeneficiary(index, 'survivorshipPeriod', parseInt(e.target.value))}
+                          placeholder="0 = no requirement"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Successor Guardian
+                        </label>
+                        <input
+                          type="text"
+                          value={beneficiary.successorGuardian || ''}
+                          onChange={(e) => updateBeneficiary(index, 'successorGuardian', e.target.value)}
+                          placeholder="Backup guardian address"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Contact Info (IPFS Hash)
+                        </label>
+                        <input
+                          type="text"
+                          value={beneficiary.contactInfo || ''}
+                          onChange={(e) => updateBeneficiary(index, 'contactInfo', e.target.value)}
+                          placeholder="Qm..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={() => removeBeneficiary(index)}
+                    className="text-red-600 hover:text-red-800 text-sm"
+                    disabled={beneficiaries.length === 1}
+                  >
+                    Remove Beneficiary
+                  </button>
+                  
+                  <button
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    {showAdvanced ? 'Hide' : 'Show'} Advanced Options
+                  </button>
+                </div>
+              </div>
+            ))}
+            
             <button
-              onClick={() => setShowAddForm(true)}
-              disabled={isLoading.fetchBeneficiaries}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-pink-600 text-white hover:bg-pink-700 transition-colors ${
-                isLoading.fetchBeneficiaries ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              onClick={addBeneficiary}
+              disabled={beneficiaries.length >= 5}
+              className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              <PlusIcon className="w-5 h-5" />
-              Add New
+              Add Beneficiary ({beneficiaries.length}/5)
             </button>
           </div>
 
-          {isLoading.fetchBeneficiaries ? (
-            <div className="text-gray-400">Loading beneficiaries...</div>
-          ) : beneficiaries.length === 0 ? (
-            <div className="text-gray-400">No beneficiaries added yet</div>
-          ) : (
-            <div className="space-y-3">
-              {beneficiaries.map((beneficiary) => (
-                <div
-                  key={beneficiary.address}
-                  className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg"
-                >
-                  <div>
-                    <div className="text-white font-medium">{shortenAddress(beneficiary.address)}</div>
-                    <div className="text-gray-400 text-sm">{beneficiary.percentage}% Share</div>
-                  </div>
-                  <button
-                    onClick={() => handleRemove(beneficiary.address)}
-                    disabled={isLoading[`removeBeneficiary-${beneficiary.address}`]}
-                    className={`p-2 rounded-lg text-red-400 hover:bg-red-400/10 transition-colors ${
-                      isLoading[`removeBeneficiary-${beneficiary.address}`] ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                  >
-                    <TrashIcon className="w-5 h-5" />
-                  </button>
-                </div>
-              ))}
-              <div className="mt-4 text-right text-gray-400 text-sm">
-                Total Allocation: {beneficiaries.reduce((sum, b) => sum + b.percentage, 0)}%
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Add Beneficiary Form */}
-        {showAddForm && (
-          <form onSubmit={handleSubmit} className="border-t border-gray-700 pt-6">
-            <div className="mb-4">
-              <label className="block text-gray-300 mb-2">Beneficiary Address</label>
+          {/* Charity Designation */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold mb-4">Charity Fallback</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Designate a charity to receive your estate if all beneficiaries are deceased or incapacitated.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Charity Address (Optional)
+              </label>
               <input
                 type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="w-full bg-gray-800 rounded-lg px-4 py-2 text-white"
+                value={charityAddress}
+                onChange={(e) => setCharityAddress(e.target.value)}
                 placeholder="0x..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <div className="mb-6">
-              <label className="block text-gray-300 mb-2">Percentage Share</label>
-              <input
-                type="number"
-                value={percentage}
-                onChange={(e) => setPercentage(e.target.value)}
-                className="w-full bg-gray-800 rounded-lg px-4 py-2 text-white"
-                placeholder="1-100"
-                min="1"
-                max="100"
-              />
+          </div>
+
+          {/* Validation */}
+          <div className="border-t pt-6">
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-sm font-medium">Total Percentage: {totalPercentage}%</span>
+              <span className={`text-sm ${totalPercentage === 100 ? 'text-green-600' : 'text-red-600'}`}>
+                {totalPercentage === 100 ? '✓ Valid' : '✗ Must equal 100%'}
+              </span>
             </div>
-            <div className="flex justify-end gap-4">
-              <button
-                type="button"
-                onClick={() => setShowAddForm(false)}
-                className="px-6 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isLoading.addBeneficiary}
-                className={`px-6 py-2 rounded-lg bg-gradient-to-r from-pink-600 to-rose-600 text-white hover:opacity-90 transition-opacity ${
-                  isLoading.addBeneficiary ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {isLoading.addBeneficiary ? 'Adding...' : 'Add Beneficiary'}
-              </button>
+            
+            <div className="space-y-2 text-sm text-gray-600">
+              <div>• Maximum 5 beneficiaries allowed</div>
+              <div>• Minors (under 18) require a guardian</div>
+              <div>• Survivorship periods can be 0-365 days</div>
+              <div>• Contingent beneficiaries provide backup inheritance</div>
+              <div>• Charity receives estate if no valid beneficiaries exist</div>
             </div>
-          </form>
-        )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-4 pt-6">
+            <button
+              onClick={onClose}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!validateBeneficiaries() || isLoading}
+              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Creating...' : 'Create Sarcophagus'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

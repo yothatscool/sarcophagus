@@ -7,31 +7,57 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying contracts with account:", deployer.address);
 
+  // Real token addresses on VeChain
+  const B3TR_ADDRESS = "0x5ef79995FE8a89e0812330E4378eB2660ceDe699";
+  const VTHO_ADDRESS = "0x0000000000000000000000000000456E65726779";
+  // VET is native token - no contract address needed
+
+  console.log("Using token addresses:");
+  console.log("B3TR:", B3TR_ADDRESS);
+  console.log("VTHO:", VTHO_ADDRESS);
+  console.log("VET: Native token (no contract address)");
+
   // Deploy DeathVerifier first
   console.log("Deploying DeathVerifier...");
   const DeathVerifier = await ethers.getContractFactory("DeathVerifier");
-  const deathVerifier = await DeathVerifier.deploy();
-  await deathVerifier.deployed();
-  console.log("DeathVerifier deployed to:", deathVerifier.address);
+  const deathVerifierContract = await DeathVerifier.deploy();
+  await deathVerifierContract.waitForDeployment();
+  const deathVerifierAddress = await deathVerifierContract.getAddress();
+  console.log("DeathVerifier deployed to:", deathVerifierAddress);
 
-  // Deploy Sarcophagus (using mock B3TR address for now)
+  // Deploy Sarcophagus with all required addresses
   console.log("Deploying Sarcophagus...");
-  const mockB3TRAddress = "0x1234567890123456789012345678901234567890"; // Replace with actual B3TR address
   const Sarcophagus = await ethers.getContractFactory("Sarcophagus");
-  const sarcophagus = await Sarcophagus.deploy(mockB3TRAddress, deathVerifier.address);
-  await sarcophagus.deployed();
-  console.log("Sarcophagus deployed to:", sarcophagus.address);
+  // Using B3TR address as a placeholder for OBOL for this simplified deployment
+  const sarcophagusContract = await Sarcophagus.deploy(
+    VTHO_ADDRESS,
+    B3TR_ADDRESS,
+    B3TR_ADDRESS, // Placeholder for obolToken
+    deathVerifierAddress,
+    B3TR_ADDRESS // Placeholder for OBOL contract
+  );
+  await sarcophagusContract.waitForDeployment();
+  const sarcophagusAddress = await sarcophagusContract.getAddress();
+  console.log("Sarcophagus deployed to:", sarcophagusAddress);
 
   // Grant roles
   console.log("Setting up roles...");
-  await deathVerifier.grantRole(await deathVerifier.ORACLE_ROLE(), deployer.address);
-  await sarcophagus.grantRole(await sarcophagus.ORACLE_ROLE(), deployer.address);
-  await sarcophagus.grantRole(await sarcophagus.VERIFIER_ROLE(), deployer.address);
+  await deathVerifierContract.grantRole(await deathVerifierContract.ORACLE_ROLE(), deployer.address);
+  await sarcophagusContract.grantRole(await sarcophagusContract.ORACLE_ROLE(), deployer.address);
+  await sarcophagusContract.grantRole(await sarcophagusContract.VERIFIER_ROLE(), deployer.address);
 
-  console.log("Deployment complete!");
-  console.log("DeathVerifier:", deathVerifier.address);
-  console.log("Sarcophagus:", sarcophagus.address);
+  console.log("\n=== DEPLOYMENT COMPLETE ===");
+  console.log("DeathVerifier:", deathVerifierAddress);
+  console.log("Sarcophagus:", sarcophagusAddress);
+  console.log("B3TR Token:", B3TR_ADDRESS);
+  console.log("VTHO Token:", VTHO_ADDRESS);
+  console.log("Deployer:", deployer.address);
   console.log("Deployer has all necessary roles");
+  
+  console.log("\n=== NEXT STEPS ===");
+  console.log("1. Verify contracts on VeChain explorer");
+  console.log("2. Test all functions on testnet");
+  console.log("3. Set up oracle addresses for death verification");
 }
 
 main()

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 interface IVNSResolver {
     function addr(bytes32 node) external view returns (address);
