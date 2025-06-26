@@ -14,7 +14,7 @@ export default function NextAction({
   hasSarcophagus, 
   userSarcophagus 
 }: NextActionProps) {
-  const { address } = useWallet()
+  const { account } = useWallet()
 
   const getNextAction = () => {
     if (!isUserVerified) {

@@ -14,7 +14,7 @@ interface WithdrawalEligibility {
 }
 
 export default function WithdrawalManager() {
-  const { address } = useWallet()
+  const { account } = useWallet()
   const { 
     getWithdrawalEligibility, 
     withdrawPartial, 
@@ -29,14 +29,14 @@ export default function WithdrawalManager() {
   const [showEmergencyModal, setShowEmergencyModal] = useState(false)
 
   useEffect(() => {
-    if (address) {
+    if (account) {
       loadEligibility()
     }
-  }, [address])
+  }, [account])
 
   const loadEligibility = async () => {
-    if (!address) return
-    const data = await getWithdrawalEligibility(address)
+    if (!account) return
+    const data = await getWithdrawalEligibility(account)
     setEligibility(data)
   }
 

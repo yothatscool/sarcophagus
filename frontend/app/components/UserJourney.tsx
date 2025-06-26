@@ -11,7 +11,7 @@ import ClaimInheritance from './ClaimInheritance'
 import Dashboard from './Dashboard'
 
 export default function UserJourney() {
-  const { isConnected, address } = useWallet()
+  const { isConnected, account } = useWallet()
   const { isUserVerified, hasSarcophagus, userSarcophagus } = useSarcophagusContract()
 
   // Determine user's current journey stage

@@ -11,18 +11,18 @@ interface Transaction {
 }
 
 export default function TransactionHistory() {
-  const { address } = useWallet();
+  const { account } = useWallet();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (address) {
+    if (account) {
       fetchTransactionHistory();
     }
-  }, [address]);
+  }, [account]);
 
   const fetchTransactionHistory = async () => {
-    if (!address) return;
+    if (!account) return;
 
     setIsLoading(true);
     try {

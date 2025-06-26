@@ -12,7 +12,7 @@ import RecentActivity from './RecentActivity'
 import QuickActions from './QuickActions'
 
 export default function Dashboard() {
-  const { isConnected, address } = useWallet()
+  const { isConnected, account } = useWallet()
   const { 
     isUserVerified, 
     hasSarcophagus, 
@@ -28,10 +28,10 @@ export default function Dashboard() {
 
   // Load API data on component mount
   useEffect(() => {
-    if (isConnected && address) {
+    if (isConnected && account) {
       loadApiData()
     }
-  }, [isConnected, address])
+  }, [isConnected, account])
 
   const loadApiData = async () => {
     try {

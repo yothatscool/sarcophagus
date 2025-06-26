@@ -26,7 +26,7 @@ interface UserOBOLData {
 }
 
 export default function OBOLTokenPage() {
-  const { isConnected, address } = useWallet()
+  const { isConnected, account } = useWallet()
   const { showNotification } = useNotification()
   const { isLoading } = useLoading()
   const [obolTokenomics, setObolTokenomics] = useState<OBOLTokenomics | null>(null)
@@ -36,7 +36,7 @@ export default function OBOLTokenPage() {
 
   useEffect(() => {
     loadOBOLData()
-  }, [isConnected, address])
+  }, [isConnected, account])
 
   const loadOBOLData = async () => {
     try {
@@ -52,7 +52,7 @@ export default function OBOLTokenPage() {
         marketCap: '$1,525,000'
       })
 
-      if (isConnected && address) {
+      if (isConnected && account) {
         setUserOBOLData({
           balance: '1,250',
           totalEarned: '2,500',
@@ -103,7 +103,7 @@ export default function OBOLTokenPage() {
           <div className="flex items-center space-x-4">
             {isConnected ? (
               <span className="text-sarcophagus-300 text-sm">
-                {address?.slice(0, 6)}...{address?.slice(-4)}
+                {account?.slice(0, 6)}...{account?.slice(-4)}
               </span>
             ) : (
               <span className="text-sarcophagus-400 text-sm">Not Connected</span>
