@@ -26,6 +26,7 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@rainbow-me/rainbowkit": "^1.2.5",
+    "@vechain/dapp-kit-react": "^1.0.0",
     "autoprefixer": "10.4.16",
     "bufferutil": "^4.0.9",
     "clsx": "^2.0.0",
