@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { useWallet } from '../contexts/WalletContext'
+// import { useWallet } from '../contexts/WalletContext'
 
 interface NextActionProps {
   isUserVerified: boolean
@@ -14,7 +14,7 @@ export default function NextAction({
   hasSarcophagus, 
   userSarcophagus 
 }: NextActionProps) {
-  const { account } = useWallet()
+  // const { account } = useWallet()
 
   const getNextAction = () => {
     if (!isUserVerified) {
