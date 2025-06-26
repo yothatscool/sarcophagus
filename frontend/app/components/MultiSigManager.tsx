@@ -1,8 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CONTRACT_ADDRESSES, MULTISIG_CONFIG } from '../config/contracts';
-import { useWallet } from '../contexts/WalletContext';
+
+// Contract addresses and configuration
+const CONTRACT_ADDRESSES = {
+  TESTNET: {
+    MULTISIG_WALLET: '0x1234567890123456789012345678901234567890'
+  }
+};
+
+const MULTISIG_CONFIG = {
+  SIGNERS: ['0x1234567890123456789012345678901234567890'],
+  REQUIRED_CONFIRMATIONS: 2
+};
 
 interface Transaction {
   id: number;
@@ -20,7 +30,6 @@ interface MultiSigManagerProps {
 }
 
 export default function MultiSigManager({ userAddress }: MultiSigManagerProps) {
-  const { connex } = useWallet();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,18 +44,13 @@ export default function MultiSigManager({ userAddress }: MultiSigManagerProps) {
   const addresses = CONTRACT_ADDRESSES.TESTNET; // Default to testnet for now
 
   useEffect(() => {
-    if (connex) {
-      loadTransactions();
-    }
-  }, [connex]);
+    loadTransactions();
+  }, []);
 
   const loadTransactions = async () => {
-    if (!connex) return;
-
     try {
       setLoading(true);
-      // Use Connex to interact with MultiSig contract
-      // This is a simplified version - in production you'd use proper Connex contract calls
+      // Mock transactions for demo purposes
       const mockTransactions: Transaction[] = [
         {
           id: 1,
@@ -70,14 +74,13 @@ export default function MultiSigManager({ userAddress }: MultiSigManagerProps) {
   };
 
   const submitTransaction = async () => {
-    if (!connex || !newTransaction.target) return;
+    if (!newTransaction.target) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      // Use Connex to submit transaction
-      // This would use connex.vendor.sign('tx', {...}) in production
+      // Mock transaction submission for demo
       setSuccess('Transaction submitted successfully');
       setNewTransaction({ target: '', value: '0', data: '' });
       await loadTransactions();
@@ -90,13 +93,11 @@ export default function MultiSigManager({ userAddress }: MultiSigManagerProps) {
   };
 
   const confirmTransaction = async (transactionId: number) => {
-    if (!connex) return;
-
     try {
       setLoading(true);
       setError(null);
 
-      // Use Connex to confirm transaction
+      // Mock transaction confirmation for demo
       setSuccess('Transaction confirmed successfully');
       await loadTransactions();
     } catch (err) {
@@ -108,13 +109,11 @@ export default function MultiSigManager({ userAddress }: MultiSigManagerProps) {
   };
 
   const revokeConfirmation = async (transactionId: number) => {
-    if (!connex) return;
-
     try {
       setLoading(true);
       setError(null);
 
-      // Use Connex to revoke confirmation
+      // Mock confirmation revocation for demo
       setSuccess('Confirmation revoked successfully');
       await loadTransactions();
     } catch (err) {
@@ -126,13 +125,11 @@ export default function MultiSigManager({ userAddress }: MultiSigManagerProps) {
   };
 
   const executeTransaction = async (transactionId: number) => {
-    if (!connex) return;
-
     try {
       setLoading(true);
       setError(null);
 
-      // Use Connex to execute transaction
+      // Mock transaction execution for demo
       setSuccess('Transaction executed successfully');
       await loadTransactions();
     } catch (err) {
@@ -225,50 +222,80 @@ export default function MultiSigManager({ userAddress }: MultiSigManagerProps) {
         {/* Transactions List */}
         <div className="p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Pending Transactions</h3>
+          
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-red-700">{error}</p>
+            </div>
+          )}
+
+          {success && (
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-green-700">{success}</p>
+            </div>
+          )}
+
           {loading ? (
-            <div className="text-center py-4">Loading transactions...</div>
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-2 text-gray-600">Loading transactions...</p>
+            </div>
           ) : transactions.length === 0 ? (
-            <div className="text-center py-4 text-gray-500">No transactions found</div>
+            <div className="text-center py-8 text-gray-500">
+              <p>No pending transactions</p>
+            </div>
           ) : (
             <div className="space-y-4">
-              {transactions.map((tx) => (
-                <div key={tx.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
+              {transactions.map((transaction) => (
+                <div key={transaction.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-3">
                     <div>
-                      <strong>ID: {tx.id}</strong>
-                      <div className="text-sm text-gray-600">Target: {tx.target}</div>
-                      <div className="text-sm text-gray-600">Value: {tx.value} VET</div>
+                      <h4 className="font-medium text-gray-900">Transaction #{transaction.id}</h4>
+                      <p className="text-sm text-gray-600">Target: {transaction.target}</p>
+                      <p className="text-sm text-gray-600">Value: {transaction.value} VET</p>
                     </div>
                     <div className="text-right">
-                      <div className={`px-2 py-1 rounded text-xs ${
-                        tx.executed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        transaction.executed 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {tx.executed ? 'Executed' : 'Pending'}
-                      </div>
+                        {transaction.executed ? 'Executed' : 'Pending'}
+                      </span>
                     </div>
                   </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                    <div>
+                      <strong>Confirmations:</strong> {transaction.confirmations}/{MULTISIG_CONFIG.REQUIRED_CONFIRMATIONS}
+                    </div>
+                    <div>
+                      <strong>Timelock:</strong> {new Date(transaction.timelockEnd * 1000).toLocaleString()}
+                    </div>
+                  </div>
+
                   <div className="flex space-x-2">
-                    {!tx.isConfirmed && (
+                    {!transaction.isConfirmed && (
                       <button
-                        onClick={() => confirmTransaction(tx.id)}
+                        onClick={() => confirmTransaction(transaction.id)}
                         disabled={loading}
                         className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
                       >
                         Confirm
                       </button>
                     )}
-                    {tx.isConfirmed && !tx.executed && (
+                    {transaction.isConfirmed && (
                       <button
-                        onClick={() => revokeConfirmation(tx.id)}
+                        onClick={() => revokeConfirmation(transaction.id)}
                         disabled={loading}
                         className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
                       >
                         Revoke
                       </button>
                     )}
-                    {canExecute(tx) && (
+                    {canExecute(transaction) && (
                       <button
-                        onClick={() => executeTransaction(tx.id)}
+                        onClick={() => executeTransaction(transaction.id)}
                         disabled={loading}
                         className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
                       >
@@ -281,18 +308,6 @@ export default function MultiSigManager({ userAddress }: MultiSigManagerProps) {
             </div>
           )}
         </div>
-
-        {/* Error/Success Messages */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mx-6 mb-6">
-            <p className="text-red-800">{error}</p>
-          </div>
-        )}
-        {success && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mx-6 mb-6">
-            <p className="text-green-800">{success}</p>
-          </div>
-        )}
       </div>
     </div>
   );
