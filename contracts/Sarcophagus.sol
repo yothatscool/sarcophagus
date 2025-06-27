@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./interfaces/IDeathVerifier.sol";
 import "./interfaces/IOBOL.sol";
+import "./interfaces/IPriceOracle.sol";
 
 /**
  * @title Sarcophagus - Phase 1
@@ -26,6 +27,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
     error InvalidAmount();
     error InvalidBeneficiary();
     error DeathAlreadyVerified();
+    error DeathNotVerified();
     error AlreadyClaimed();
     error MinimumLockNotMet();
     error InvalidBeneficiaryCount();
@@ -56,6 +58,8 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
     error WithdrawalPeriodNotMet();
     error InvalidWithdrawalPercentage();
     error EmergencyWithdrawalTooEarly();
+    error PriceOracleNotSet();
+    error InvalidConversionRate();
 
     // Roles
     bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
@@ -65,6 +69,13 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
     address public immutable vthoAddress; // VTHO token address
     address public immutable b3trAddress; // B3TR token address
     address public immutable obolAddress; // OBOL token address
+    address public immutable gloAddress; // GLO stablecoin address
+
+    // Price oracle
+    IPriceOracle public priceOracle;
+    uint256 public constant PRICE_PRECISION = 1e18; // 18 decimals for price precision
+    uint256 public constant MAX_PRICE_IMPACT = 500; // 5% max price impact (500 basis points)
+    uint256 public constant MIN_CONVERSION_AMOUNT = 1 ether; // 1 token minimum for conversion
 
     // Fee configuration
     uint256 public constant INHERITANCE_FEE_RATE = 100; // 1% (100 basis points)
@@ -73,7 +84,6 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
     address public immutable feeCollector; // Address to collect fees
 
     // Anti-farming constants
-    uint256 public constant MINIMUM_LOCK_PERIOD = 30 days;
     uint256 public constant MINIMUM_DEPOSIT = 100 ether; // 100 VET minimum
     uint256 public constant MAX_BENEFICIARIES = 5;
     uint256 public constant MAX_AGE = 120;
@@ -118,10 +128,12 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         uint256 vthoAmount;
         uint256 b3trAmount;
         uint256 obolAmount; // OBOL tokens locked in vault
+        uint256 gloAmount; // GLO stablecoin locked in vault
         uint256 initialVetAmount;
         uint256 initialVthoAmount;
         uint256 initialB3trAmount;
         uint256 initialObolAmount;
+        uint256 initialGloAmount;
         uint256 createdAt;
         uint256 lastDeposit;
         uint256 dailyDepositTotal;
@@ -199,18 +211,24 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
     event NFTCollectionWhitelisted(address indexed nftContract, uint256 maxValue);
     event NFTCollectionRemoved(address indexed nftContract);
     event GlobalMaxNFTValueUpdated(uint256 oldValue, uint256 newValue);
+    event TokensConverted(address indexed user, address indexed fromToken, address indexed toToken, uint256 fromAmount, uint256 toAmount);
+    event GLOAdded(address indexed user, uint256 amount);
+    event PriceOracleUpdated(address indexed oldOracle, address indexed newOracle);
+    event DebugEvent(string message, address indexed user, uint256 value);
+    event ObolRewardsClaimed(address indexed user);
 
     IDeathVerifier public immutable deathVerifier;
     IOBOL public immutable obol;
 
-    constructor(address _vthoToken, address _b3trToken, address _obolToken, address _deathVerifier, address _obol, address _feeCollector) {
-        if (_vthoToken == address(0) || _b3trToken == address(0) || _obolToken == address(0) || _deathVerifier == address(0) || _obol == address(0) || _feeCollector == address(0)) {
+    constructor(address _vthoToken, address _b3trToken, address _obolToken, address _gloToken, address _deathVerifier, address _obol, address _feeCollector) {
+        if (_vthoToken == address(0) || _b3trToken == address(0) || _obolToken == address(0) || _gloToken == address(0) || _deathVerifier == address(0) || _obol == address(0) || _feeCollector == address(0)) {
             revert InvalidAddress();
         }
         
         vthoAddress = _vthoToken;
         b3trAddress = _b3trToken;
         obolAddress = _obolToken;
+        gloAddress = _gloToken;
         deathVerifier = IDeathVerifier(_deathVerifier);
         obol = IOBOL(_obol);
         feeCollector = _feeCollector;
@@ -494,7 +512,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         SarcophagusData storage sarc = sarcophagi[msg.sender];
         if (sarc.createdAt == 0) revert SarcophagusNotExists();
         if (sarc.isDeceased) revert DeathAlreadyVerified();
-
+        
         // Transfer OBOL tokens from user to vault
         IERC20(obolAddress).safeTransferFrom(msg.sender, address(this), obolAmount);
         
@@ -505,11 +523,30 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         } else {
             sarc.initialObolAmount += obolAmount;
         }
-
+        
         // Update OBOL rewards for all locked tokens
         _updateObolRewards(msg.sender);
-
+        
         emit ObolTokensLocked(msg.sender, obolAmount);
+    }
+
+    /**
+     * @notice Claim OBOL rewards for locked tokens
+     */
+    function claimObolRewards() external nonReentrant {
+        if (circuitBreakerActive) revert CircuitBreakerActive();
+        
+        SarcophagusData storage sarc = sarcophagi[msg.sender];
+        if (sarc.createdAt == 0) revert SarcophagusNotExists();
+        if (sarc.isDeceased) revert DeathAlreadyVerified();
+        
+        // Update OBOL rewards for all locked tokens
+        _updateObolRewards(msg.sender);
+        
+        // Claim rewards from OBOL contract
+        obol.claimContinuousRewards(msg.sender);
+        
+        emit ObolRewardsClaimed(msg.sender);
     }
 
     /**
@@ -672,14 +709,6 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         if (vetAmount < MINIMUM_DEPOSIT && sarc.vetAmount == 0) revert InvalidVETAmount();
         if (vetAmount == 0 && vthoAmount == 0 && b3trAmount == 0) revert InvalidAmount();
 
-        // Check minimum lock period for new deposits
-        if (sarc.vetAmount == 0 && sarc.vthoAmount == 0 && sarc.b3trAmount == 0) {
-            // First deposit - check minimum lock period
-            if (block.timestamp < sarc.createdAt + MINIMUM_LOCK_PERIOD) {
-                revert MinimumLockNotMet();
-            }
-        }
-
         // Transfer tokens and update balances
         if (vetAmount > 0) {
             if (msg.value != vetAmount) revert InvalidVETAmount();
@@ -707,6 +736,205 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         _updateObolRewards(msg.sender);
 
         emit TokensDeposited(msg.sender, vetAmount, vthoAmount, b3trAmount);
+    }
+
+    /**
+     * @notice Deposit GLO stablecoin into sarcophagus
+     * @param gloAmount Amount of GLO to deposit
+     */
+    function depositGLO(uint256 gloAmount) external nonReentrant {
+        if (circuitBreakerActive) revert CircuitBreakerActive();
+        SarcophagusData storage sarc = sarcophagi[msg.sender];
+        if (sarc.createdAt == 0) revert SarcophagusNotExists();
+        if (sarc.isDeceased) revert DeathAlreadyVerified();
+        if (gloAmount == 0) revert InvalidAmount();
+
+        // Transfer GLO tokens
+        IERC20(gloAddress).safeTransferFrom(msg.sender, address(this), gloAmount);
+        sarc.gloAmount += gloAmount;
+        sarc.initialGloAmount += gloAmount;
+
+        // Update deposit tracking
+        sarc.lastDeposit = block.timestamp;
+        sarc.dailyDepositTotal += gloAmount;
+
+        // Update OBOL rewards for all locked tokens
+        _updateObolRewards(msg.sender);
+
+        emit GLOAdded(msg.sender, gloAmount);
+    }
+
+    /**
+     * @notice Add GLO tokens to sarcophagus (alias for depositGLO)
+     * @param gloAmount Amount of GLO to add
+     */
+    function addGLO(uint256 gloAmount) external nonReentrant {
+        emit DebugEvent("addGLO: Starting", msg.sender, gloAmount);
+        
+        if (circuitBreakerActive) revert CircuitBreakerActive();
+        emit DebugEvent("addGLO: Circuit breaker check passed", msg.sender, 0);
+        
+        SarcophagusData storage sarc = sarcophagi[msg.sender];
+        if (sarc.createdAt == 0) revert SarcophagusNotExists();
+        emit DebugEvent("addGLO: Sarcophagus exists check passed", msg.sender, 0);
+        
+        if (sarc.isDeceased) revert DeathAlreadyVerified();
+        emit DebugEvent("addGLO: Not deceased check passed", msg.sender, 0);
+        
+        if (gloAmount == 0) revert InvalidAmount();
+        emit DebugEvent("addGLO: Amount validation passed", msg.sender, 0);
+
+        // Transfer GLO tokens
+        emit DebugEvent("addGLO: About to transfer GLO", msg.sender, gloAmount);
+        IERC20(gloAddress).safeTransferFrom(msg.sender, address(this), gloAmount);
+        emit DebugEvent("addGLO: GLO transfer completed", msg.sender, 0);
+        
+        sarc.gloAmount += gloAmount;
+        sarc.initialGloAmount += gloAmount;
+        emit DebugEvent("addGLO: Balances updated", msg.sender, sarc.gloAmount);
+
+        // Update deposit tracking
+        sarc.lastDeposit = block.timestamp;
+        sarc.dailyDepositTotal += gloAmount;
+        emit DebugEvent("addGLO: Deposit tracking updated", msg.sender, 0);
+
+        // Update OBOL rewards for all locked tokens
+        emit DebugEvent("addGLO: About to update OBOL rewards", msg.sender, 0);
+        _updateObolRewards(msg.sender);
+        emit DebugEvent("addGLO: OBOL rewards updated", msg.sender, 0);
+
+        emit GLOAdded(msg.sender, gloAmount);
+        emit DebugEvent("addGLO: Function completed successfully", msg.sender, 0);
+    }
+
+    /**
+     * @notice Convert tokens within the vault using price oracle
+     * @param fromToken Token to convert from
+     * @param toToken Token to convert to
+     * @param amount Amount to convert
+     */
+    function convertTokens(address fromToken, address toToken, uint256 amount) external nonReentrant whenNotPaused {
+        if (address(priceOracle) == address(0)) revert PriceOracleNotSet();
+        if (fromToken == address(0) || toToken == address(0)) revert InvalidAddress();
+        if (amount < MIN_CONVERSION_AMOUNT) revert InvalidAmount();
+        if (fromToken == toToken) revert InvalidAddress();
+        
+        SarcophagusData storage sarc = sarcophagi[msg.sender];
+        if (sarc.createdAt == 0) revert SarcophagusNotExists();
+        
+        // Check if user has sufficient balance
+        uint256 userBalance = _getTokenBalance(sarc, fromToken);
+        if (userBalance < amount) revert InsufficientBalance();
+        
+        // Get conversion rate from oracle
+        uint256 conversionRate = priceOracle.getConversionRate(fromToken, toToken, amount);
+        if (conversionRate == 0) revert InvalidConversionRate();
+        
+        // Calculate amount to receive
+        uint256 toAmount = (amount * conversionRate) / PRICE_PRECISION;
+        if (toAmount == 0) revert InvalidConversionRate();
+        
+        // Update balances
+        _updateTokenBalance(sarc, fromToken, amount, false); // Subtract fromToken
+        _updateTokenBalance(sarc, toToken, toAmount, true); // Add toToken
+        
+        emit TokensConverted(msg.sender, fromToken, toToken, amount, toAmount);
+    }
+
+    /**
+     * @notice Get conversion rate for tokens
+     * @param fromToken Token to convert from
+     * @param toToken Token to convert to
+     * @param amount Amount to convert
+     * @return conversionRate The conversion rate
+     */
+    function getConversionRate(address fromToken, address toToken, uint256 amount) external view returns (uint256 conversionRate) {
+        if (address(priceOracle) == address(0)) revert PriceOracleNotSet();
+        if (fromToken == address(0) || toToken == address(0)) revert InvalidAddress();
+        if (amount == 0) revert InvalidAmount();
+        
+        return priceOracle.getConversionRate(fromToken, toToken, amount);
+    }
+
+    /**
+     * @notice Get token price in VET
+     * @param token Token address
+     * @return price The token price in VET
+     */
+    function getTokenPrice(address token) external view returns (uint256 price) {
+        if (address(priceOracle) == address(0)) revert PriceOracleNotSet();
+        if (token == address(0)) revert InvalidAddress();
+        
+        return priceOracle.getTokenPrice(token);
+    }
+
+    /**
+     * @notice Check if token pair is supported for conversion
+     * @param fromToken Token to convert from
+     * @param toToken Token to convert to
+     * @return supported Whether the pair is supported
+     */
+    function isConversionSupported(address fromToken, address toToken) external view returns (bool supported) {
+        if (address(priceOracle) == address(0)) return false;
+        if (fromToken == address(0) || toToken == address(0)) return false;
+        
+        return priceOracle.isSupported(fromToken, toToken);
+    }
+
+    /**
+     * @notice Get user's token balance in vault
+     * @param sarc Sarcophagus data storage
+     * @param token Token address
+     * @return balance User's balance of the token
+     */
+    function _getTokenBalance(SarcophagusData storage sarc, address token) internal view returns (uint256 balance) {
+        if (token == vthoAddress) return sarc.vthoAmount;
+        if (token == b3trAddress) return sarc.b3trAmount;
+        if (token == obolAddress) return sarc.obolAmount;
+        if (token == gloAddress) return sarc.gloAmount;
+        if (token == address(0)) return sarc.vetAmount; // VET is address(0)
+        return 0;
+    }
+
+    /**
+     * @notice Update user's token balance in vault
+     * @param sarc Sarcophagus data storage
+     * @param token Token address
+     * @param amount Amount to add/subtract
+     * @param isAdd Whether to add (true) or subtract (false)
+     */
+    function _updateTokenBalance(SarcophagusData storage sarc, address token, uint256 amount, bool isAdd) internal {
+        if (token == vthoAddress) {
+            if (isAdd) {
+                sarc.vthoAmount += amount;
+            } else {
+                sarc.vthoAmount -= amount;
+            }
+        } else if (token == b3trAddress) {
+            if (isAdd) {
+                sarc.b3trAmount += amount;
+            } else {
+                sarc.b3trAmount -= amount;
+            }
+        } else if (token == obolAddress) {
+            if (isAdd) {
+                sarc.obolAmount += amount;
+            } else {
+                sarc.obolAmount -= amount;
+            }
+        } else if (token == gloAddress) {
+            if (isAdd) {
+                sarc.gloAmount += amount;
+            } else {
+                sarc.gloAmount -= amount;
+            }
+        } else if (token == address(0)) { // VET
+            if (isAdd) {
+                sarc.vetAmount += amount;
+            } else {
+                sarc.vetAmount -= amount;
+            }
+        }
     }
 
     /**
@@ -742,6 +970,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
      * @return vthoInheritance VTHO inheritance amount
      * @return b3trInheritance B3TR inheritance amount
      * @return obolInheritance OBOL inheritance amount
+     * @return gloInheritance GLO inheritance amount
      * @return totalValue Total inheritance value
      */
     function _calculateInheritanceAmounts(
@@ -752,13 +981,15 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         uint256 vthoInheritance,
         uint256 b3trInheritance,
         uint256 obolInheritance,
+        uint256 gloInheritance,
         uint256 totalValue
     ) {
         vetInheritance = (sarc.vetAmount * beneficiary.percentage) / BASIS_POINTS;
         vthoInheritance = (sarc.vthoAmount * beneficiary.percentage) / BASIS_POINTS;
         b3trInheritance = (sarc.b3trAmount * beneficiary.percentage) / BASIS_POINTS;
         obolInheritance = (sarc.obolAmount * beneficiary.percentage) / BASIS_POINTS;
-        totalValue = vetInheritance + vthoInheritance + b3trInheritance + obolInheritance;
+        gloInheritance = (sarc.gloAmount * beneficiary.percentage) / BASIS_POINTS;
+        totalValue = vetInheritance + vthoInheritance + b3trInheritance + obolInheritance + gloInheritance;
     }
 
     /**
@@ -768,13 +999,15 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
      * @param vthoInheritance VTHO inheritance amount
      * @param b3trInheritance B3TR inheritance amount
      * @param obolInheritance OBOL inheritance amount
+     * @param gloInheritance GLO inheritance amount
      */
     function _transferInheritance(
         address beneficiary,
         uint256 vetInheritance,
         uint256 vthoInheritance,
         uint256 b3trInheritance,
-        uint256 obolInheritance
+        uint256 obolInheritance,
+        uint256 gloInheritance
     ) internal {
         if (vetInheritance > 0) {
             payable(beneficiary).transfer(vetInheritance);
@@ -797,6 +1030,9 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
             IERC20(obolAddress).safeTransfer(feeCollector, obolFee);
             
             emit ObolWithdrawalFeeCollected(beneficiary, obolFee, obolInheritance);
+        }
+        if (gloInheritance > 0) {
+            IERC20(gloAddress).safeTransfer(beneficiary, gloInheritance);
         }
     }
 
@@ -861,53 +1097,70 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
      * @param beneficiaryIndex Index of the beneficiary claiming inheritance
      */
     function claimInheritance(address user, uint256 beneficiaryIndex) external nonReentrant {
-        if (circuitBreakerActive) revert CircuitBreakerActive();
+        if (circuitBreakerActive) {
+            emit DebugEvent("claimInheritance: Circuit breaker active", msg.sender, 0);
+            revert CircuitBreakerActive();
+        }
         SarcophagusData storage sarc = sarcophagi[user];
-        if (sarc.createdAt == 0) revert SarcophagusNotExists();
-        if (!sarc.isDeceased) revert DeathAlreadyVerified();
-        if (beneficiaryIndex >= sarc.beneficiaries.length) revert InvalidBeneficiary();
+        if (sarc.createdAt == 0) {
+            emit DebugEvent("claimInheritance: Sarcophagus not exists", msg.sender, 0);
+            revert SarcophagusNotExists();
+        }
+        if (!sarc.isDeceased) {
+            emit DebugEvent("claimInheritance: Not deceased", msg.sender, 0);
+            revert DeathNotVerified();
+        }
+        if (beneficiaryIndex >= sarc.beneficiaries.length) {
+            emit DebugEvent("claimInheritance: Invalid beneficiary index", msg.sender, beneficiaryIndex);
+            revert InvalidBeneficiary();
+        }
 
         Beneficiary storage beneficiary = sarc.beneficiaries[beneficiaryIndex];
-        if (claimed[user][beneficiary.recipient]) revert AlreadyClaimed();
+        
+        // Verify the caller is the beneficiary at the specified index
+        if (beneficiary.recipient != msg.sender) {
+            emit DebugEvent("claimInheritance: Caller is not beneficiary", msg.sender, beneficiaryIndex);
+            revert InvalidBeneficiary();
+        }
+        
+        if (claimed[user][beneficiary.recipient]) {
+            emit DebugEvent("claimInheritance: Already claimed", msg.sender, beneficiaryIndex);
+            revert AlreadyClaimed();
+        }
 
         // Check survivorship requirements
         _checkSurvivorshipRequirements(sarc, beneficiary);
 
         // Calculate inheritance amounts (including NFTs)
-        uint256 totalValue = sarc.vetAmount + sarc.vthoAmount + sarc.b3trAmount + sarc.obolAmount + sarc.totalNFTValue;
+        uint256 totalValue = sarc.vetAmount + sarc.vthoAmount + sarc.b3trAmount + sarc.obolAmount + sarc.gloAmount + sarc.totalNFTValue;
         uint256 inheritanceAmount = (totalValue * beneficiary.percentage) / BASIS_POINTS;
         
         uint256 vetInheritance = (sarc.vetAmount * beneficiary.percentage) / BASIS_POINTS;
         uint256 vthoInheritance = (sarc.vthoAmount * beneficiary.percentage) / BASIS_POINTS;
         uint256 b3trInheritance = (sarc.b3trAmount * beneficiary.percentage) / BASIS_POINTS;
         uint256 obolInheritance = (sarc.obolAmount * beneficiary.percentage) / BASIS_POINTS;
+        uint256 gloInheritance = (sarc.gloAmount * beneficiary.percentage) / BASIS_POINTS;
         uint256 nftInheritance = (sarc.totalNFTValue * beneficiary.percentage) / BASIS_POINTS;
 
         // Calculate fee
         uint256 feeAmount = (inheritanceAmount * INHERITANCE_FEE_RATE) / BASIS_POINTS;
 
-        // Mark as claimed BEFORE external calls
+        // CHECKS-EFFECTS-INTERACTIONS PATTERN
+        // 1. CHECKS: All checks done above
+        
+        // 2. EFFECTS: Update state BEFORE external calls
         claimed[user][beneficiary.recipient] = true;
-
-        // Transfer inheritance
-        _transferInheritance(beneficiary.recipient, vetInheritance, vthoInheritance, b3trInheritance, obolInheritance);
-
-        // Transfer NFTs assigned to this beneficiary
-        _transferNFTsToBeneficiary(user, beneficiary.recipient);
-
-        // Update vault balances after inheritance transfer
         sarc.vetAmount -= vetInheritance;
         sarc.vthoAmount -= vthoInheritance;
         sarc.b3trAmount -= b3trInheritance;
         sarc.obolAmount -= obolInheritance;
-
-        // Update OBOL rewards for remaining locked tokens
-        _updateObolRewards(user);
-
-        // Update fee collection AFTER external calls
+        sarc.gloAmount -= gloInheritance;
         totalInheritanceFeesCollected += feeAmount;
 
-        // Setup grandfathering for inheritance recipient
+        // 3. INTERACTIONS: External calls AFTER state changes
+        _transferInheritance(beneficiary.recipient, vetInheritance, vthoInheritance, b3trInheritance, obolInheritance, gloInheritance);
+        _transferNFTsToBeneficiary(user, beneficiary.recipient);
+        _updateObolRewards(user);
         _setupGrandfathering(beneficiary.recipient, user, totalValue);
 
         // Emit events
@@ -951,43 +1204,37 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         }
 
         // Calculate inheritance amounts
-        (uint256 vetInheritance, uint256 vthoInheritance, uint256 b3trInheritance, uint256 obolInheritance, uint256 totalValue) = 
+        (uint256 vetInheritance, uint256 vthoInheritance, uint256 b3trInheritance, uint256 obolInheritance, uint256 gloInheritance, uint256 totalValue) = 
             _calculateInheritanceAmounts(sarc, beneficiary);
 
         // Calculate fees
         uint256 feeAmount = (totalValue * INHERITANCE_FEE_RATE) / BASIS_POINTS;
 
-        // Mark primary beneficiary as claimed (to prevent double claiming)
+        // CHECKS-EFFECTS-INTERACTIONS PATTERN
+        // 1. CHECKS: All checks done above
+        
+        // 2. EFFECTS: Update state BEFORE external calls
         claimed[user][beneficiary.recipient] = true;
-
-        // Transfer inheritance to contingent beneficiary
-        _transferInheritance(beneficiary.contingentBeneficiary, vetInheritance, vthoInheritance, b3trInheritance, obolInheritance);
-
-        // Update vault balances after inheritance transfer
         sarc.vetAmount -= vetInheritance;
         sarc.vthoAmount -= vthoInheritance;
         sarc.b3trAmount -= b3trInheritance;
         sarc.obolAmount -= obolInheritance;
+        sarc.gloAmount -= gloInheritance;
+        totalInheritanceFeesCollected += feeAmount;
 
-        // Update OBOL rewards for remaining locked tokens
+        // 3. INTERACTIONS: External calls AFTER state changes
+        _transferInheritance(beneficiary.contingentBeneficiary, vetInheritance, vthoInheritance, b3trInheritance, obolInheritance, gloInheritance);
         _updateObolRewards(user);
+        _setupGrandfathering(beneficiary.contingentBeneficiary, user, totalValue);
 
-        // Collect fees
-        if (feeAmount > 0) {
-            totalInheritanceFeesCollected += feeAmount;
-            emit InheritanceFeeCollected(beneficiary.contingentBeneficiary, feeAmount, totalValue);
-        }
-
-        // Emit contingent inheritance event
+        // Emit events
+        emit InheritanceFeeCollected(beneficiary.contingentBeneficiary, feeAmount, totalValue);
         emit ContingentInheritanceClaimed(
             user, 
             beneficiary.recipient, 
             beneficiary.contingentBeneficiary, 
             totalValue
         );
-
-        // Set up grandfathering for contingent inheritance recipients
-        _setupGrandfathering(beneficiary.contingentBeneficiary, user, totalValue);
     }
 
     /**
@@ -1033,25 +1280,34 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         // Calculate total estate value
         uint256 totalValue = sarc.vetAmount + sarc.vthoAmount + sarc.b3trAmount + sarc.obolAmount;
 
-        // Transfer all assets to charity
-        if (sarc.vetAmount > 0) {
-            payable(charity).transfer(sarc.vetAmount);
-        }
-        if (sarc.vthoAmount > 0) {
-            IERC20(vthoAddress).safeTransfer(charity, sarc.vthoAmount);
-        }
-        if (sarc.b3trAmount > 0) {
-            IERC20(b3trAddress).safeTransfer(charity, sarc.b3trAmount);
-        }
-        if (sarc.obolAmount > 0) {
-            IERC20(obolAddress).safeTransfer(charity, sarc.obolAmount);
-        }
+        // Store amounts before clearing state
+        uint256 vetAmount = sarc.vetAmount;
+        uint256 vthoAmount = sarc.vthoAmount;
+        uint256 b3trAmount = sarc.b3trAmount;
+        uint256 obolAmount = sarc.obolAmount;
 
-        // Clear vault
+        // CHECKS-EFFECTS-INTERACTIONS PATTERN
+        // 1. CHECKS: All checks done above
+        
+        // 2. EFFECTS: Update state BEFORE external calls
         sarc.vetAmount = 0;
         sarc.vthoAmount = 0;
         sarc.b3trAmount = 0;
         sarc.obolAmount = 0;
+
+        // 3. INTERACTIONS: External calls AFTER state changes
+        if (vetAmount > 0) {
+            payable(charity).transfer(vetAmount);
+        }
+        if (vthoAmount > 0) {
+            IERC20(vthoAddress).safeTransfer(charity, vthoAmount);
+        }
+        if (b3trAmount > 0) {
+            IERC20(b3trAddress).safeTransfer(charity, b3trAmount);
+        }
+        if (obolAmount > 0) {
+            IERC20(obolAddress).safeTransfer(charity, obolAmount);
+        }
 
         // Update OBOL rewards (will be 0 since vault is empty)
         _updateObolRewards(user);
@@ -1253,7 +1509,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         _updateVaultBalances(sarc, vetWithdrawal, vthoWithdrawal, b3trWithdrawal, obolWithdrawal, msg.sender);
         
         // Transfer funds
-        _transferInheritance(msg.sender, vetWithdrawal, vthoWithdrawal, b3trWithdrawal, obolWithdrawal);
+        _transferInheritance(msg.sender, vetWithdrawal, vthoWithdrawal, b3trWithdrawal, obolWithdrawal, 0);
         
         // Collect penalty
         if (penaltyAmount > 0) {
@@ -1293,7 +1549,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         sarc.obolAmount = 0;
         
         // Transfer funds
-        _transferInheritance(msg.sender, vetWithdrawal, vthoWithdrawal, b3trWithdrawal, obolWithdrawal);
+        _transferInheritance(msg.sender, vetWithdrawal, vthoWithdrawal, b3trWithdrawal, obolWithdrawal, 0);
         
         // Collect penalty
         if (penaltyAmount > 0) {
@@ -1528,6 +1784,8 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
      */
     function _transferNFTsToBeneficiary(address user, address beneficiary) internal {
         SarcophagusData storage sarc = sarcophagi[user];
+        
+        // Collect NFTs to transfer
         for (uint256 i = 0; i < sarc.nftContracts.length; i++) {
             address nftContract = sarc.nftContracts[i];
             uint256[] storage tokenIds = sarc.lockedNFTs[nftContract];
@@ -1535,11 +1793,13 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
             while (j < tokenIds.length) {
                 uint256 tokenId = tokenIds[j];
                 if (sarc.nftBeneficiaries[nftContract][tokenId] == beneficiary && sarc.isNFTLocked[nftContract][tokenId]) {
-                    // Transfer NFT
-                    IERC721(nftContract).safeTransferFrom(address(this), beneficiary, tokenId);
-                    // Remove from storage
+                    // Update state BEFORE external call
                     sarc.isNFTLocked[nftContract][tokenId] = false;
                     sarc.nftBeneficiaries[nftContract][tokenId] = address(0);
+                    
+                    // Transfer NFT (external call)
+                    IERC721(nftContract).safeTransferFrom(address(this), beneficiary, tokenId);
+                    
                     // Remove from array (swap and pop)
                     tokenIds[j] = tokenIds[tokenIds.length - 1];
                     tokenIds.pop();
@@ -1549,6 +1809,20 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
                 }
             }
         }
+        
         emit NFTsTransferredToBeneficiary(user, beneficiary);
+    }
+
+    /**
+     * @notice Set the price oracle address (admin only)
+     * @param newOracle Address of the new price oracle
+     */
+    function setPriceOracle(address newOracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (newOracle == address(0)) revert InvalidAddress();
+        
+        address oldOracle = address(priceOracle);
+        priceOracle = IPriceOracle(newOracle);
+        
+        emit PriceOracleUpdated(oldOracle, newOracle);
     }
 } 

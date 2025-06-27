@@ -6,7 +6,7 @@ describe("NFT Whitelist and Value Cap Tests", function () {
     let sarcophagus, obol, deathVerifier;
     let owner, user1, beneficiary1;
     let user1Address, beneficiary1Address;
-    let mockB3TR, mockVTHO, mockObol;
+    let mockB3TR, mockVTHO, mockObol, mockGLO;
 
     beforeEach(async function () {
         [owner, user1, beneficiary1] = await ethers.getSigners();
@@ -44,6 +44,16 @@ describe("NFT Whitelist and Value Cap Tests", function () {
             throw error;
         }
 
+        const MockGLO = await ethers.getContractFactory("MockGLO");
+        try {
+            mockGLO = await MockGLO.deploy("Mock GLO", "GLO");
+            await mockGLO.waitForDeployment();
+            console.log('MockGLO deployed successfully:', mockGLO.target);
+        } catch (error) {
+            console.error('MockGLO deployment failed:', error.message);
+            throw error;
+        }
+
         const DeathVerifier = await ethers.getContractFactory("DeathVerifier");
         try {
             deathVerifier = await DeathVerifier.deploy();
@@ -70,6 +80,7 @@ describe("NFT Whitelist and Value Cap Tests", function () {
         console.log('mockVTHO.target:', mockVTHO.target);
         console.log('mockB3TR.target:', mockB3TR.target);
         console.log('mockObol.target:', mockObol.target);
+        console.log('mockGLO.target:', mockGLO.target);
         console.log('deathVerifier.target:', deathVerifier.target);
         console.log('obol.target:', obol.target);
         console.log('owner.address:', owner.address);
@@ -79,14 +90,16 @@ describe("NFT Whitelist and Value Cap Tests", function () {
             mockVTHO.target,
             mockB3TR.target,
             mockObol.target,
+            mockGLO.target,
             deathVerifier.target,
             obol.target,
-            owner.address
+            owner.address // feeCollector
         );
 
         if (!mockVTHO.target) throw new Error('mockVTHO address is invalid');
         if (!mockB3TR.target) throw new Error('mockB3TR address is invalid');
         if (!mockObol.target) throw new Error('mockObol address is invalid');
+        if (!mockGLO.target) throw new Error('mockGLO address is invalid');
         if (!deathVerifier.target) throw new Error('deathVerifier address is invalid');
         if (!obol.target) throw new Error('obol address is invalid');
         if (!owner.address) throw new Error('owner address is invalid');

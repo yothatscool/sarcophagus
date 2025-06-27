@@ -1,7 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ethers } from 'ethers';
 import { getCurrentNetworkAddresses, SARCOPHAGUS_ABI, OBOL_ABI, B3TR_REWARDS_ABI, DEATH_VERIFIER_ABI } from '../config/contracts';
 import { useNotification } from '../contexts/NotificationContext';
+
+// Helper function to get ethers dynamically
+const getEthers = async () => {
+  // SSR guard - return null if running on server
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
+  try {
+    const { ethers } = await import('ethers');
+    return ethers;
+  } catch (error) {
+    console.error('Failed to load ethers:', error);
+    return null;
+  }
+};
 
 interface SarcophagusData {
   owner: string;
@@ -10,6 +25,7 @@ interface SarcophagusData {
   vthoAmount: bigint;
   b3trAmount: bigint;
   obolAmount: bigint;
+  gloAmount: bigint;
   createdAt: bigint;
   isDeceased: boolean;
   deathTimestamp: bigint;
@@ -60,17 +76,36 @@ interface LockedNFT {
   estimatedValue: bigint;
 }
 
+// Token conversion interfaces
+interface TokenInfo {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  balance: bigint;
+  price: bigint;
+}
+
+interface ConversionRate {
+  fromToken: string;
+  toToken: string;
+  fromAmount: bigint;
+  toAmount: bigint;
+  rate: number;
+  supported: boolean;
+}
+
 export function useSarcophagusContract() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
-  const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null);
+  const [provider, setProvider] = useState<any>(null);
+  const [signer, setSigner] = useState<any>(null);
   const { showNotification } = useNotification();
   const [contracts, setContracts] = useState<{
-    sarcophagus: ethers.Contract | null;
-    obol: ethers.Contract | null;
-    b3trRewards: ethers.Contract | null;
-    deathVerifier: ethers.Contract | null;
+    sarcophagus: any | null;
+    obol: any | null;
+    b3trRewards: any | null;
+    deathVerifier: any | null;
   }>({
     sarcophagus: null,
     obol: null,
@@ -91,12 +126,24 @@ export function useSarcophagusContract() {
   const [lockedNFTs, setLockedNFTs] = useState<LockedNFT[]>([]);
   const [nftLoading, setNftLoading] = useState(false);
 
+  // Token conversion state
+  const [supportedTokens, setSupportedTokens] = useState<TokenInfo[]>([]);
+  const [conversionRates, setConversionRates] = useState<ConversionRate[]>([]);
+  const [conversionLoading, setConversionLoading] = useState(false);
+
   // Initialize provider and contracts
   useEffect(() => {
     const initializeContracts = async () => {
       try {
+        // Only run on client side
+        if (typeof window === 'undefined') return;
+        
+        // Dynamically import ethers
+        const ethers = await getEthers();
+        if (!ethers) return;
+        
         // Check if we're in a browser environment with ethereum provider
-        if (typeof window !== 'undefined' && (window as any).ethereum) {
+        if ((window as any).ethereum) {
           const ethereum = (window as any).ethereum;
           
           // Request account access
@@ -171,6 +218,9 @@ export function useSarcophagusContract() {
 
       // Check if user has sarcophagus
       try {
+        const ethers = await getEthers();
+        if (!ethers) return;
+        
         const sarcophagusData = await contracts.sarcophagus.getSarcophagus(userAddress);
         if (sarcophagusData.owner !== ethers.ZeroAddress) {
           setUserSarcophagus({
@@ -180,6 +230,7 @@ export function useSarcophagusContract() {
             vthoAmount: sarcophagusData.vthoAmount,
             b3trAmount: sarcophagusData.b3trAmount,
             obolAmount: sarcophagusData.obolAmount,
+            gloAmount: sarcophagusData.gloAmount,
             createdAt: sarcophagusData.createdAt,
             isDeceased: sarcophagusData.isDeceased,
             deathTimestamp: sarcophagusData.deathTimestamp,
@@ -271,6 +322,7 @@ export function useSarcophagusContract() {
         vthoAmount: BigInt(0),
         b3trAmount: BigInt(0),
         obolAmount: BigInt(0),
+        gloAmount: BigInt(0),
         createdAt: BigInt(Math.floor(Date.now() / 1000)),
         isDeceased: false,
         deathTimestamp: BigInt(0),
@@ -311,6 +363,9 @@ export function useSarcophagusContract() {
       
       // Update mock sarcophagus data with deposited amounts
       if (userSarcophagus) {
+        const ethers = await getEthers();
+        if (!ethers) return { wait: async () => {} };
+        
         const updatedSarcophagus = {
           ...userSarcophagus,
           vetAmount: userSarcophagus.vetAmount + BigInt(ethers.parseEther('100')), // Mock VET deposit
@@ -327,6 +382,9 @@ export function useSarcophagusContract() {
     setLoading(true);
     setError(null);
     try {
+      const ethers = await getEthers();
+      if (!ethers) throw new Error('Failed to load ethers');
+      
       const tx = await contracts.sarcophagus.depositTokens(
         ethers.parseEther(vthoAmount || '0'),
         ethers.parseEther(b3trAmount || '0'),
@@ -346,36 +404,249 @@ export function useSarcophagusContract() {
 
   // Lock OBOL tokens
   const lockObolTokens = async (obolAmount: string) => {
-    if (!contracts.obol) {
-      // Mock mode for testing
-      console.log('Mock: Locking OBOL tokens', obolAmount);
-      
-      // Update mock sarcophagus data with locked OBOL
-      if (userSarcophagus) {
-        const updatedSarcophagus = {
-          ...userSarcophagus,
-          obolAmount: userSarcophagus.obolAmount + BigInt(ethers.parseEther(obolAmount))
-        };
-        setUserSarcophagus(updatedSarcophagus);
-      }
-      
-      showNotification('OBOL tokens locked successfully! (Mock mode)', 'success');
-      return { wait: async () => {} };
+    if (!contracts.sarcophagus || !signer) {
+      showNotification('Please connect your wallet', 'error');
+      return;
     }
-    
-    setLoading(true);
-    setError(null);
+
     try {
-      const tx = await contracts.obol.lockTokens(ethers.parseEther(obolAmount));
+      setLoading(true);
+      const ethers = await getEthers();
+      if (!ethers) throw new Error('Failed to load ethers');
+      
+      const amount = ethers.parseEther(obolAmount);
+      const tx = await contracts.sarcophagus.lockObolTokens(amount);
       await tx.wait();
+      
+      showNotification('OBOL tokens locked successfully!', 'success');
       await refreshUserData();
       return tx;
-    } catch (e: any) {
-      const errorMsg = e.reason || e.message || 'Failed to lock OBOL tokens';
-      setError(errorMsg);
-      throw e;
+    } catch (error: any) {
+      console.error('Error locking OBOL tokens:', error);
+      const errorMsg = error.reason || error.message || 'Failed to lock OBOL tokens';
+      showNotification(errorMsg, 'error');
+      throw error;
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Add GLO tokens
+  const addGLO = async (gloAmount: string) => {
+    if (!contracts.sarcophagus) {
+      showNotification('Please connect your wallet', 'error');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const ethers = await getEthers();
+      if (!ethers) throw new Error('Failed to load ethers');
+      
+      const amount = ethers.parseEther(gloAmount);
+      const tx = await contracts.sarcophagus.addGLO(amount);
+      await tx.wait();
+      
+      showNotification('GLO tokens added successfully!', 'success');
+      await refreshUserData();
+      return tx;
+    } catch (error: any) {
+      console.error('Error adding GLO tokens:', error);
+      const errorMsg = error.reason || error.message || 'Failed to add GLO tokens';
+      showNotification(errorMsg, 'error');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Convert tokens
+  const convertTokens = async (fromToken: string, toToken: string, amount: string) => {
+    if (!contracts.sarcophagus) {
+      showNotification('Please connect your wallet', 'error');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const ethers = await getEthers();
+      if (!ethers) throw new Error('Failed to load ethers');
+      
+      const tokenAmount = ethers.parseEther(amount);
+      const tx = await contracts.sarcophagus.convertTokens(fromToken, toToken, tokenAmount);
+      await tx.wait();
+      
+      showNotification('Tokens converted successfully!', 'success');
+      await refreshUserData();
+      return tx;
+    } catch (error: any) {
+      console.error('Error converting tokens:', error);
+      const errorMsg = error.reason || error.message || 'Failed to convert tokens';
+      showNotification(errorMsg, 'error');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get conversion rate
+  const getConversionRate = async (fromToken: string, toToken: string, amount: string) => {
+    if (!contracts.sarcophagus) return null;
+
+    try {
+      const ethers = await getEthers();
+      if (!ethers) return null;
+      
+      const tokenAmount = ethers.parseEther(amount);
+      const rate = await contracts.sarcophagus.getConversionRate(fromToken, toToken, tokenAmount);
+      return rate;
+    } catch (error) {
+      console.error('Error getting conversion rate:', error);
+      return null;
+    }
+  };
+
+  // Get token price in VET
+  const getTokenPrice = async (token: string) => {
+    if (!contracts.sarcophagus) throw new Error('Sarcophagus contract not initialized');
+    
+    try {
+      const price = await contracts.sarcophagus.getTokenPrice(token);
+      return price;
+    } catch (error) {
+      console.error('Error getting token price:', error);
+      throw new Error('Failed to get token price');
+    }
+  };
+
+  // Check if conversion is supported
+  const isConversionSupported = async (fromToken: string, toToken: string) => {
+    if (!contracts.sarcophagus) return false;
+    
+    try {
+      const supported = await contracts.sarcophagus.isConversionSupported(fromToken, toToken);
+      return supported;
+    } catch (error) {
+      console.error('Error checking conversion support:', error);
+      return false;
+    }
+  };
+
+  // Load supported tokens and their balances
+  const loadSupportedTokens = async () => {
+    if (!contracts.sarcophagus || !signer) return;
+
+    setConversionLoading(true);
+    try {
+      const ethers = await getEthers();
+      if (!ethers) throw new Error('Failed to load ethers');
+      const userAddress = await signer.getAddress();
+      const sarcophagusData = await contracts.sarcophagus.getSarcophagus(userAddress);
+      
+      // Get contract addresses from configuration
+      const addresses = getCurrentNetworkAddresses();
+      
+      const tokens: TokenInfo[] = [
+        {
+          address: ethers.ZeroAddress, // VET
+          symbol: 'VET',
+          name: 'VeChain',
+          decimals: 18,
+          balance: sarcophagusData.vetAmount,
+          price: ethers.parseEther('1') // 1 VET = 1 VET
+        },
+        {
+          address: await contracts.sarcophagus.vthoAddress(),
+          symbol: 'VTHO',
+          name: 'VeThor Token',
+          decimals: 18,
+          balance: sarcophagusData.vthoAmount,
+          price: await getTokenPrice(await contracts.sarcophagus.vthoAddress())
+        },
+        {
+          address: await contracts.sarcophagus.b3trAddress(),
+          symbol: 'B3TR',
+          name: 'B3TR Token',
+          decimals: 18,
+          balance: sarcophagusData.b3trAmount,
+          price: await getTokenPrice(await contracts.sarcophagus.b3trAddress())
+        },
+        {
+          address: await contracts.sarcophagus.obolAddress(),
+          symbol: 'OBOL',
+          name: 'OBOL Token',
+          decimals: 18,
+          balance: sarcophagusData.obolAmount,
+          price: await getTokenPrice(await contracts.sarcophagus.obolAddress())
+        },
+        {
+          address: addresses.GLO_TOKEN,
+          symbol: 'GLO',
+          name: 'GLO Stablecoin',
+          decimals: 18,
+          balance: sarcophagusData.gloAmount,
+          price: await getTokenPrice(addresses.GLO_TOKEN)
+        }
+      ];
+
+      setSupportedTokens(tokens);
+    } catch (error) {
+      console.error('Error loading supported tokens:', error);
+      showNotification('Failed to load supported tokens', 'error');
+    } finally {
+      setConversionLoading(false);
+    }
+  };
+
+  // Calculate conversion rates for all token pairs
+  const calculateConversionRates = async (baseAmount: string = '1') => {
+    if (!contracts.sarcophagus) return;
+
+    try {
+      setConversionLoading(true);
+      const ethers = await getEthers();
+      if (!ethers) throw new Error('Failed to load ethers');
+      const amount = ethers.parseEther(baseAmount);
+      const rates: ConversionRate[] = [];
+
+      // Get contract addresses from configuration
+      const addresses = getCurrentNetworkAddresses();
+
+      const tokens = ['0x0000000000000000000000000000000000000000', // VET
+                     await contracts.sarcophagus.vthoAddress(),
+                     await contracts.sarcophagus.b3trAddress(),
+                     await contracts.sarcophagus.obolAddress(),
+                     addresses.GLO_TOKEN];
+
+      for (let i = 0; i < tokens.length; i++) {
+        for (let j = 0; j < tokens.length; j++) {
+          if (i !== j) {
+            try {
+              const supported = await isConversionSupported(tokens[i], tokens[j]);
+              if (supported) {
+                const toAmount = await getConversionRate(tokens[i], tokens[j], baseAmount);
+                rates.push({
+                  fromToken: tokens[i],
+                  toToken: tokens[j],
+                  fromAmount: amount,
+                  toAmount: toAmount,
+                  rate: Number(ethers.formatEther(toAmount)) / Number(baseAmount),
+                  supported: true
+                });
+              }
+            } catch (error) {
+              console.error(`Error calculating rate for ${tokens[i]} to ${tokens[j]}:`, error);
+            }
+          }
+        }
+      }
+
+      setConversionRates(rates);
+    } catch (error) {
+      console.error('Error calculating conversion rates:', error);
+      showNotification('Failed to calculate conversion rates', 'error');
+    } finally {
+      setConversionLoading(false);
     }
   };
 
@@ -441,7 +712,7 @@ export function useSarcophagusContract() {
       console.log('Mock: Claiming inheritance', deceasedAddress);
       
       // Simulate inheritance claim
-      const mockInheritance = '500 VET, 250 VTHO, 100 B3TR, 50 OBOL';
+      const mockInheritance = '500 VET, 250 VTHO, 100 B3TR, 50 OBOL, 1000 GLO';
       showNotification(`Inheritance claimed: ${mockInheritance} (Mock mode)`, 'success');
       return { wait: async () => {} };
     }
@@ -510,7 +781,8 @@ export function useSarcophagusContract() {
   // Calculate weighted rate for a user
   const calculateWeightedRate = async (userAddress: string) => {
     if (!contracts.obol) throw new Error('OBOL contract not initialized');
-    
+    const ethers = await getEthers();
+    if (!ethers) throw new Error('Failed to load ethers');
     try {
       const [weightedRate, weightMultiplier] = await contracts.obol.calculateWeightedRate(userAddress);
       return {
@@ -526,7 +798,8 @@ export function useSarcophagusContract() {
   // Get earning rates including weighted average system
   const getEarningRates = async () => {
     if (!contracts.obol) throw new Error('OBOL contract not initialized');
-    
+    const ethers = await getEthers();
+    if (!ethers) throw new Error('Failed to load ethers');
     try {
       const rates = await contracts.obol.getEarningRates();
       return {
@@ -548,12 +821,12 @@ export function useSarcophagusContract() {
     if (!contracts.sarcophagus) {
       // Mock mode for testing
       console.log('Mock: Withdrawing OBOL tokens', obolAmount.toString());
-      
+      const ethers = await getEthers();
+      if (!ethers) throw new Error('Failed to load ethers');
       // Simulate OBOL withdrawal with fee
       const amount = Number(ethers.formatEther(obolAmount));
       const fee = amount * 0.005; // 0.5% fee
       const netAmount = amount - fee;
-      
       showNotification(`Withdrew ${netAmount.toFixed(4)} OBOL (${fee.toFixed(4)} fee applied) (Mock mode)`, 'success');
       return { wait: async () => {} };
     }
@@ -578,6 +851,8 @@ export function useSarcophagusContract() {
   const calculateInheritanceFee = async (totalValue: bigint) => {
     if (!contracts.sarcophagus) {
       // Mock calculation
+      const ethers = await getEthers();
+      if (!ethers) throw new Error('Failed to load ethers');
       const value = Number(ethers.formatEther(totalValue));
       const fee = value * 0.01; // 1% fee
       const net = value - fee;
@@ -597,6 +872,8 @@ export function useSarcophagusContract() {
   const calculateObolWithdrawalFee = async (withdrawalAmount: bigint) => {
     if (!contracts.sarcophagus) {
       // Mock calculation
+      const ethers = await getEthers();
+      if (!ethers) throw new Error('Failed to load ethers');
       const amount = Number(ethers.formatEther(withdrawalAmount));
       const fee = amount * 0.005; // 0.5% fee
       const net = amount - fee;
@@ -715,6 +992,9 @@ export function useSarcophagusContract() {
 
   // NFT-related functions
   const loadNFTCollections = async () => {
+    if (typeof window === 'undefined') return;
+    const ethers = await getEthers();
+    if (!ethers) throw new Error('Failed to load ethers');
     if (!contracts.sarcophagus) {
       // Mock data for testing
       setNftCollections([
@@ -779,6 +1059,9 @@ export function useSarcophagusContract() {
   };
 
   const loadUserNFTs = async () => {
+    if (typeof window === 'undefined') return;
+    const ethers = await getEthers();
+    if (!ethers) throw new Error('Failed to load ethers');
     if (!contracts.sarcophagus || !signer) {
       showNotification('Please connect your wallet', 'error');
       return;
@@ -1004,7 +1287,11 @@ export function useSarcophagusContract() {
     verifyUser,
     depositTokens, 
     lockObolTokens, 
-    withdrawObolTokens,
+    addGLO,
+    convertTokens,
+    getConversionRate,
+    getTokenPrice,
+    isConversionSupported,
     claimObolRewards, 
     verifyDeath, 
     claimInheritance, 
@@ -1033,6 +1320,12 @@ export function useSarcophagusContract() {
     unlockNFT,
     updateNFTBeneficiary,
     getNFTCollectionInfo,
-    getTotalNFTValue
+    getTotalNFTValue,
+    // Token conversion exports
+    supportedTokens,
+    conversionRates,
+    conversionLoading,
+    loadSupportedTokens,
+    calculateConversionRates
   };
 } 

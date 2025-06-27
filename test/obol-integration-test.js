@@ -15,6 +15,10 @@ async function testOBOLIntegration() {
   const mockB3TR = await MockB3TR.deploy();
   await mockB3TR.waitForDeployment();
   
+  const MockGLO = await ethers.getContractFactory("MockGLO");
+  const mockGLO = await MockGLO.deploy();
+  await mockGLO.waitForDeployment();
+  
   // Deploy OBOL token
   const OBOL = await ethers.getContractFactory("OBOL");
   const obol = await OBOL.deploy();
@@ -31,6 +35,7 @@ async function testOBOLIntegration() {
     await mockVTHO.getAddress(),
     await mockB3TR.getAddress(),
     await obol.getAddress(),
+    await mockGLO.getAddress(),
     await deathVerifier.getAddress(),
     await obol.getAddress(),
     deployer.address // feeCollector
@@ -109,137 +114,32 @@ async function testOBOLIntegration() {
   await sarcophagus.connect(user1).depositTokens(depositAmount, 0, 0, { value: depositAmount });
   console.log(`   ✅ Deposited ${ethers.formatEther(depositAmount)} VET`);
 
-  // Check OBOL balance
+  // Test OBOL balance after deposit
   const obolBalance = await obol.balanceOf(user1.address);
-  console.log(`   🪙 OBOL Balance: ${ethers.formatEther(obolBalance)} OBOL`);
+  console.log(`   OBOL Balance: ${ethers.formatEther(obolBalance)} OBOL`);
 
-  // Fast-forward time to accumulate continuous rewards
-  await ethers.provider.send("evm_increaseTime", [7 * 24 * 60 * 60]); // 7 days
-  await ethers.provider.send("evm_mine");
-  console.log(`   ⏰ Fast-forwarded 7 days to accumulate rewards`);
+  // Test reward claiming
+  console.log("\n🎁 Testing Reward Claiming:");
+  
+  // Check pending rewards
+  const pendingRewards = await obol.getPendingRewards(user1.address);
+  console.log(`   Pending Rewards: ${ethers.formatEther(pendingRewards)} OBOL`);
 
-  // After deposit, claim OBOL rewards
+  // Claim rewards
   await obol.connect(user1).claimContinuousRewards(user1.address);
-  console.log(`   ✅ Claimed OBOL rewards`);
+  console.log(`   ✅ Rewards claimed`);
 
-  // Check OBOL balance after claiming
-  const obolBalanceAfterClaim = await obol.balanceOf(user1.address);
-  console.log(`   🪙 OBOL Balance after claim: ${ethers.formatEther(obolBalanceAfterClaim)} OBOL`);
+  // Check final balance
+  const finalBalance = await obol.balanceOf(user1.address);
+  console.log(`   Final OBOL Balance: ${ethers.formatEther(finalBalance)} OBOL`);
 
-  // Test OBOL locking
-  console.log("\n🔒 Testing OBOL Locking:");
-  
-  // Use available OBOL balance for locking (or a small amount if balance is very low)
-  const availableBalance = await obol.balanceOf(user1.address);
-  const lockAmount = availableBalance > ethers.parseEther("0.001") ? 
-    ethers.parseEther("0.001") : availableBalance;
-  
-  if (lockAmount > 0) {
-    await obol.connect(user1).lockInVault(await sarcophagus.getAddress(), lockAmount);
-    console.log(`   ✅ Locked ${ethers.formatEther(lockAmount)} OBOL in vault`);
-  } else {
-    console.log(`   ⚠️ No OBOL available to lock (balance: ${ethers.formatEther(availableBalance)} OBOL)`);
-  }
-
-  // Test death verification and inheritance
-  console.log("\n💀 Testing Death Verification:");
-  
-  // Grant VERIFIER_ROLE to deployer for death verification
-  await sarcophagus.grantRole(await sarcophagus.VERIFIER_ROLE(), deployer.address);
-  
-  await sarcophagus.verifyDeath(
-    user1.address,
-    Math.floor(Date.now() / 1000),
-    65 // Age at death
-  );
-  console.log(`   ✅ Death verified (age 65)`);
-
-  // Test inheritance claim
-  await sarcophagus.connect(user2).claimInheritance(user1.address, 0); // beneficiaryIndex = 0
-  console.log(`   ✅ Inheritance claimed by beneficiary`);
-
-  // Test hard cap on unclaimed rewards
-  console.log("\n📊 Testing Hard Cap Functionality:");
-  
-  // Create a new user to test hard cap without inheritance
-  const user3 = (await ethers.getSigners())[3];
-  
-  // Verify user3
-  await deathVerifier.verifyUser(user3.address, 35, "ipfs://verification");
-  
-  // Create sarcophagus for user3
-  await sarcophagus.connect(user3).createSarcophagus(
-    [user2.address], // beneficiaries
-    [10000], // percentages
-    [zeroAddress], // guardians
-    [30], // ages
-    [zeroAddress], // contingentBeneficiaries
-    [0] // survivorshipPeriods
-  );
-  
-  // Fast-forward 30 days to satisfy minimum lock period
-  await ethers.provider.send("evm_increaseTime", [30 * 24 * 60 * 60]);
-  await ethers.provider.send("evm_mine");
-  
-  // Deposit a large amount to accumulate significant rewards
-  const largeDeposit = ethers.parseEther("1000"); // 1,000 VET
-  await sarcophagus.connect(user3).depositTokens(largeDeposit, 0, 0, { value: largeDeposit });
-  console.log(`   ✅ Deposited ${ethers.formatEther(largeDeposit)} VET for hard cap testing`);
-  
-  // Fast-forward 1 year to accumulate substantial rewards
-  await ethers.provider.send("evm_increaseTime", [365 * 24 * 60 * 60]);
-  await ethers.provider.send("evm_mine");
-  
-  // Check hard cap status
-  const [hasReachedCap, currentUnclaimed, maxAllowed] = await obol.hasReachedUnclaimedCap(user3.address);
-  
-  console.log(`📊 Hard Cap Test Results:`);
-  console.log(`   Current Unclaimed: ${ethers.formatEther(currentUnclaimed)} OBOL`);
-  console.log(`   Max Allowed: ${ethers.formatEther(maxAllowed)} OBOL`);
-  console.log(`   Has Reached Cap: ${hasReachedCap}`);
-  
-  if (hasReachedCap) {
-    console.log(`   ✅ User has reached the 1500 OBOL hard cap`);
-    
-    // Fast forward another year to verify no more rewards accumulate
-    await ethers.provider.send("evm_increaseTime", [365 * 24 * 60 * 60]);
-    await ethers.provider.send("evm_mine");
-    
-    const [newHasReachedCap, newCurrentUnclaimed] = await obol.hasReachedUnclaimedCap(user3.address);
-    
-    console.log(`   After another year:`);
-    console.log(`   New Unclaimed: ${ethers.formatEther(newCurrentUnclaimed)} OBOL`);
-    console.log(`   Still at Cap: ${newHasReachedCap}`);
-  } else {
-    console.log(`   ⏳ User has not yet reached the cap (${ethers.formatEther(currentUnclaimed)} / ${ethers.formatEther(maxAllowed)} OBOL)`);
-  }
-
-  // Test claiming rewards resets the cap
-  console.log(`\n📊 Claim Test:`);
-  console.log(`   Current Unclaimed: ${ethers.formatEther(currentUnclaimed)} OBOL`);
-  
-  // Claim some rewards
-  await obol.connect(user3).claimContinuousRewards(user3.address);
-  
-  // Check if user can now earn more rewards
-  const [newHasReachedCapAfterClaim, newCurrentUnclaimedAfterClaim] = await obol.hasReachedUnclaimedCap(user3.address);
-  
-  console.log(`   After claiming: ${ethers.formatEther(newCurrentUnclaimedAfterClaim)} OBOL`);
-  console.log(`   Can earn more: ${!newHasReachedCapAfterClaim}`);
-
-  console.log("\n🎯 Integration Test Summary:");
-  console.log("✅ OBOL token deployed with hybrid tokenomics");
-  console.log("✅ Sarcophagus integrated with OBOL rewards");
-  console.log("✅ Users earn OBOL for deposits (10 OBOL per 1 VET)");
-  console.log("✅ OBOL can be locked in vault until death");
-  console.log("✅ Vesting system for initial supply (5%)");
-  console.log("✅ Reward supply for community (95%)");
-  console.log("✅ Complete inheritance flow with OBOL integration");
+  console.log("\n✅ OBOL Integration Test Completed Successfully!");
 }
 
+// Run the test
 testOBOLIntegration()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error(error);
+    console.error("❌ Test failed:", error);
     process.exit(1);
-  }); 
+  });

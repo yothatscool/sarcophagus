@@ -3,98 +3,81 @@ const fs = require('fs');
 const path = require('path');
 
 async function main() {
-  console.log("🔍 Verifying testnet deployment...");
+  console.log("🔍 Verifying Sarcophagus Protocol deployment...\n");
+
+  const [deployer] = await ethers.getSigners();
+  console.log("Deployer address:", deployer.address);
 
   try {
-    // Read deployment info
-    const deploymentPath = path.join(__dirname, '..', 'deployment-testnet.json');
+    // Load deployment info
+    const deploymentPath = "./deployments.json";
+    
     if (!fs.existsSync(deploymentPath)) {
-      console.error("❌ deployment-testnet.json not found. Please run deploy-testnet.js first.");
+      console.log("❌ No deployment info found. Please run deployment first.");
       return;
     }
 
-    const deploymentInfo = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
-    console.log("📄 Verifying deployment on:", deploymentInfo.network);
+    const deploymentInfo = JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
+    console.log("📋 Deployment Info:", deploymentInfo.network, deploymentInfo.timestamp);
 
-    const [deployer] = await ethers.getSigners();
-    console.log("Using account:", deployer.address);
+    // Verify contracts exist
+    console.log("\n🔍 Verifying contract deployments...");
+    
+    const contracts = deploymentInfo.contracts;
+    const verificationResults = {};
 
-    // Verify each contract
-    const contracts = [
-      { name: "DeathVerifier", address: deploymentInfo.contracts.DeathVerifier },
-      { name: "Sarcophagus", address: deploymentInfo.contracts.Sarcophagus },
-      { name: "OBOL", address: deploymentInfo.contracts.OBOL },
-      { name: "B3TRRewards", address: deploymentInfo.contracts.B3TRRewards },
-      { name: "MultiSigWallet", address: deploymentInfo.contracts.MultiSigWallet }
-    ];
-
-    console.log("\n🔍 Checking contract accessibility...");
-
-    for (const contract of contracts) {
+    for (const [name, address] of Object.entries(contracts)) {
       try {
-        // Check if contract exists at address
-        const code = await ethers.provider.getCode(contract.address);
-        
+        const code = await ethers.provider.getCode(address);
         if (code === "0x") {
-          console.log(`❌ ${contract.name}: No contract found at ${contract.address}`);
+          console.log(`❌ ${name}: Not deployed (no code at ${address})`);
+          verificationResults[name] = false;
         } else {
-          console.log(`✅ ${contract.name}: Contract found at ${contract.address}`);
-          
-          // Try to get basic info
-          try {
-            const contractInstance = await ethers.getContractAt(contract.name, contract.address);
-            
-            // Check if it has basic functions
-            if (contract.name === "DeathVerifier") {
-              const oracleRole = await contractInstance.ORACLE_ROLE();
-              console.log(`   - Oracle role: ${oracleRole}`);
-            } else if (contract.name === "Sarcophagus") {
-              const oracleRole = await contractInstance.ORACLE_ROLE();
-              console.log(`   - Oracle role: ${oracleRole}`);
-            } else if (contract.name === "OBOL") {
-              const totalSupply = await contractInstance.totalSupply();
-              console.log(`   - Total supply: ${ethers.formatEther(totalSupply)} OBOL`);
-            } else if (contract.name === "B3TRRewards") {
-              const sarcophagusAddress = await contractInstance.sarcophagus();
-              console.log(`   - Sarcophagus address: ${sarcophagusAddress}`);
-            } else if (contract.name === "MultiSigWallet") {
-              const required = await contractInstance.required();
-              console.log(`   - Required confirmations: ${required}`);
-            }
-          } catch (error) {
-            console.log(`   - ⚠️  Could not verify contract functions: ${error.message}`);
-          }
+          console.log(`✅ ${name}: Deployed at ${address}`);
+          verificationResults[name] = true;
         }
       } catch (error) {
-        console.log(`❌ ${contract.name}: Error checking contract - ${error.message}`);
+        console.log(`❌ ${name}: Error checking deployment - ${error.message}`);
+        verificationResults[name] = false;
       }
     }
 
-    // Check deployer roles
-    console.log("\n🔑 Checking deployer roles...");
+    // Test basic functionality
+    console.log("\n🧪 Testing basic functionality...");
     
-    try {
-      const deathVerifier = await ethers.getContractAt("DeathVerifier", deploymentInfo.contracts.DeathVerifier);
-      const sarcophagus = await ethers.getContractAt("Sarcophagus", deploymentInfo.contracts.Sarcophagus);
-      
-      const oracleRole = await deathVerifier.ORACLE_ROLE();
-      const hasOracleRole = await deathVerifier.hasRole(oracleRole, deployer.address);
-      console.log(`DeathVerifier Oracle Role: ${hasOracleRole ? '✅' : '❌'}`);
-      
-      const sarcophagusOracleRole = await sarcophagus.ORACLE_ROLE();
-      const hasSarcophagusOracleRole = await sarcophagus.hasRole(sarcophagusOracleRole, deployer.address);
-      console.log(`Sarcophagus Oracle Role: ${hasSarcophagusOracleRole ? '✅' : '❌'}`);
-      
-      const verifierRole = await sarcophagus.VERIFIER_ROLE();
-      const hasVerifierRole = await sarcophagus.hasRole(verifierRole, deployer.address);
-      console.log(`Sarcophagus Verifier Role: ${hasVerifierRole ? '✅' : '❌'}`);
-      
-    } catch (error) {
-      console.log(`❌ Error checking roles: ${error.message}`);
+    if (verificationResults.Sarcophagus && verificationResults.OBOL) {
+      try {
+        const Sarcophagus = await ethers.getContractFactory("Sarcophagus");
+        const sarcophagus = Sarcophagus.attach(contracts.Sarcophagus);
+        
+        const OBOL = await ethers.getContractFactory("OBOL");
+        const obol = OBOL.attach(contracts.OBOL);
+
+        // Test basic contract calls
+        const vaultRole = await obol.VAULT_ROLE();
+        console.log("✅ Vault role retrieved:", vaultRole);
+
+        const hasRole = await obol.hasRole(vaultRole, contracts.Sarcophagus);
+        console.log("✅ Sarcophagus has vault role:", hasRole);
+
+        console.log("✅ Basic functionality tests passed");
+      } catch (error) {
+        console.log("❌ Basic functionality test failed:", error.message);
+      }
     }
 
-    console.log("\n🎉 Deployment verification complete!");
-    console.log("💡 If all checks pass, your deployment is ready for testing!");
+    // Summary
+    console.log("\n📊 Verification Summary:");
+    const totalContracts = Object.keys(contracts).length;
+    const deployedContracts = Object.values(verificationResults).filter(Boolean).length;
+    
+    console.log(`Contracts deployed: ${deployedContracts}/${totalContracts}`);
+    
+    if (deployedContracts === totalContracts) {
+      console.log("🎉 All contracts deployed successfully!");
+    } else {
+      console.log("⚠️  Some contracts failed deployment verification");
+    }
 
   } catch (error) {
     console.error("❌ Verification failed:", error);

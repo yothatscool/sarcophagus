@@ -15,6 +15,10 @@ async function testBonusSystem() {
   const mockB3TR = await MockB3TR.deploy();
   await mockB3TR.waitForDeployment();
   
+  const MockGLO = await ethers.getContractFactory("MockGLO");
+  const mockGLO = await MockGLO.deploy();
+  await mockGLO.waitForDeployment();
+  
   // Deploy DeathVerifier
   const DeathVerifier = await ethers.getContractFactory("DeathVerifier");
   const deathVerifier = await DeathVerifier.deploy();
@@ -31,6 +35,7 @@ async function testBonusSystem() {
     await mockVTHO.getAddress(),
     await mockB3TR.getAddress(),
     await obol.getAddress(),
+    await mockGLO.getAddress(),
     await deathVerifier.getAddress(),
     await obol.getAddress(),
     deployer.address // feeCollector

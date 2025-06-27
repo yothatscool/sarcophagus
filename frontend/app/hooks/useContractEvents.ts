@@ -2,10 +2,10 @@ import { useEffect } from 'react';
 import { useWallet } from '../contexts/WalletContext';
 
 export function useContractEvents(callback: (eventName: string, data: any) => void) {
-  const { address } = useWallet();
+  const { account } = useWallet();
 
   useEffect(() => {
-    if (!address) return;
+    if (!account) return;
 
     // For demo purposes, we'll simulate events
     // In production, you would use VeChain Connex event filters
@@ -23,5 +23,5 @@ export function useContractEvents(callback: (eventName: string, data: any) => vo
     return () => {
       // Cleanup any event listeners if needed
     };
-  }, [address, callback]);
+  }, [account, callback]);
 } 

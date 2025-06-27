@@ -6,7 +6,7 @@ describe("NFT Locking Comprehensive Tests", function () {
     let sarcophagus, obol, deathVerifier, mockNFT;
     let owner, user1, user2, beneficiary1, beneficiary2;
     let user1Address, user2Address, beneficiary1Address, beneficiary2Address;
-    let mockB3TR, mockVTHO, mockObol;
+    let mockB3TR, mockVTHO, mockObol, mockGLO;
 
     beforeEach(async function () {
         [owner, user1, user2, beneficiary1, beneficiary2] = await ethers.getSigners();
@@ -28,6 +28,10 @@ describe("NFT Locking Comprehensive Tests", function () {
         mockObol = await MockObol.deploy("OBOL", "OBOL");
         await mockObol.waitForDeployment();
 
+        const MockGLO = await ethers.getContractFactory("MockGLO");
+        mockGLO = await MockGLO.deploy("Mock GLO", "GLO");
+        await mockGLO.waitForDeployment();
+
         const MockNFT = await ethers.getContractFactory("MockNFT");
         mockNFT = await MockNFT.deploy("TestNFT", "TNFT");
         await mockNFT.waitForDeployment();
@@ -45,9 +49,10 @@ describe("NFT Locking Comprehensive Tests", function () {
             mockVTHO.target,
             mockB3TR.target,
             mockObol.target,
+            mockGLO.target,
             deathVerifier.target,
             obol.target,
-            owner.address
+            owner.address // feeCollector
         );
 
         // Setup contracts

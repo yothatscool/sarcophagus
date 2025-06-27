@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
 import { useWallet } from '../contexts/WalletContext';
 
 export function useContract(contractAddress: string, contractABI: any) {
-  const { address } = useWallet();
-  const [contract, setContract] = useState<ethers.Contract | null>(null);
+  const { account } = useWallet();
+  const [contract, setContract] = useState<any | null>(null);
 
   useEffect(() => {
     const initContract = async () => {
-      if (typeof window !== 'undefined' && (window as any).ethereum && address) {
+      if (typeof window !== 'undefined' && (window as any).ethereum && account) {
         try {
+          // Dynamically import ethers
+          const { ethers } = await import('ethers');
           const provider = new ethers.BrowserProvider((window as any).ethereum);
           const signer = await provider.getSigner();
           const ethersContract = new ethers.Contract(contractAddress, contractABI, signer);
@@ -21,7 +22,7 @@ export function useContract(contractAddress: string, contractABI: any) {
     };
 
     initContract();
-  }, [address, contractAddress, contractABI]);
+  }, [account, contractAddress, contractABI]);
 
-  return { contract, address };
+  return { contract, account };
 } 

@@ -26,6 +26,9 @@ describe("NFT Integration Tests", function () {
         const MockObol = await ethers.getContractFactory("MockToken");
         const mockObol = await MockObol.deploy("OBOL", "OBOL");
 
+        const MockGLO = await ethers.getContractFactory("MockGLO");
+        const mockGLO = await MockGLO.deploy("Mock GLO", "GLO");
+
         const DeathVerifier = await ethers.getContractFactory("DeathVerifier");
         deathVerifier = await DeathVerifier.deploy();
 
@@ -37,9 +40,10 @@ describe("NFT Integration Tests", function () {
             mockVTHO.address,
             mockB3TR.address,
             mockObol.address,
+            mockGLO.address,
             deathVerifier.address,
             obol.address,
-            owner.address
+            owner.address // feeCollector
         );
 
         // Setup OBOL contract

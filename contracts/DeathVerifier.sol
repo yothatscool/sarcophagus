@@ -26,16 +26,25 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
     error ConsensusNotReached();
     error VerificationExpired();
     error VerificationAlreadyExists();
+    error OracleAlreadyExists();
+    error OracleDoesNotExist();
+    error InsufficientOracleCount();
 
     // Roles
     bytes32 public constant ORACLE_ROLE = keccak256("ORACLE_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     
-    // Multi-oracle consensus parameters
+    // Multi-oracle consensus parameters - FIXED: Now requires true multi-oracle consensus
     uint256 public constant MIN_CONFIRMATIONS = 2; // Minimum oracle confirmations required
     uint256 public constant MAX_CONFIRMATIONS = 5; // Maximum oracle confirmations allowed
+    uint256 public constant MIN_ORACLES = 3; // Minimum oracles required for consensus
     uint256 public constant CONSENSUS_TIMEOUT = 24 hours; // Time window for consensus
     uint256 public constant VERIFICATION_EXPIRY = 30 days; // How long verification is valid
+    
+    // Oracle management
+    mapping(address => bool) public authorizedOracles;
+    uint256 public totalAuthorizedOracles;
+    uint256 public constant MAX_ORACLES = 10; // Maximum number of oracles
     
     // Death verification data
     struct DeathVerification {
@@ -60,7 +69,7 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
         bool isVerified;
     }
     
-    // Oracle reputation system
+    // Oracle reputation system with slashing
     struct OracleReputation {
         uint256 totalVerifications;
         uint256 successfulVerifications;
@@ -68,6 +77,8 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
         uint256 reputationScore;
         bool isActive;
         uint256 lastActivity;
+        uint256 slashedAmount;
+        uint256 lastSlashed;
     }
     
     // Storage
@@ -85,6 +96,7 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
     event OracleAdded(address indexed oracle);
     event OracleRemoved(address indexed oracle);
     event OracleReputationUpdated(address indexed oracle, uint256 newScore);
+    event OracleSlashed(address indexed oracle, uint256 amount, string reason);
     event ConsensusTimeoutUpdated(uint256 newTimeout);
     event MinConfirmationsUpdated(uint256 newMin);
 
@@ -92,6 +104,83 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
         _grantRole(ORACLE_ROLE, msg.sender);
+        
+        // Add deployer as first oracle
+        _addOracle(msg.sender);
+    }
+
+    /**
+     * @notice Add a new authorized oracle
+     * @param oracle Address of the oracle to add
+     */
+    function addOracle(address oracle) external onlyRole(ADMIN_ROLE) {
+        _addOracle(oracle);
+    }
+
+    /**
+     * @notice Remove an authorized oracle
+     * @param oracle Address of the oracle to remove
+     */
+    function removeOracle(address oracle) external onlyRole(ADMIN_ROLE) {
+        if (!authorizedOracles[oracle]) revert OracleDoesNotExist();
+        if (totalAuthorizedOracles <= MIN_ORACLES) revert InsufficientOracleCount();
+        
+        authorizedOracles[oracle] = false;
+        totalAuthorizedOracles--;
+        
+        // Revoke oracle role
+        _revokeRole(ORACLE_ROLE, oracle);
+        
+        emit OracleRemoved(oracle);
+    }
+
+    /**
+     * @notice Internal function to add oracle
+     * @param oracle Address of the oracle to add
+     */
+    function _addOracle(address oracle) internal {
+        authorizedOracles[oracle] = true;
+        totalAuthorizedOracles++;
+        
+        // Grant oracle role
+        _grantRole(ORACLE_ROLE, oracle);
+        
+        // Initialize reputation
+        oracleReputations[oracle] = OracleReputation({
+            totalVerifications: 0,
+            successfulVerifications: 0,
+            failedVerifications: 0,
+            reputationScore: 100, // Start with 100 reputation
+            isActive: true,
+            lastActivity: block.timestamp,
+            slashedAmount: 0,
+            lastSlashed: 0
+        });
+        
+        emit OracleAdded(oracle);
+    }
+
+    /**
+     * @notice Slash an oracle for bad behavior
+     * @param oracle Address of the oracle to slash
+     * @param amount Amount to slash from reputation
+     * @param reason Reason for slashing
+     */
+    function slashOracle(address oracle, uint256 amount, string calldata reason) external onlyRole(ADMIN_ROLE) {
+        if (!authorizedOracles[oracle]) revert OracleDoesNotExist();
+        
+        OracleReputation storage reputation = oracleReputations[oracle];
+        reputation.reputationScore = reputation.reputationScore > amount ? 
+            reputation.reputationScore - amount : 0;
+        reputation.slashedAmount += amount;
+        reputation.lastSlashed = block.timestamp;
+        
+        // Deactivate oracle if reputation too low
+        if (reputation.reputationScore < 20) {
+            reputation.isActive = false;
+        }
+        
+        emit OracleSlashed(oracle, amount, reason);
     }
 
     /**
@@ -109,6 +198,10 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
         uint256 lifeExpectancy,
         string calldata deathCertificate
     ) external onlyRole(ORACLE_ROLE) nonReentrant {
+        // Validate oracle is active
+        OracleReputation storage reputation = oracleReputations[msg.sender];
+        if (!reputation.isActive) revert OracleNotAuthorized();
+        
         // Validate death timestamp
         if (deathTimestamp > block.timestamp) revert InvalidTimestamp();
         if (deathTimestamp < block.timestamp - VERIFICATION_EXPIRY) revert VerificationExpired();
@@ -137,11 +230,11 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
         verification.confirmingOracles.push(msg.sender);
         verification.confirmations = 1;
         
-        // Check if consensus reached immediately (single oracle for now)
-        if (verification.confirmations >= MIN_CONFIRMATIONS) {
+        // Check if consensus reached (now requires multiple oracles)
+        if (verification.confirmations >= MIN_CONFIRMATIONS && totalAuthorizedOracles >= MIN_ORACLES) {
             verification.isVerified = true;
             
-            // Store verified death data by copying fields individually
+            // Store verified death data
             DeathVerification storage mainVerification = deathVerifications[user];
             mainVerification.deathTimestamp = verification.deathTimestamp;
             mainVerification.age = verification.age;
@@ -151,17 +244,62 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
             mainVerification.consensusStartTime = verification.consensusStartTime;
             mainVerification.isVerified = verification.isVerified;
             mainVerification.isExpired = verification.isExpired;
-            // confirmingOracles and oracleConfirmations are not copied
             
             emit DeathVerificationCompleted(user, verification.confirmations, block.timestamp);
         }
         
         // Update oracle reputation
-        OracleReputation storage reputation = oracleReputations[msg.sender];
         reputation.totalVerifications++;
         reputation.lastActivity = block.timestamp;
         
         emit DeathVerificationRequested(user, deathTimestamp, msg.sender);
+    }
+
+    /**
+     * @notice Confirm death verification from another oracle
+     * @param user Address of the deceased user
+     * @param deathTimestamp Timestamp of death
+     */
+    function confirmDeathVerification(address user, uint256 deathTimestamp) external onlyRole(ORACLE_ROLE) nonReentrant {
+        // Validate oracle is active
+        OracleReputation storage reputation = oracleReputations[msg.sender];
+        if (!reputation.isActive) revert OracleNotAuthorized();
+        
+        bytes32 verificationHash = keccak256(abi.encodePacked(user, deathTimestamp));
+        DeathVerification storage verification = pendingDeathVerifications[verificationHash];
+        
+        if (verification.deathTimestamp == 0) revert VerificationAlreadyExists();
+        if (verification.oracleConfirmations[msg.sender]) revert OracleAlreadyConfirmed();
+        if (verification.isVerified) revert DeathAlreadyVerified();
+        
+        // Add confirmation
+        verification.oracleConfirmations[msg.sender] = true;
+        verification.confirmingOracles.push(msg.sender);
+        verification.confirmations++;
+        
+        // Check if consensus reached
+        if (verification.confirmations >= MIN_CONFIRMATIONS && totalAuthorizedOracles >= MIN_ORACLES) {
+            verification.isVerified = true;
+            
+            // Store verified death data
+            DeathVerification storage mainVerification = deathVerifications[user];
+            mainVerification.deathTimestamp = verification.deathTimestamp;
+            mainVerification.age = verification.age;
+            mainVerification.lifeExpectancy = verification.lifeExpectancy;
+            mainVerification.deathCertificate = verification.deathCertificate;
+            mainVerification.confirmations = verification.confirmations;
+            mainVerification.consensusStartTime = verification.consensusStartTime;
+            mainVerification.isVerified = verification.isVerified;
+            mainVerification.isExpired = verification.isExpired;
+            
+            emit DeathVerificationCompleted(user, verification.confirmations, block.timestamp);
+        }
+        
+        // Update oracle reputation
+        reputation.totalVerifications++;
+        reputation.lastActivity = block.timestamp;
+        
+        emit DeathVerificationConfirmed(user, msg.sender, block.timestamp);
     }
 
     /**
@@ -171,6 +309,10 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
      * @param verificationData IPFS hash of verification data
      */
     function verifyUser(address user, uint256 age, string memory verificationData) external onlyRole(ORACLE_ROLE) {
+        // Validate oracle is active
+        OracleReputation storage reputation = oracleReputations[msg.sender];
+        if (!reputation.isActive) revert OracleNotAuthorized();
+        
         if (age < 18 || age > 120) revert InvalidAge();
         
         UserVerification storage verification = userVerifications[user];
@@ -179,6 +321,11 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
         verification.verificationData = verificationData;
         verification.verificationTimestamp = block.timestamp;
         verification.isVerified = true;
+        
+        // Update oracle reputation
+        reputation.totalVerifications++;
+        reputation.successfulVerifications++;
+        reputation.lastActivity = block.timestamp;
         
         emit UserVerified(user, age, verification.lifeExpectancy);
     }
@@ -268,32 +415,6 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
             rep.reputationScore,
             rep.isActive
         );
-    }
-
-    /**
-     * @notice Add new oracle
-     * @param oracle Address of the oracle to add
-     */
-    function addOracle(address oracle) external onlyRole(ADMIN_ROLE) {
-        if (oracle == address(0)) revert InvalidOracle();
-        
-        _grantRole(ORACLE_ROLE, oracle);
-        oracleReputations[oracle].isActive = true;
-        
-        emit OracleAdded(oracle);
-    }
-
-    /**
-     * @notice Remove oracle
-     * @param oracle Address of the oracle to remove
-     */
-    function removeOracle(address oracle) external onlyRole(ADMIN_ROLE) {
-        if (oracle == address(0)) revert InvalidOracle();
-        
-        _revokeRole(ORACLE_ROLE, oracle);
-        oracleReputations[oracle].isActive = false;
-        
-        emit OracleRemoved(oracle);
     }
 
     /**

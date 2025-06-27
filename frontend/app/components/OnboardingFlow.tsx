@@ -94,7 +94,7 @@ export default function OnboardingFlow({ isOpen, onComplete, onClose }: Onboardi
     }
 
     try {
-      setLoading(true);
+      setLoading('calculateLifeExpectancy', true);
       const result = await calculateLifeExpectancy(factors);
       updateFormData('lifeExpectancy', result);
       setErrors([]);
@@ -112,7 +112,7 @@ export default function OnboardingFlow({ isOpen, onComplete, onClose }: Onboardi
         setErrors(['An unknown error occurred.']);
       }
     } finally {
-      setLoading(false);
+      setLoading('calculateLifeExpectancy', false);
     }
   };
 
