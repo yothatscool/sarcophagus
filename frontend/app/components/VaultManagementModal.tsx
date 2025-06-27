@@ -102,6 +102,12 @@ export default function VaultManagementModal({ vault, isOpen, onClose, defaultTa
     { label: 'GLO', value: userSarcophagus.gloAmount },
   ] : [];
 
+  // Beneficiary options for NFT assignment
+  const beneficiaryOptions = vault?.beneficiaries?.map(beneficiary => ({
+    value: beneficiary.address,
+    label: beneficiary.address
+  })) || [];
+
   // Accessibility refs
   const modalRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
@@ -196,7 +202,8 @@ export default function VaultManagementModal({ vault, isOpen, onClose, defaultTa
   const handleDepositTokens = async () => {
     const hasValidInput = (vetAmount && inputValidation.vetAmount?.isValid) ||
                          (vthoAmount && inputValidation.vthoAmount?.isValid) ||
-                         (b3trAmount && inputValidation.b3trAmount?.isValid)
+                         (b3trAmount && inputValidation.b3trAmount?.isValid) ||
+                         (obolAmount && inputValidation.obolAmount?.isValid)
 
     if (!hasValidInput) {
       showNotification('Please enter valid token amounts', 'warning')
@@ -213,6 +220,7 @@ export default function VaultManagementModal({ vault, isOpen, onClose, defaultTa
         setVetAmount('')
         setVthoAmount('')
         setB3trAmount('')
+        setObolAmount('')
         setInputValidation({})
       } catch (error) {
         console.error('Error depositing tokens:', error)
@@ -404,7 +412,6 @@ export default function VaultManagementModal({ vault, isOpen, onClose, defaultTa
       setNftValueValidation(prev => ({ ...prev, [nftKey]: null }))
     }
   }
-  const beneficiaryOptions = vault ? vault.beneficiaries.map(b => ({ value: b.address, label: b.address })) : [];
 
   if (!isOpen || !vault) return null
 
@@ -520,7 +527,7 @@ export default function VaultManagementModal({ vault, isOpen, onClose, defaultTa
                 <div>
                   <h3 className="text-lg font-semibold text-sarcophagus-100 mb-3 sm:mb-4">Deposit Tokens</h3>
                   <p className="text-sarcophagus-400 mb-4 text-sm">
-                    Deposit VET, VTHO, B3TR, or GLO tokens into your vault. Earn $B3TR rewards upon inheritance!
+                    Deposit VET, VTHO, B3TR, OBOL, or GLO tokens into your vault. Earn $B3TR rewards upon inheritance!
                   </p>
                   
                   <div className="space-y-4">
@@ -622,6 +629,38 @@ export default function VaultManagementModal({ vault, isOpen, onClose, defaultTa
 
                     <div>
                       <label className="block text-sm font-medium text-sarcophagus-300 mb-2">
+                        OBOL Amount
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          value={obolAmount}
+                          onChange={(e) => handleAmountChange(e.target.value, setObolAmount, (userSarcophagus?.obolAmount || 0n).toString(), 'OBOL', 'obolAmount')}
+                          placeholder="0.0"
+                          className={`flex-1 bg-sarcophagus-800 border rounded-lg px-3 sm:px-4 py-3 text-sarcophagus-100 placeholder-sarcophagus-500 focus:outline-none focus:ring-2 focus:ring-accent-gold ${
+                            inputValidation.obolAmount?.error ? 'border-red-500' : 
+                            inputValidation.obolAmount?.success ? 'border-green-500' : 'border-sarcophagus-600'
+                          }`}
+                          step="0.01"
+                          min="0"
+                        />
+                        <button
+                          onClick={() => setMaxAmount((userSarcophagus?.obolAmount || 0n).toString(), setObolAmount, 'obolAmount')}
+                          className="bg-sarcophagus-700 hover:bg-sarcophagus-600 text-sarcophagus-200 px-4 py-3 rounded-lg text-sm transition-colors min-w-[60px]"
+                        >
+                          Max
+                        </button>
+                      </div>
+                      {inputValidation.obolAmount?.error && (
+                        <p className="text-red-400 text-sm mt-1">{inputValidation.obolAmount.error}</p>
+                      )}
+                      {inputValidation.obolAmount?.success && (
+                        <p className="text-green-400 text-sm mt-1">{inputValidation.obolAmount.success}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-sarcophagus-300 mb-2">
                         GLO Amount
                       </label>
                       <div className="flex gap-2">
@@ -653,20 +692,13 @@ export default function VaultManagementModal({ vault, isOpen, onClose, defaultTa
                     </div>
                   </div>
                   
-                  <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                  <div className="mt-6">
                     <button
                       onClick={handleDepositTokens}
                       disabled={isLoading.depositTokens}
                       className="w-full bg-gradient-to-r from-accent-gold to-accent-bronze text-sarcophagus-950 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
                     >
                       {isLoading.depositTokens ? 'Depositing...' : 'Deposit Tokens'}
-                    </button>
-                    <button
-                      onClick={handleDepositGLO}
-                      disabled={isLoading.depositGLO}
-                      className="w-full bg-gradient-to-r from-accent-gold to-accent-bronze text-sarcophagus-950 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-                    >
-                      {isLoading.depositGLO ? 'Depositing GLO...' : 'Deposit GLO'}
                     </button>
                   </div>
                 </div>
