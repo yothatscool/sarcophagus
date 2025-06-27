@@ -1,9 +1,7 @@
-import { NotificationProvider } from './contexts/NotificationContext'
-import { WalletProvider } from './contexts/WalletContext'
-import { LoadingProvider } from './contexts/LoadingContext'
-import GlobalWarningBanner from './components/GlobalWarningBanner'
 import './globals.css'
 import { Inter } from 'next/font/google'
+import { NotificationProvider } from './contexts/NotificationContext'
+import { LoadingProvider } from './contexts/LoadingContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -19,14 +17,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} bg-dark-900 min-h-screen`}>
+      <body className={`${inter.className} bg-gray-900 min-h-screen`}>
         <NotificationProvider>
-          <WalletProvider>
-            <LoadingProvider>
-              <GlobalWarningBanner />
-              {children}
-            </LoadingProvider>
-          </WalletProvider>
+          <LoadingProvider>
+            {children}
+          </LoadingProvider>
         </NotificationProvider>
       </body>
     </html>
