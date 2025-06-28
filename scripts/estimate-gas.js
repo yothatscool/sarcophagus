@@ -17,6 +17,10 @@ async function main() {
   const mockB3TRDeployment = await MockB3TR.getDeployTransaction();
   console.log("MockB3TR deployment gas:", mockB3TRDeployment.gasLimit?.toString() || "Unknown");
 
+  const MockGLO = await ethers.getContractFactory("MockGLO");
+  const mockGLODeployment = await MockGLO.getDeployTransaction();
+  console.log("MockGLO deployment gas:", mockGLODeployment.gasLimit?.toString() || "Unknown");
+
   console.log("\n🪙 Estimating OBOL Token Deployment...");
   const OBOL = await ethers.getContractFactory("OBOL");
   const obolDeployment = await OBOL.getDeployTransaction();
@@ -37,18 +41,24 @@ async function main() {
   const mockB3TR = await MockB3TR.deploy();
   await mockB3TR.waitForDeployment();
   
+  const mockGLO = await MockGLO.deploy();
+  await mockGLO.waitForDeployment();
+  
   const obol = await OBOL.deploy();
   await obol.waitForDeployment();
   
   const deathVerifier = await DeathVerifier.deploy();
   await deathVerifier.waitForDeployment();
 
+  // Constructor parameters: (vthoToken, b3trToken, obolToken, gloToken, deathVerifier, obol, feeCollector)
   const sarcophagusDeployment = await Sarcophagus.getDeployTransaction(
-    await mockVTHO.getAddress(),
-    await mockB3TR.getAddress(),
-    await obol.getAddress(),
-    await deathVerifier.getAddress(),
-    await obol.getAddress()
+    await mockVTHO.getAddress(),    // _vthoToken
+    await mockB3TR.getAddress(),    // _b3trToken
+    await obol.getAddress(),        // _obolToken
+    await mockGLO.getAddress(),     // _gloToken
+    await deathVerifier.getAddress(), // _deathVerifier
+    await obol.getAddress(),        // _obol
+    deployer.address                // _feeCollector
   );
   console.log("Sarcophagus deployment gas:", sarcophagusDeployment.gasLimit?.toString() || "Unknown");
 
@@ -56,7 +66,7 @@ async function main() {
   console.log("\n🔐 Estimating Role Setup Costs...");
   
   const vaultRole = await obol.VAULT_ROLE();
-  const grantVaultRoleTx = await obol.grantRole.populateTransaction(vaultRole, await sarcophagus.getAddress());
+  const grantVaultRoleTx = await obol.grantRole.populateTransaction(vaultRole, deployer.address);
   console.log("Grant VAULT_ROLE gas:", grantVaultRoleTx.gasLimit?.toString() || "Unknown");
 
   const oracleRole = await deathVerifier.ORACLE_ROLE();

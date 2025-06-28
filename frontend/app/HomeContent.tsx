@@ -74,7 +74,7 @@ export default function HomeContent() {
   const { showNotification, showTransactionNotification } = useNotification()
   const { isLoading, setLoading } = useLoading()
   const [isBeneficiaryModalOpen, setBeneficiaryModalOpen] = useState(false)
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(true)
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false)
   const [userAge, setUserAge] = useState('')
   const [verificationHash, setVerificationHash] = useState('')
   const [vetAmount, setVetAmount] = useState('')
@@ -156,6 +156,13 @@ export default function HomeContent() {
         break
     }
   })
+
+  useEffect(() => {
+    if (isConnected && account && !isUserVerified) {
+      // Show onboarding when connected but not verified
+      setIsOnboardingOpen(true)
+    }
+  }, [isConnected, account, isUserVerified])
 
   useEffect(() => {
     if (isConnected && account) {
@@ -376,45 +383,47 @@ export default function HomeContent() {
     try {
       setLoading('onboarding', true)
       
-      // Calculate life expectancy
-      const lifeExpectancyResult = await calculateLifeExpectancy({
-        country: data.country,
-        age: data.age,
-        gender: data.gender,
-        smokingStatus: data.smokingStatus,
-        exerciseLevel: data.exerciseLevel,
-        bmi: data.bmi,
-        education: data.education,
-        income: data.income
-      })
+      console.log('Onboarding completion started with data:', data)
       
-      setUserLifeExpectancy(lifeExpectancyResult)
-      setLifeExpectancy(lifeExpectancyResult.adjustedLifeExpectancy.toString())
-      
-      // Create mock vault data
-      const mockVault: VaultData = {
-        id: '1',
-        owner: account!,
-        beneficiaries: data.beneficiaries || [],
-        totalValue: '0',
-        lifeExpectancy: lifeExpectancyResult.adjustedLifeExpectancy,
-        createdAt: new Date(),
-        status: 'active',
-        obolRewards: '0',
-        obolLocked: '0',
-        vetAmount: '0',
-        vthoAmount: '0',
-        b3trAmount: '0',
-        isDeceased: false
+      if (!account) {
+        showNotification('Please connect your wallet first', 'error')
+        return
       }
+
+      console.log('Account connected:', account)
+
+      // Extract beneficiary data
+      const beneficiaries = data.beneficiaries || []
+      const addresses = beneficiaries.map((b: any) => b.address)
+      const percentages = beneficiaries.map((b: any) => parseInt(b.percentage))
+
+      console.log('Beneficiaries:', { addresses, percentages })
+
+      // Validate beneficiaries
+      if (addresses.length === 0) {
+        showNotification('Please add at least one beneficiary', 'error')
+        return
+      }
+
+      if (percentages.reduce((sum: number, p: number) => sum + p, 0) !== 100) {
+        showNotification('Beneficiary percentages must add up to 100%', 'error')
+        return
+      }
+
+      console.log('About to call createSarcophagus with:', { addresses, percentages })
+
+      // Create the actual sarcophagus vault using the smart contract
+      const result = await createSarcophagus(addresses, percentages)
       
-      setVaults([mockVault])
+      console.log('createSarcophagus result:', result)
+      
+      // Close the onboarding modal
       setIsOnboardingOpen(false)
       
-      showNotification('Onboarding completed! Your vault is ready.', 'success')
+      showNotification('Sarcophagus vault created successfully!', 'success')
     } catch (error) {
-      console.error('Onboarding error:', error)
-      showNotification('Onboarding failed', 'error')
+      console.error('Onboarding error details:', error)
+      showNotification('Failed to create vault: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error')
     } finally {
       setLoading('onboarding', false)
     }
@@ -482,6 +491,7 @@ export default function HomeContent() {
         defaultTab={vaultModalTab}
       />
 
+      {/* Legal Disclosure - only show when explicitly triggered (e.g., when depositing tokens) */}
       {showLegalDisclosure && (
         <LegalDisclosure
           onAccept={acceptAllTerms}

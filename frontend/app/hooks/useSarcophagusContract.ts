@@ -135,29 +135,44 @@ export function useSarcophagusContract() {
   useEffect(() => {
     const initializeContracts = async () => {
       try {
+        console.log('Initializing contracts...')
+        
         // Only run on client side
-        if (typeof window === 'undefined') return;
+        if (typeof window === 'undefined') {
+          console.log('Skipping contract initialization - server side')
+          return;
+        }
         
         // Dynamically import ethers
         const ethers = await getEthers();
-        if (!ethers) return;
+        if (!ethers) {
+          console.log('Failed to load ethers')
+          return;
+        }
+        
+        console.log('Ethers loaded successfully')
         
         // Check if we're in a browser environment with ethereum provider
         if ((window as any).ethereum) {
+          console.log('Ethereum provider found')
           const ethereum = (window as any).ethereum;
           
           // Request account access
           await ethereum.request({ method: 'eth_requestAccounts' });
+          console.log('Account access requested')
           
           // Create provider and signer
           const browserProvider = new ethers.BrowserProvider(ethereum);
           const userSigner = await browserProvider.getSigner();
+          
+          console.log('Provider and signer created')
           
           setProvider(browserProvider);
           setSigner(userSigner);
 
           // Get contract addresses
           const addresses = getCurrentNetworkAddresses();
+          console.log('Contract addresses:', addresses)
           
           // Initialize contracts
           const sarcophagusContract = new ethers.Contract(
@@ -184,12 +199,21 @@ export function useSarcophagusContract() {
             userSigner
           );
 
+          console.log('Contracts initialized:', {
+            sarcophagus: sarcophagusContract.address,
+            obol: obolContract.address,
+            b3trRewards: b3trRewardsContract.address,
+            deathVerifier: deathVerifierContract.address
+          })
+
           setContracts({
             sarcophagus: sarcophagusContract,
             obol: obolContract,
             b3trRewards: b3trRewardsContract,
             deathVerifier: deathVerifierContract
           });
+        } else {
+          console.log('No ethereum provider found')
         }
       } catch (error) {
         console.error('Failed to initialize contracts:', error);
@@ -307,6 +331,9 @@ export function useSarcophagusContract() {
 
   // Create sarcophagus
   const createSarcophagus = async (beneficiaries: string[], percentages: number[]) => {
+    console.log('createSarcophagus called with:', { beneficiaries, percentages })
+    console.log('contracts.sarcophagus:', contracts.sarcophagus)
+    
     if (!contracts.sarcophagus) {
       // Mock mode for testing
       console.log('Mock: Creating sarcophagus', beneficiaries, percentages);
@@ -339,14 +366,18 @@ export function useSarcophagusContract() {
       return { wait: async () => {} };
     }
     
+    console.log('Real contract mode: Creating sarcophagus')
     setLoading(true);
     setError(null);
     try {
       const tx = await contracts.sarcophagus.createSarcophagus(beneficiaries, percentages);
+      console.log('Transaction sent:', tx)
       await tx.wait();
+      console.log('Transaction confirmed')
       await refreshUserData();
       return tx;
     } catch (e: any) {
+      console.error('Contract error:', e)
       const errorMsg = e.reason || e.message || 'Failed to create sarcophagus';
       setError(errorMsg);
       throw e;

@@ -121,8 +121,8 @@ export const CONTRACT_ADDRESSES = {
     DEATH_VERIFIER: '0x0000000000000000000000000000000000000000', // TODO: Update after testnet deployment
     MULTISIG_WALLET: '0x0000000000000000000000000000000000000000', // TODO: Update after testnet deployment
     VTHO_TOKEN: '0x0000000000000000000000000000456E65726779', // VTHO address (same on testnet)
-    B3TR_TOKEN: '0x0000000000000000000000000000000000000000', // TODO: Update with actual testnet B3TR address
-    GLO_TOKEN: '0x0000000000000000000000000000000000000000' // TODO: Update with actual testnet GLO address
+    B3TR_TOKEN: '0x5ef79995FE8a89e0812330E4378eB2660ceDe699', // B3TR testnet address
+    GLO_TOKEN: '0x29c630cCe4DdB23900f5Fe66Ab55e488C15b9F5e' // GLO testnet address
   },
   // Mainnet addresses (to be updated after mainnet deployment)
   MAINNET: {

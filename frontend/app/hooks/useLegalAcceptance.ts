@@ -77,12 +77,12 @@ export function useLegalAcceptance(userAddress: string | null) {
   // Check if user needs to accept terms
   const needsLegalAcceptance = userAddress && !hasAcceptedAllTerms
 
-  // Show legal disclosure if needed
-  useEffect(() => {
-    if (needsLegalAcceptance) {
-      setShowLegalDisclosure(true)
-    }
-  }, [needsLegalAcceptance])
+  // Don't automatically show legal disclosure - only show when explicitly triggered
+  // useEffect(() => {
+  //   if (needsLegalAcceptance) {
+  //     setShowLegalDisclosure(true)
+  //   }
+  // }, [needsLegalAcceptance])
 
   return {
     legalAcceptance,
