@@ -87,38 +87,33 @@ async function main() {
     console.log("OBOL Token deployed to:", await obol.getAddress());
     deploymentInfo.contracts.OBOL = await obol.getAddress();
 
-    // Deploy B3TR Rewards
-    console.log("\nDeploying B3TR Rewards...");
-    const B3TRRewards = await ethers.getContractFactory("B3TRRewards");
-    const b3trRewards = await B3TRRewards.deploy(
-      B3TR_ADDRESS, 
-      "0x0000000000000000000000000000000000000000", // Placeholder for sarcophagus address
-      80 // rateAdjustmentThreshold
-    );
-    await b3trRewards.waitForDeployment();
-    console.log("B3TR Rewards deployed to:", await b3trRewards.getAddress());
-    deploymentInfo.contracts.B3TRRewards = await b3trRewards.getAddress();
-
-    // Deploy Sarcophagus with all required parameters
+    // Deploy Sarcophagus first (needed for B3TR Rewards)
     console.log("\nDeploying Sarcophagus...");
     const Sarcophagus = await ethers.getContractFactory("Sarcophagus");
     const sarcophagus = await Sarcophagus.deploy(
-      VTHO_ADDRESS,                    // _vthoToken
-      B3TR_ADDRESS,                    // _b3trToken
-      await obol.getAddress(),         // _obolToken
-      GLO_ADDRESS,                     // _gloToken
+      VTHO_ADDRESS,                     // _vthoToken
+      B3TR_ADDRESS,                     // _b3trToken
+      await obol.getAddress(),          // _obolToken
+      GLO_ADDRESS,                      // _gloToken
       await deathVerifier.getAddress(), // _deathVerifier
-      await obol.getAddress(),         // _obol
+      await obol.getAddress(),          // _obol (same as obolToken)
       await multiSigWallet.getAddress() // _feeCollector
     );
     await sarcophagus.waitForDeployment();
     console.log("Sarcophagus deployed to:", await sarcophagus.getAddress());
     deploymentInfo.contracts.Sarcophagus = await sarcophagus.getAddress();
 
-    // Update B3TR Rewards with correct sarcophagus address
-    console.log("\nUpdating B3TR Rewards sarcophagus address...");
-    await b3trRewards.updateSarcophagusAddress(await sarcophagus.getAddress());
-    console.log("B3TR Rewards updated with sarcophagus address");
+    // Deploy B3TR Rewards with correct sarcophagus address
+    console.log("\nDeploying B3TR Rewards...");
+    const B3TRRewards = await ethers.getContractFactory("B3TRRewards");
+    const b3trRewards = await B3TRRewards.deploy(
+      B3TR_ADDRESS,                     // _b3trToken
+      await sarcophagus.getAddress(),   // _sarcophagusContract
+      80                                // _rateAdjustmentThreshold
+    );
+    await b3trRewards.waitForDeployment();
+    console.log("B3TR Rewards deployed to:", await b3trRewards.getAddress());
+    deploymentInfo.contracts.B3TRRewards = await b3trRewards.getAddress();
 
     // Set up roles and permissions
     console.log("\nSetting up roles and permissions...");
