@@ -1,17 +1,17 @@
 // Auto-generated from deployment
 export const CONTRACT_ADDRESSES = {
-  // Testnet addresses (VeChain Testnet)
+  // Testnet addresses (VeChain Testnet) - Updated with actual deployed contracts
   testnet: {
-    sarcophagus: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
-    obolToken: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-    b3trRewards: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
-    deathVerifier: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-    multiSigWallet: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+    sarcophagus: '0xDdC3EA7774D8159cA36941Cd8C2242f0BddDDD86',
+    obolToken: '0x7Bf213e820f681BcdEDB2595B1Aeb304A6638dB9',
+    b3trRewards: '0x354f8114254f985fB5ebc4401B4330bB6393ed18',
+    deathVerifier: '0xe010129bE20F85845d169BF656310e9F695687A7',
+    multiSigWallet: '0x8077A68349049658f5d8E387AaD7475422E04aF7',
     // Token addresses for deposits
     vet: '0x0000000000000000000000000000000000000000', // Native VET
     vtho: '0x0000000000000000000000000000000000000000', // Native VTHO
-    b3tr: '0x0000000000000000000000000000000000000000', // Placeholder - update when available
-    glo: '0x0000000000000000000000000000000000000000', // Placeholder - update when available
+    b3tr: '0x5ef79995FE8a89e0812330E4378eB2660ceDe699', // B3TR token
+    glo: '0x29c630cCe4DdB23900f5Fe66Ab55e488C15b9F5e', // GLO token
   },
   // Mainnet addresses (VeChain Mainnet) - to be updated when deployed
   mainnet: {
@@ -26,6 +26,121 @@ export const CONTRACT_ADDRESSES = {
     glo: '0x0000000000000000000000000000000000000000',
   }
 };
+
+// Helper function to get current network addresses
+export const getCurrentNetworkAddresses = (network: 'testnet' | 'mainnet' = 'testnet') => {
+  return CONTRACT_ADDRESSES[network];
+};
+
+// Contract ABIs - Basic interfaces for common functions
+export const OBOL_ABI = [
+  {
+    "inputs": [{"name": "account", "type": "address"}],
+    "name": "balanceOf",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "to", "type": "address"}, {"name": "amount", "type": "uint256"}],
+    "name": "transfer",
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalSupply",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
+export const SARCOPHAGUS_ABI = [
+  {
+    "inputs": [{"name": "", "type": "address"}],
+    "name": "sarcophagi",
+    "outputs": [
+      {"name": "vetAmount", "type": "uint256"},
+      {"name": "createdAt", "type": "uint256"},
+      {"name": "beneficiaries", "type": "tuple[]"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "", "type": "address"}],
+    "name": "verifications",
+    "outputs": [
+      {"name": "isVerified", "type": "bool"},
+      {"name": "age", "type": "uint8"},
+      {"name": "verificationHash", "type": "string"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "beneficiaries", "type": "address[]"},
+      {"name": "percentages", "type": "uint16[]"},
+      {"name": "guardians", "type": "address[]"},
+      {"name": "isMinors", "type": "bool[]"},
+      {"name": "ages", "type": "uint8[]"},
+      {"name": "contingentBeneficiaries", "type": "address[]"},
+      {"name": "survivorshipPeriods", "type": "uint256[]"}
+    ],
+    "name": "createSarcophagus",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  }
+];
+
+export const B3TR_REWARDS_ABI = [
+  {
+    "inputs": [{"name": "user", "type": "address"}],
+    "name": "calculateRewards",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "user", "type": "address"}],
+    "name": "claimRewards",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];
+
+export const DEATH_VERIFIER_ABI = [
+  {
+    "inputs": [
+      {"name": "user", "type": "address"},
+      {"name": "age", "type": "uint8"},
+      {"name": "lifeExpectancy", "type": "uint8"},
+      {"name": "verificationHash", "type": "string"}
+    ],
+    "name": "verifyUser",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "user", "type": "address"},
+      {"name": "deathTimestamp", "type": "uint256"},
+      {"name": "age", "type": "uint8"},
+      {"name": "lifeExpectancy", "type": "uint8"},
+      {"name": "deathCertificate", "type": "string"}
+    ],
+    "name": "requestDeathVerification",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];
 
 export const ORACLE_ADDRESSES = [
   '0xba54f2292b0957a023c27fd3d16fa2d7fa186bc6',
@@ -49,7 +164,7 @@ export const MULTISIG_CONFIG = {
 
 export const NETWORK_CONFIG = {
   name: "VeChain Testnet",
-  chainId: 1, // VeChain mainnet, use 0 for testnet
-  rpcUrl: "https://mainnet.veblocks.net",
-  explorerUrl: "https://explore.vechain.org"
+  chainId: 0, // VeChain testnet
+  rpcUrl: "https://testnet.vechain.org",
+  explorerUrl: "https://explore-testnet.vechain.org"
 } as const;

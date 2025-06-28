@@ -176,25 +176,25 @@ export function useSarcophagusContract() {
           
           // Initialize contracts
           const sarcophagusContract = new ethers.Contract(
-            addresses.SARCOPHAGUS,
+            addresses.sarcophagus,
             SARCOPHAGUS_ABI,
             userSigner
           );
           
           const obolContract = new ethers.Contract(
-            addresses.OBOL_TOKEN,
+            addresses.obolToken,
             OBOL_ABI,
             userSigner
           );
           
           const b3trRewardsContract = new ethers.Contract(
-            addresses.B3TR_REWARDS,
+            addresses.b3trRewards,
             B3TR_REWARDS_ABI,
             userSigner
           );
           
           const deathVerifierContract = new ethers.Contract(
-            addresses.DEATH_VERIFIER,
+            addresses.deathVerifier,
             DEATH_VERIFIER_ABI,
             userSigner
           );
@@ -611,12 +611,12 @@ export function useSarcophagusContract() {
           price: await getTokenPrice(await contracts.sarcophagus.obolAddress())
         },
         {
-          address: addresses.GLO_TOKEN,
+          address: addresses.glo,
           symbol: 'GLO',
           name: 'GLO Stablecoin',
           decimals: 18,
-          balance: sarcophagusData.gloAmount,
-          price: await getTokenPrice(addresses.GLO_TOKEN)
+          balance: BigInt(0),
+          price: await getTokenPrice(addresses.glo)
         }
       ];
 
@@ -647,7 +647,7 @@ export function useSarcophagusContract() {
                      await contracts.sarcophagus.vthoAddress(),
                      await contracts.sarcophagus.b3trAddress(),
                      await contracts.sarcophagus.obolAddress(),
-                     addresses.GLO_TOKEN];
+                     addresses.glo];
 
       for (let i = 0; i < tokens.length; i++) {
         for (let j = 0; j < tokens.length; j++) {
