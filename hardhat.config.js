@@ -1,7 +1,6 @@
 require('solidity-coverage');
 require("@vechain/hardhat-vechain");
 require("@vechain/hardhat-ethers");
-require("@nomicfoundation/hardhat-ethers");
 require("hardhat-gas-reporter");
 require("hardhat-contract-sizer");
 require("dotenv").config();
@@ -23,50 +22,50 @@ function getPrivateKeyFromMnemonic(mnemonic, index = 0) {
 // Get the private key either directly or from mnemonic
 const privateKey = PRIVATE_KEY || (MNEMONIC ? getPrivateKeyFromMnemonic(MNEMONIC) : "");
 
+/** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
     version: "0.8.24",
     settings: {
-      viaIR: true,
       optimizer: {
         enabled: true,
-        runs: 200
-      }
-    }
+        runs: 200,
+      },
+      viaIR: true,
+    },
   },
   networks: {
-    // VeChain Testnet (Testnet)
-    vechain_testnet: {
-      url: VECHAIN_TESTNET_URL || "https://testnet.veblocks.net",
-      privateKey: privateKey,
-      delegateUrl: "https://sponsor-testnet.vechain.energy/by/90",  // VeChain fee delegation
-      chainId: 39,
-      gas: 10000000,
-      gasPrice: 0, // VeChain uses gas price of 0 with fee delegation
-      timeout: 60000
-    },
-    // VeChain Mainnet
-    vechain_mainnet: {
-      url: VECHAIN_MAINNET_URL || "https://mainnet.veblocks.net",
-      privateKey: privateKey,
-      delegateUrl: "https://sponsor-mainnet.vechain.energy/by/90",  // VeChain fee delegation
-      chainId: 1,
-      gas: 10000000,
-      gasPrice: 0,
-      timeout: 60000
-    },
-    // Local development network (simulates VeChain)
-    hardhat: {
-      chainId: 1337,
-      gas: 10000000,
+    // VeChain Testnet with better configuration
+    vechainTestnet: {
+      url: "https://testnet.vechain.org",
+      accounts: [privateKey || "0x0000000000000000000000000000000000000000000000000000000000000000"],
+      chainId: 0, // VeChain testnet chain ID (was incorrectly set to 1)
+      gas: 5000000,
       gasPrice: 1000000000, // 1 gwei
-      allowUnlimitedContractSize: true
+      timeout: 60000,
+      confirmations: 1,
     },
-    // Localhost for testing
-    localhost: {
-      url: "http://127.0.0.1:8545",
-      chainId: 1337
+    // Local hardhat network for testing
+    hardhat: {
+      chainId: 31337,
+      gas: 5000000,
+      gasPrice: 0,
     }
+  },
+  etherscan: {
+    apiKey: {
+      vechainTestnet: "not-needed"
+    },
+    customChains: [
+      {
+        network: "vechainTestnet",
+        chainId: 1,
+        urls: {
+          apiURL: "https://explore-testnet.vechain.org/api",
+          browserURL: "https://explore-testnet.vechain.org"
+        }
+      }
+    ]
   },
   paths: {
     sources: "./contracts",
@@ -75,7 +74,7 @@ module.exports = {
     artifacts: "./artifacts"
   },
   mocha: {
-    timeout: 40000
+    timeout: 60000
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,

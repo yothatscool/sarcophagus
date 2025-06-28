@@ -1,0 +1,12 @@
+{
+  "network": "vechainTestnet",
+  "deployer": "0x0BD562C50eDD56e2627a3078d02A3782fF03F67D",
+  "contracts": {
+    "Sarcophagus": "0xDdC3EA7774D8159cA36941Cd8C2242f0BddDDD86",
+    "OBOL": "0x7Bf213e820f681BcdEDB2595B1Aeb304A6638dB9",
+    "B3TRRewards": "0x354f8114254f985fB5ebc4401B4330bB6393ed18",
+    "DeathVerifier": "0xe010129bE20F85845d169BF656310e9F695687A7",
+    "MultiSigWallet": "0x8077A68349049658f5d8E387AaD7475422E04aF7"
+  },
+  "timestamp": "2025-06-28T22:17:38.865Z"
+}
