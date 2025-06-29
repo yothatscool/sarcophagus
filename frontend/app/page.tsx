@@ -8,7 +8,6 @@ import QuickStats from './components/QuickStats'
 import RecentActivity from './components/RecentActivity'
 
 export default function Home() {
-  const [connex, setConnex] = useState<any>(null)
   const [account, setAccount] = useState<any>(null)
   const [userData, setUserData] = useState({
     isVerified: false,
@@ -21,25 +20,6 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true)
   }, [])
-
-  useEffect(() => {
-    if (!isClient) return
-
-    const initConnex = async () => {
-      try {
-        const Connex = (await import('@vechain/connex')).default
-        const connexInstance = new Connex({
-          node: 'https://testnet.vechain.org',
-          network: 'test'
-        })
-        setConnex(connexInstance)
-      } catch (err) {
-        console.error('Failed to initialize Connex:', err)
-      }
-    }
-
-    initConnex()
-  }, [isClient])
 
   if (!isClient) {
     return (
@@ -76,7 +56,6 @@ export default function Home() {
           <div className="lg:col-span-2">
             <SarcophagusDashboard 
               account={account}
-              connex={connex}
             />
           </div>
         </div>

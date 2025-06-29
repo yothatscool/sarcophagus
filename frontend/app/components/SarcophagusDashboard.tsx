@@ -10,7 +10,7 @@ interface SarcophagusDashboardProps {
     balance: string;
     energy: string;
   } | null;
-  connex: any;
+  connex?: any;
 }
 
 interface SarcophagusData {
