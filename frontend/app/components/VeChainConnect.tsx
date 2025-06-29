@@ -133,90 +133,107 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           console.log('VeChain object:', vechain);
           console.log('VeChain methods:', Object.keys(vechain));
           
-          // Use the correct genesisId that matches what VeWorld is using (mainnet)
-          const mainnetConfig = {
-            node: 'https://mainnet.vechain.org',
-            network: 'main',
-            genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
-          };
+          // Step 1: Try to trigger VeWorld extension directly with request
+          console.log('Trying to trigger VeWorld extension with direct request...');
           
-          // Step 1: Create Connex instance
-          console.log('Creating Connex instance...');
-          const connexInstance = vechain.newConnex(mainnetConfig);
-          console.log('Connex instance created:', connexInstance);
-          
-          // Step 2: Try to trigger account access through certificate signing
           try {
-            console.log('Trying certificate signing to trigger account access...');
-            const certService = await connexInstance.vendor.sign('cert', {
-              purpose: 'identification',
-              payload: {
-                type: 'text',
-                content: 'Requesting account access for VeChain connection'
-              }
-            });
+            // Try different request methods to trigger the extension
+            const requestMethods = [
+              'eth_requestAccounts',
+              'eth_accounts',
+              'vechain_accounts',
+              'accounts',
+              'getAccounts'
+            ];
             
-            console.log('Certificate service obtained:', certService);
-            
-            if (certService && typeof certService.signer === 'function') {
-              console.log('Calling certificate signer...');
-              const signedCert = await certService.signer();
-              console.log('Certificate signed:', signedCert);
-              
-              // Try to extract signer address from certificate
-              if (signedCert && signedCert.annex && signedCert.annex.signer) {
-                console.log('Found signer in certificate annex:', signedCert.annex.signer);
-                walletAccount = { address: signedCert.annex.signer };
-              } else if (signedCert && signedCert.signer) {
-                console.log('Found signer directly in certificate:', signedCert.signer);
-                walletAccount = { address: signedCert.signer };
-              } else if (signedCert && signedCert.origin) {
-                console.log('Found signer in certificate origin:', signedCert.origin);
-                walletAccount = { address: signedCert.origin };
+            for (const method of requestMethods) {
+              try {
+                console.log(`Trying vechain.request with method: ${method}`);
+                const result = await vechain.request({ method });
+                console.log(`Request result for ${method}:`, result);
+                
+                if (result && Array.isArray(result) && result.length > 0) {
+                  console.log(`Found account with ${method}:`, result[0]);
+                  walletAccount = { address: result[0] };
+                  break;
+                }
+              } catch (requestError) {
+                console.log(`Request failed for ${method}:`, (requestError as Error).message);
               }
             }
-          } catch (certError) {
-            console.log('Certificate signing failed:', (certError as Error).message);
+          } catch (directRequestError) {
+            console.log('Direct request failed:', (directRequestError as Error).message);
+          }
+          
+          // Step 2: If direct request didn't work, try creating Connex instance
+          if (!walletAccount) {
+            console.log('Direct request failed, trying Connex instance...');
             
-            // Step 3: If we still don't have an account, try a simple transaction signing
-            if (!walletAccount) {
-              console.log('Trying simple transaction signing to get account...');
-              
+            // Use the correct genesisId that matches what VeWorld is using (mainnet)
+            const mainnetConfig = {
+              node: 'https://mainnet.vechain.org',
+              network: 'main',
+              genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
+            };
+            
+            // Create Connex instance
+            console.log('Creating Connex instance...');
+            const connexInstance = vechain.newConnex(mainnetConfig);
+            console.log('Connex instance created:', connexInstance);
+            
+            // Try to get account through vendor request
+            if (connexInstance.vendor && connexInstance.vendor.request) {
               try {
-                // Create a simple transaction that will prompt for signature
-                const clause = {
-                  to: '0x0000000000000000000000000000000000000000', // Zero address
-                  value: '0x0', // Zero value
-                  data: '0x' // Empty data
-                };
+                console.log('Trying vendor.request to get account...');
+                const result = await connexInstance.vendor.request({ method: 'eth_requestAccounts' });
+                console.log('Vendor request result:', result);
                 
-                const tx = connexInstance.thor.transaction(clause);
-                console.log('Simple transaction created:', tx);
+                if (result && Array.isArray(result) && result.length > 0) {
+                  console.log('Found account through vendor request:', result[0]);
+                  walletAccount = { address: result[0] };
+                }
+              } catch (vendorRequestError) {
+                console.log('Vendor request failed:', (vendorRequestError as Error).message);
+              }
+            }
+            
+            // Step 3: If vendor request didn't work, try certificate signing with proper parameters
+            if (!walletAccount) {
+              try {
+                console.log('Trying certificate signing with proper parameters...');
                 
-                // This should trigger the wallet to prompt for signature and reveal the account
-                const signingService = await tx.signer();
-                console.log('Simple transaction signing service obtained:', signingService);
+                // Try to get a dummy address first to use in certificate signing
+                const dummyAddress = '0x0000000000000000000000000000000000000000';
                 
-                if (signingService && typeof signingService.signer === 'function') {
-                  console.log('Calling simple transaction signer...');
-                  const signedTx = await signingService.signer();
-                  console.log('Simple transaction signed:', signedTx);
-                  console.log('Simple transaction full object:', JSON.stringify(signedTx, null, 2));
+                const certService = await connexInstance.vendor.sign('cert', {
+                  purpose: 'identification',
+                  payload: {
+                    type: 'text',
+                    content: 'Requesting account access for VeChain connection'
+                  }
+                });
+                
+                console.log('Certificate service obtained:', certService);
+                
+                if (certService && typeof certService.signer === 'function') {
+                  console.log('Calling certificate signer with dummy address...');
+                  const signedCert = await certService.signer(dummyAddress);
+                  console.log('Certificate signed:', signedCert);
                   
-                  // The signed transaction should contain the origin (signer address)
-                  if (signedTx && signedTx.origin) {
-                    console.log('Found signer address in simple transaction:', signedTx.origin);
-                    walletAccount = { address: signedTx.origin };
-                  } else if (signedTx && signedTx.signer) {
-                    console.log('Found signer in simple transaction:', signedTx.signer);
-                    walletAccount = { address: signedTx.signer };
-                  } else if (signedTx && signedTx.from) {
-                    console.log('Found signer in simple transaction from:', signedTx.from);
-                    walletAccount = { address: signedTx.from };
+                  // Try to extract signer address from certificate
+                  if (signedCert && signedCert.annex && signedCert.annex.signer) {
+                    console.log('Found signer in certificate annex:', signedCert.annex.signer);
+                    walletAccount = { address: signedCert.annex.signer };
+                  } else if (signedCert && signedCert.signer) {
+                    console.log('Found signer directly in certificate:', signedCert.signer);
+                    walletAccount = { address: signedCert.signer };
+                  } else if (signedCert && signedCert.origin) {
+                    console.log('Found signer in certificate origin:', signedCert.origin);
+                    walletAccount = { address: signedCert.origin };
                   }
                 }
-              } catch (simpleTxError) {
-                console.log('Simple transaction signing failed:', (simpleTxError as Error).message);
+              } catch (certError) {
+                console.log('Certificate signing failed:', (certError as Error).message);
               }
             }
           }
