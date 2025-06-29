@@ -69,8 +69,64 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         ConnexWalletBuddy: typeof window !== 'undefined' ? !!(window as any).ConnexWalletBuddy : false
       });
 
-      // Check for VeChain wallet (VeWorld/Sync2)
-      if (typeof window !== 'undefined' && (window as any).vechain) {
+      // Check for ConnexWalletBuddy first (seems to work better)
+      if (typeof window !== 'undefined' && (window as any).ConnexWalletBuddy) {
+        try {
+          console.log('Attempting ConnexWalletBuddy connection first...');
+          const buddy = (window as any).ConnexWalletBuddy;
+          console.log('ConnexWalletBuddy object:', buddy);
+          console.log('ConnexWalletBuddy methods:', Object.keys(buddy));
+          
+          if (buddy.create) {
+            console.log('Using ConnexWalletBuddy.create method...');
+            try {
+              // Use mainnet configuration to match VeWorld
+              const buddyConnex = buddy.create({
+                node: 'https://mainnet.vechain.org',
+                network: 'main',
+                genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
+              });
+              console.log('ConnexWalletBuddy connex created:', buddyConnex);
+              
+              if (buddyConnex && buddyConnex.signCert) {
+                console.log('Using ConnexWalletBuddy signCert...');
+                try {
+                  const cert = await buddyConnex.signCert({
+                    purpose: 'identification',
+                    payload: {
+                      type: 'text',
+                      content: 'Requesting account access for VeChain connection'
+                    }
+                  });
+                  
+                  console.log('ConnexWalletBuddy certificate result:', cert);
+                  console.log('Certificate full object:', JSON.stringify(cert, null, 2));
+                  
+                  if (cert && cert.annex && cert.annex.signer) {
+                    console.log('Found signer in ConnexWalletBuddy cert:', cert.annex.signer);
+                    walletAccount = { address: cert.annex.signer };
+                  } else if (cert && cert.signer) {
+                    console.log('Found signer directly in ConnexWalletBuddy cert:', cert.signer);
+                    walletAccount = { address: cert.signer };
+                  } else if (cert && cert.origin) {
+                    console.log('Found signer in ConnexWalletBuddy cert origin:', cert.origin);
+                    walletAccount = { address: cert.origin };
+                  }
+                } catch (certError) {
+                  console.log('ConnexWalletBuddy certificate signing failed:', (certError as Error).message);
+                }
+              }
+            } catch (createErr) {
+              console.log('ConnexWalletBuddy create failed:', createErr);
+            }
+          }
+        } catch (err) {
+          console.log('ConnexWalletBuddy connection failed:', err);
+        }
+      }
+
+      // Check for VeChain wallet (VeWorld/Sync2) as fallback
+      if (!walletAccount && typeof window !== 'undefined' && (window as any).vechain) {
         try {
           console.log('Attempting VeChain wallet connection...');
           const vechain = (window as any).vechain;
@@ -89,7 +145,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           const connexInstance = vechain.newConnex(mainnetConfig);
           console.log('Connex instance created:', connexInstance);
           
-          // Step 2: Set up account change listener BEFORE any signing attempts
+          // Step 2: Set up account change listener first
           console.log('Setting up account change listener...');
           let accountFound = false;
           
@@ -193,7 +249,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
               console.log('Account request sent');
               
               // Wait a bit for the account change event to fire
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              await new Promise(resolve => setTimeout(resolve, 3000));
             } catch (requestError) {
               console.log('Account request failed:', (requestError as Error).message);
             }
@@ -201,54 +257,6 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           
         } catch (err) {
           console.log('VeChain connection failed:', err);
-        }
-      }
-
-      // Check for ConnexWalletBuddy as fallback
-      if (!walletAccount && typeof window !== 'undefined' && (window as any).ConnexWalletBuddy) {
-        try {
-          console.log('Attempting ConnexWalletBuddy connection...');
-          const buddy = (window as any).ConnexWalletBuddy;
-          console.log('ConnexWalletBuddy object:', buddy);
-          console.log('ConnexWalletBuddy methods:', Object.keys(buddy));
-          
-          if (buddy.create) {
-            console.log('Using ConnexWalletBuddy.create method...');
-            try {
-              // Use mainnet configuration to match VeWorld
-              const buddyConnex = buddy.create({
-                node: 'https://mainnet.vechain.org',
-                network: 'main',
-                genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
-              });
-              console.log('ConnexWalletBuddy connex created:', buddyConnex);
-              
-              if (buddyConnex && buddyConnex.signCert) {
-                console.log('Using ConnexWalletBuddy signCert...');
-                try {
-                  const cert = await buddyConnex.signCert({
-                    purpose: 'identification',
-                    payload: {
-                      type: 'text',
-                      content: 'Requesting account access for VeChain connection'
-                    }
-                  });
-                  
-                  console.log('ConnexWalletBuddy certificate result:', cert);
-                  if (cert && cert.annex && cert.annex.signer) {
-                    console.log('Found signer in ConnexWalletBuddy cert:', cert.annex.signer);
-                    walletAccount = { address: cert.annex.signer };
-                  }
-                } catch (certError) {
-                  console.log('ConnexWalletBuddy certificate signing failed:', (certError as Error).message);
-                }
-              }
-            } catch (createErr) {
-              console.log('ConnexWalletBuddy create failed:', createErr);
-            }
-          }
-        } catch (err) {
-          console.log('ConnexWalletBuddy connection failed:', err);
         }
       }
 
