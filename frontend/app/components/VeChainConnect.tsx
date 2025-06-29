@@ -264,6 +264,79 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                         console.log('Certificate signing failed:', (certError as Error).message);
                       }
                       
+                      // Try ConnexWalletBuddy certificate signing as alternative
+                      try {
+                        console.log('Trying ConnexWalletBuddy certificate signing...');
+                        if (typeof window !== 'undefined' && (window as any).ConnexWalletBuddy) {
+                          const buddy = (window as any).ConnexWalletBuddy;
+                          const buddyConnex = buddy.create({
+                            node: 'https://mainnet.vechain.org',
+                            network: 'main',
+                            genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
+                          });
+                          
+                          if (buddyConnex && buddyConnex.signCert) {
+                            console.log('Using ConnexWalletBuddy signCert...');
+                            const cert = await buddyConnex.signCert({
+                              purpose: 'identification',
+                              payload: {
+                                type: 'text',
+                                content: 'Requesting account access for VeChain connection'
+                              }
+                            });
+                            
+                            console.log('ConnexWalletBuddy certificate result:', cert);
+                            if (cert && cert.annex && cert.annex.signer) {
+                              console.log('Found signer in ConnexWalletBuddy cert:', cert.annex.signer);
+                              setAccount({
+                                address: cert.annex.signer,
+                                balance: '0',
+                                energy: '0'
+                              });
+                              setIsConnected(true);
+                              setError(null);
+                              return;
+                            }
+                          }
+                        }
+                      } catch (buddyCertError) {
+                        console.log('ConnexWalletBuddy certificate signing failed:', (buddyCertError as Error).message);
+                      }
+                      
+                      // Try transaction signing as another approach
+                      try {
+                        console.log('Trying transaction signing to get account access...');
+                        const clause = {
+                          to: '0x0000000000000000000000000000000000000000', // Zero address
+                          value: '0x0', // Zero value
+                          data: '0x' // Empty data
+                        };
+                        
+                        const tx = connex.thor.transaction(clause);
+                        const signingService = await tx.signer();
+                        
+                        console.log('Transaction signing service:', signingService);
+                        if (signingService && typeof signingService.signer === 'function') {
+                          console.log('Calling transaction signer...');
+                          const signedTx = await signingService.signer();
+                          console.log('Signed transaction:', signedTx);
+                          
+                          if (signedTx && signedTx.origin) {
+                            console.log('Found origin in signed transaction:', signedTx.origin);
+                            setAccount({
+                              address: signedTx.origin,
+                              balance: '0',
+                              energy: '0'
+                            });
+                            setIsConnected(true);
+                            setError(null);
+                            return;
+                          }
+                        }
+                      } catch (txError) {
+                        console.log('Transaction signing failed:', (txError as Error).message);
+                      }
+                      
                       // Try to request account access using VeWorld-specific methods
                       if (connex.vendor.request) {
                         console.log('Trying vendor.request to get account...');
