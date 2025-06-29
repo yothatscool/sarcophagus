@@ -48,19 +48,19 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     
     setIsLoading(true);
     try {
-      // Load user verification status
+      // Load user verification status from DeathVerifier contract
       const verificationClause = connex.thor
-        .account(CONTRACT_ADDRESSES.testnet.sarcophagus)
+        .account(CONTRACT_ADDRESSES.testnet.deathVerifier)
         .method({
-          name: 'verifications',
+          name: 'getUserVerification',
           abi: {
             constant: true,
-            inputs: [{ name: '', type: 'address' }],
-            name: 'verifications',
+            inputs: [{ name: 'user', type: 'address' }],
+            name: 'getUserVerification',
             outputs: [
               { name: 'isVerified', type: 'bool' },
-              { name: 'age', type: 'uint8' },
-              { name: 'verificationHash', type: 'string' }
+              { name: 'age', type: 'uint256' },
+              { name: 'lifeExpectancy', type: 'uint256' }
             ],
             type: 'function'
           }
@@ -71,7 +71,7 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
       setUserVerification({
         isVerified: verificationResult.decoded[0],
         age: Number(verificationResult.decoded[1]),
-        verificationHash: verificationResult.decoded[2]
+        verificationHash: `Age: ${verificationResult.decoded[1]}, Life Expectancy: ${verificationResult.decoded[2]}`
       });
 
       // Load sarcophagus data
@@ -143,16 +143,15 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
           abi: {
             inputs: [
               { name: 'user', type: 'address' },
-              { name: 'age', type: 'uint8' },
-              { name: 'lifeExpectancy', type: 'uint8' },
-              { name: 'verificationHash', type: 'string' }
+              { name: 'age', type: 'uint256' },
+              { name: 'verificationData', type: 'string' }
             ],
             name: 'verifyUser',
             outputs: [],
             type: 'function'
           }
         })
-        .value(account.address, 30, 85, 'ipfs://QmTestVerificationHash');
+        .value(account.address, 30, 'ipfs://QmTestVerificationHash');
 
       console.log('Verification transaction created:', clause);
       

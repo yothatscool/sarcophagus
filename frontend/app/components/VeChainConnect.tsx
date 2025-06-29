@@ -402,30 +402,39 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                 console.log('Testing VeChain wallet methods...');
                 
                 try {
-                  // Test 1: Try to create a vendor
+                  // Test 1: Try to create a vendor with testnet config
                   if (vechain.newConnexVendor) {
                     console.log('Test 1: Creating vendor...');
-                    const vendor = vechain.newConnexVendor();
+                    const vendor = vechain.newConnexVendor({
+                      node: 'https://testnet.vechain.org',
+                      network: 'test'
+                    });
                     console.log('Vendor created:', vendor);
                     if (vendor) {
                       console.log('Vendor methods:', Object.keys(vendor));
                     }
                   }
                   
-                  // Test 2: Try to create a connex
+                  // Test 2: Try to create a connex with testnet config
                   if (vechain.newConnex) {
                     console.log('Test 2: Creating connex...');
-                    const connex = vechain.newConnex();
+                    const connex = vechain.newConnex({
+                      node: 'https://testnet.vechain.org',
+                      network: 'test'
+                    });
                     console.log('Connex created:', connex);
                     if (connex) {
                       console.log('Connex methods:', Object.keys(connex));
                     }
                   }
                   
-                  // Test 3: Try to create a signer
+                  // Test 3: Try to create a signer with testnet config
                   if (vechain.newConnexSigner) {
                     console.log('Test 3: Creating signer...');
-                    const signer = vechain.newConnexSigner();
+                    const signer = vechain.newConnexSigner({
+                      node: 'https://testnet.vechain.org',
+                      network: 'test'
+                    });
                     console.log('Signer created:', signer);
                     if (signer) {
                       console.log('Signer methods:', Object.keys(signer));
