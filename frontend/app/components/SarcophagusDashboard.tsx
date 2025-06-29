@@ -134,10 +134,9 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     try {
       console.log('Starting user verification process...');
       
-      // Create the verification transaction
+      // Create the verification transaction using vendor API
       const clause = connex.thor
-        .transaction()
-        .clause(CONTRACT_ADDRESSES.testnet.deathVerifier)
+        .account(CONTRACT_ADDRESSES.testnet.deathVerifier)
         .method({
           name: 'verifyUser',
           abi: {
@@ -153,20 +152,18 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
         })
         .value(account.address, 30, 'ipfs://QmTestVerificationHash');
 
-      console.log('Verification transaction created:', clause);
+      console.log('Verification clause created:', clause);
       
-      // Get the signing service
-      const signingService = await clause.signer();
+      // Get the signing service from vendor
+      const signingService = await connex.vendor.sign('tx', [clause]);
       console.log('Signing service obtained:', signingService);
       
-      if (signingService && typeof signingService.signer === 'function') {
-        console.log('Calling transaction signer...');
-        const signedTx = await signingService.signer();
-        console.log('Transaction signed:', signedTx);
+      if (signingService && signingService.txid) {
+        console.log('Transaction signed with ID:', signingService.txid);
         
         // Wait for transaction to be mined
         console.log('Waiting for transaction to be mined...');
-        const receipt = await connex.thor.transaction(signedTx.id).getReceipt();
+        const receipt = await connex.thor.transaction(signingService.txid).getReceipt();
         console.log('Transaction receipt:', receipt);
         
         if (receipt && receipt.reverted === false) {
@@ -206,8 +203,7 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
       const testBeneficiary = '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
       
       const clause = connex.thor
-        .transaction()
-        .clause(CONTRACT_ADDRESSES.testnet.sarcophagus)
+        .account(CONTRACT_ADDRESSES.testnet.sarcophagus)
         .method({
           name: 'createSarcophagus',
           abi: {
@@ -233,23 +229,20 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
           [25],
           ['0x0000000000000000000000000000000000000000'],
           [0]
-        )
-        .comment('Create Sarcophagus');
+        );
 
-      console.log('Sarcophagus creation transaction created:', clause);
+      console.log('Sarcophagus creation clause created:', clause);
       
-      // Get the signing service
-      const signingService = await clause.signer();
+      // Get the signing service from vendor
+      const signingService = await connex.vendor.sign('tx', [clause]);
       console.log('Signing service obtained:', signingService);
       
-      if (signingService && typeof signingService.signer === 'function') {
-        console.log('Calling transaction signer...');
-        const signedTx = await signingService.signer();
-        console.log('Transaction signed:', signedTx);
+      if (signingService && signingService.txid) {
+        console.log('Transaction signed with ID:', signingService.txid);
         
         // Wait for transaction to be mined
         console.log('Waiting for transaction to be mined...');
-        const receipt = await connex.thor.transaction(signedTx.id).getReceipt();
+        const receipt = await connex.thor.transaction(signingService.txid).getReceipt();
         console.log('Transaction receipt:', receipt);
         
         if (receipt && receipt.reverted === false) {
