@@ -16,9 +16,7 @@ export { useWallet, useWalletModal } from '@vechain/dapp-kit-react';
 export function WalletProvider({ children }: { children: ReactNode }) {
   return (
     <DAppKitProvider
-      nodeUrl="https://testnet.vechain.org/"
-      genesis="test"
-      usePersistence
+      node="https://testnet.vechain.org"
       walletConnectOptions={{
         projectId: 'a1472a0dff98ffc1f834887119efdf65',
         metadata: {
@@ -28,7 +26,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           icons: ['http://localhost:3000/logo.png'],
         },
       }}
-      logLevel="DEBUG"
     >
       {children}
     </DAppKitProvider>
