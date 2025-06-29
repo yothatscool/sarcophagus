@@ -77,7 +77,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           console.log('VeChain object:', vechain);
           console.log('VeChain methods:', Object.keys(vechain));
           
-          // VeChain Testnet configuration
+          // VeChain Testnet configuration (what VeWorld is actually using)
           const testnetConfig = {
             node: 'https://testnet.vechain.org',
             network: 'test',
@@ -102,23 +102,23 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           try {
             console.log('Using vechain.newConnexVendor method...');
             
-            // Try VeWorld config first (what VeWorld is actually using)
+            // Try testnet config first (what VeWorld is actually using)
             let vendor = null;
             try {
-              vendor = vechain.newConnexVendor(veWorldConfig);
-              console.log('VeWorld config vendor created successfully');
+              vendor = vechain.newConnexVendor(testnetConfig);
+              console.log('Testnet config vendor created successfully');
             } catch (error) {
-              console.log('VeWorld config failed, trying mainnet:', (error as Error).message);
+              console.log('Testnet config failed, trying mainnet:', (error as Error).message);
               try {
                 vendor = vechain.newConnexVendor(mainnetConfig);
                 console.log('Mainnet vendor created successfully');
               } catch (error2) {
-                console.log('Mainnet vendor failed, trying testnet:', (error2 as Error).message);
+                console.log('Mainnet vendor failed, trying VeWorld config:', (error2 as Error).message);
                 try {
-                  vendor = vechain.newConnexVendor(testnetConfig);
-                  console.log('Testnet vendor created successfully');
+                  vendor = vechain.newConnexVendor(veWorldConfig);
+                  console.log('VeWorld config vendor created successfully');
                 } catch (error3) {
-                  console.log('Testnet vendor failed, trying without config:', (error3 as Error).message);
+                  console.log('VeWorld config failed, trying without config:', (error3 as Error).message);
                   try {
                     vendor = vechain.newConnexVendor();
                     console.log('No config vendor created successfully');
@@ -151,7 +151,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           // Try Connex approach
           try {
             console.log('Using vechain.newConnex method...');
-            const connex = vechain.newConnex(veWorldConfig);
+            const connex = vechain.newConnex(testnetConfig);
             console.log('Connex created:', connex);
             console.log('Connex methods:', Object.getOwnPropertyNames(connex));
             
@@ -194,6 +194,27 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                           return;
                         }
                       }
+                      
+                      // Try to request account access
+                      if (connex.vendor.request) {
+                        console.log('Trying vendor.request to get account...');
+                        try {
+                          const result = await connex.vendor.request({ method: 'eth_accounts' });
+                          console.log('Vendor request result:', result);
+                          if (result && result.length > 0) {
+                            setAccount({
+                              address: result[0],
+                              balance: '0',
+                              energy: '0'
+                            });
+                            setIsConnected(true);
+                            setError(null);
+                            return;
+                          }
+                        } catch (requestError) {
+                          console.log('Vendor request failed:', (requestError as Error).message);
+                        }
+                      }
                     }
                   } catch (thorError) {
                     console.log('Thor account method failed:', (thorError as Error).message);
@@ -203,6 +224,25 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
             }
           } catch (error) {
             console.log('Connex vendor failed:', (error as Error).message);
+          }
+          
+          // Try vechain.request method as fallback
+          try {
+            console.log('Trying vechain.request method to get account...');
+            const result = await vechain.request({ method: 'eth_accounts' });
+            console.log('VeChain request result:', result);
+            if (result && result.length > 0) {
+              setAccount({
+                address: result[0],
+                balance: '0',
+                energy: '0'
+              });
+              setIsConnected(true);
+              setError(null);
+              return;
+            }
+          } catch (requestError) {
+            console.log('VeChain request failed:', (requestError as Error).message);
           }
         } catch (err) {
           console.log('VeChain connection failed:', err);
@@ -221,11 +261,11 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           if (buddy.create) {
             console.log('Using ConnexWalletBuddy.create method...');
             try {
-              // Create ConnexWalletBuddy with mainnet configuration (what VeWorld uses)
+              // Create ConnexWalletBuddy with testnet configuration (what VeWorld is using)
               const connex = buddy.create({
-                node: 'https://mainnet.vechain.org',
-                network: 'main',
-                genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
+                node: 'https://testnet.vechain.org',
+                network: 'test',
+                genesisId: '0x00000000851caf3cfdb6e899cf5958bfb1ac3413d346d43539627e6be7ec1b4a'
               });
               console.log('ConnexWalletBuddy connex created:', connex);
               console.log('ConnexWalletBuddy methods:', connex ? Object.keys(connex) : 'No connex');
