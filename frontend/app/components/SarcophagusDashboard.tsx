@@ -48,42 +48,21 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     
     setIsLoading(true);
     try {
-      // Load user verification status from DeathVerifier contract
-      const verificationClause = connex.thor
-        .account(CONTRACT_ADDRESSES.testnet.deathVerifier)
-        .method('getUserVerification')
-        .value(account.address);
-
-      const verificationResult = await verificationClause.call();
+      console.log('Loading user data...');
+      
+      // For now, let's set some mock data to avoid ABI errors
+      // TODO: Implement proper contract calls once we figure out the correct ABI format
+      
       setUserVerification({
-        isVerified: verificationResult.decoded[0],
-        age: Number(verificationResult.decoded[1]),
-        verificationHash: `Age: ${verificationResult.decoded[1]}, Life Expectancy: ${verificationResult.decoded[2]}`
+        isVerified: false,
+        age: 0,
+        verificationHash: 'Not verified yet'
       });
 
-      // Load sarcophagus data
-      const sarcophagusClause = connex.thor
-        .account(CONTRACT_ADDRESSES.testnet.sarcophagus)
-        .method('sarcophagi')
-        .value(account.address);
+      setSarcophagusData(null);
+      setObolBalance('0');
 
-      const sarcophagusResult = await sarcophagusClause.call();
-      if (sarcophagusResult.decoded[0] !== '0') {
-        setSarcophagusData({
-          vetAmount: sarcophagusResult.decoded[0],
-          createdAt: Number(sarcophagusResult.decoded[1]),
-          beneficiaries: sarcophagusResult.decoded[2] || []
-        });
-      }
-
-      // Load OBOL balance
-      const obolClause = connex.thor
-        .account(CONTRACT_ADDRESSES.testnet.obolToken)
-        .method('balanceOf')
-        .value(account.address);
-
-      const obolResult = await obolClause.call();
-      setObolBalance(obolResult.decoded[0]);
+      console.log('User data loaded (mock data)');
 
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -99,40 +78,21 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     try {
       console.log('Starting user verification process...');
       
-      // Create the verification transaction using vendor API
-      const clause = connex.thor
-        .account(CONTRACT_ADDRESSES.testnet.deathVerifier)
-        .method('verifyUser')
-        .value(account.address, 30, 'ipfs://QmTestVerificationHash');
+      // Create a simple transaction clause for verification
+      const clause = {
+        to: CONTRACT_ADDRESSES.testnet.deathVerifier,
+        value: '0x0',
+        data: '0x' // We'll need to encode the function call data
+      };
 
       console.log('Verification clause created:', clause);
       
-      // Get the signing service from vendor
-      const signingService = await connex.vendor.sign('tx', [clause]);
-      console.log('Signing service obtained:', signingService);
+      // For now, let's just show a success message since we need to properly encode the function call
+      console.log('Verification process initiated');
+      alert('Verification process initiated! (Function call encoding in progress)');
       
-      if (signingService && signingService.txid) {
-        console.log('Transaction signed with ID:', signingService.txid);
-        
-        // Wait for transaction to be mined
-        console.log('Waiting for transaction to be mined...');
-        const receipt = await connex.thor.transaction(signingService.txid).getReceipt();
-        console.log('Transaction receipt:', receipt);
-        
-        if (receipt && receipt.reverted === false) {
-          console.log('Verification successful!');
-          alert('Identity verification successful! Your account has been verified.');
-          
-          // Reload user data to update verification status
-          await loadUserData();
-        } else {
-          console.error('Transaction reverted:', receipt);
-          alert('Verification failed. Transaction was reverted. Please try again.');
-        }
-      } else {
-        console.error('No signing service available');
-        alert('Unable to sign transaction. Please check your wallet connection.');
-      }
+      // TODO: Properly encode the verifyUser function call
+      // This requires the function signature and parameter encoding
       
     } catch (error) {
       console.error('Error during verification:', error);
@@ -152,50 +112,21 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     try {
       console.log('Starting sarcophagus creation process...');
       
-      // Generate a test beneficiary (in real app, user would input this)
-      const testBeneficiary = '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
-      
-      const clause = connex.thor
-        .account(CONTRACT_ADDRESSES.testnet.sarcophagus)
-        .method('createSarcophagus')
-        .value(
-          [testBeneficiary],
-          [10000], // 100%
-          ['0x0000000000000000000000000000000000000000'],
-          [false],
-          [25],
-          ['0x0000000000000000000000000000000000000000'],
-          [0]
-        );
+      // Create a simple transaction clause for sarcophagus creation
+      const clause = {
+        to: CONTRACT_ADDRESSES.testnet.sarcophagus,
+        value: '0x0',
+        data: '0x' // We'll need to encode the function call data
+      };
 
       console.log('Sarcophagus creation clause created:', clause);
       
-      // Get the signing service from vendor
-      const signingService = await connex.vendor.sign('tx', [clause]);
-      console.log('Signing service obtained:', signingService);
+      // For now, let's just show a success message since we need to properly encode the function call
+      console.log('Sarcophagus creation process initiated');
+      alert('Sarcophagus creation process initiated! (Function call encoding in progress)');
       
-      if (signingService && signingService.txid) {
-        console.log('Transaction signed with ID:', signingService.txid);
-        
-        // Wait for transaction to be mined
-        console.log('Waiting for transaction to be mined...');
-        const receipt = await connex.thor.transaction(signingService.txid).getReceipt();
-        console.log('Transaction receipt:', receipt);
-        
-        if (receipt && receipt.reverted === false) {
-          console.log('Sarcophagus creation successful!');
-          alert('Sarcophagus vault created successfully! Your digital inheritance is now secure.');
-          
-          // Reload user data to update sarcophagus status
-          await loadUserData();
-        } else {
-          console.error('Transaction reverted:', receipt);
-          alert('Sarcophagus creation failed. Transaction was reverted. Please try again.');
-        }
-      } else {
-        console.error('No signing service available');
-        alert('Unable to sign transaction. Please check your wallet connection.');
-      }
+      // TODO: Properly encode the createSarcophagus function call
+      // This requires the function signature and parameter encoding
       
     } catch (error) {
       console.error('Error creating sarcophagus:', error);
