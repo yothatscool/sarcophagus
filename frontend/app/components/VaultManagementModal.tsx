@@ -174,17 +174,25 @@ export default function VaultManagementModal({ vault, isOpen, onClose, defaultTa
   // Input validation functions
   const validateAmount = (amount: string, maxAmount: string, tokenName: string): InputValidation => {
     if (!amount || parseFloat(amount) <= 0) {
-      return { isValid: false, error: `Please enter a valid ${tokenName} amount` }
+      return { isValid: false, error: `Please enter a valid ${tokenName} amount` };
     }
+
+    const numAmount = parseFloat(amount);
     
-    // For deposits, we should check wallet balance, not vault balance
-    // For now, let's allow any reasonable amount and let the contract handle validation
-    const inputAmount = parseFloat(amount)
-    if (inputAmount > 1000000) { // Sanity check - no one has 1M tokens
-      return { isValid: false, error: `Amount too high for ${tokenName}` }
+    // For deposits, be more permissive - don't check against vault balances
+    // Just ensure reasonable amounts
+    const maxReasonableAmount = 10000; // 10,000 tokens max
+    if (numAmount > maxReasonableAmount) {
+      return { isValid: false, error: `Amount too high. Maximum ${maxReasonableAmount} ${tokenName} allowed` };
     }
-    
-    return { isValid: true, success: `Valid ${tokenName} amount` }
+
+    // Check for reasonable minimum amounts
+    const minAmount = 0.1;
+    if (numAmount < minAmount) {
+      return { isValid: false, error: `Minimum amount is ${minAmount} ${tokenName}` };
+    }
+
+    return { isValid: true, success: `Valid ${tokenName} amount` };
   }
 
   const handleAmountChange = (amount: string, setter: (value: string) => void, maxAmount: string, tokenName: string, fieldName: string) => {
@@ -198,11 +206,23 @@ export default function VaultManagementModal({ vault, isOpen, onClose, defaultTa
   }
 
   const setMaxAmount = (maxAmount: string, setter: (value: string) => void, fieldName: string) => {
-    // For deposits, we can't easily get wallet balance from the contract
-    // So let's set a reasonable default or let user input manually
-    const defaultAmount = "100" // Default to 100 tokens
-    setter(defaultAmount)
-    setInputValidation(prev => ({ ...prev, [fieldName]: { isValid: true, success: 'Default amount set - adjust as needed' } }))
+    // Set reasonable default amounts for deposits
+    const defaultAmounts = {
+      vetAmount: "100",
+      vthoAmount: "50", 
+      b3trAmount: "25",
+      obolAmount: "10"
+    };
+    
+    const amount = defaultAmounts[fieldName as keyof typeof defaultAmounts] || "10";
+    setter(amount);
+    setInputValidation(prev => ({ 
+      ...prev, 
+      [fieldName]: { 
+        isValid: true, 
+        success: `Default amount set: ${amount} tokens - adjust as needed` 
+      } 
+    }));
   }
 
   // Update deposit/lock/convert actions to use validation
@@ -224,11 +244,16 @@ export default function VaultManagementModal({ vault, isOpen, onClose, defaultTa
         await tx.wait()
         showNotification('Tokens deposited successfully!', 'success')
         await refreshUserData()
+        
+        // Clear form and close modal
         setVetAmount('')
         setVthoAmount('')
         setB3trAmount('')
         setObolAmount('')
         setInputValidation({})
+        
+        // Close the modal after successful deposit
+        onClose()
       } catch (error) {
         console.error('Error depositing tokens:', error)
         showNotification('Failed to deposit tokens', 'error')

@@ -1,6 +1,6 @@
 {
   "/_not-found": "app/_not-found.js",
-  "/obol-token/page": "app/obol-token/page.js",
   "/page": "app/page.js",
+  "/obol-token/page": "app/obol-token/page.js",
   "/test-dashboard/page": "app/test-dashboard/page.js"
 }

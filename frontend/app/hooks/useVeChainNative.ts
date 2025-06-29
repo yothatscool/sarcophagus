@@ -1,49 +1,79 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
-import Connex from '@vechain/connex';
-import { createConnex, getContractAddresses, VECHAIN_UTILS } from '../config/vechain-native';
+import { getContractAddresses, VECHAIN_UTILS } from '../config/vechain-native';
 
-export interface VeChainAccount {
-  address: string;
-  balance: string;
-  energy: string;
+interface SarcophagusData {
+  owner: string;
+  beneficiaries: { address: string; percentage: number }[];
+  vetAmount: bigint;
+  vthoAmount: bigint;
+  b3trAmount: bigint;
+  obolAmount: bigint;
+  gloAmount: bigint;
+  createdAt: bigint;
+  isDeceased: boolean;
+  deathTimestamp: bigint;
+  actualAge: number;
+  lifeExpectancy: number;
 }
 
-export interface VeChainContract {
-  address: string;
-  abi: any[];
+interface UserStake {
+  lockedValue: bigint;
+  lastClaimTime: bigint;
+  startTime: bigint;
+  totalEarned: bigint;
+  pendingRewards: bigint;
+  dailyRewardRate: bigint;
+  isLongTermHolder: boolean;
+  weightMultiplier: bigint;
+  weightedRate: bigint;
 }
 
-export function useVeChainNative(network: 'testnet' | 'mainnet' = 'testnet') {
-  const [connex, setConnex] = useState<Connex | null>(null);
-  const [account, setAccount] = useState<VeChainAccount | null>(null);
+export function useVeChainNative() {
+  const [connex, setConnex] = useState<any>(null);
+  const [account, setAccount] = useState<{ address: string; balance: string; energy: string } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userSarcophagus, setUserSarcophagus] = useState<SarcophagusData | null>(null);
+  const [hasSarcophagus, setHasSarcophagus] = useState(false);
+  const [isUserVerified, setIsUserVerified] = useState(false);
+  const [userStake, setUserStake] = useState<UserStake | null>(null);
 
   // Initialize Connex
   useEffect(() => {
-    try {
-      const connexInstance = createConnex(network);
-      setConnex(connexInstance);
-      setError(null);
-    } catch (err) {
-      setError('Failed to initialize VeChain connection');
-      console.error('VeChain initialization error:', err);
-    }
-  }, [network]);
+    const initConnex = async () => {
+      try {
+        if (typeof window === 'undefined') return;
+        
+        const Connex = (await import('@vechain/connex')).default;
+        const connexInstance = new Connex({
+          node: 'https://testnet.vechain.org',
+          network: 'test'
+        });
+        setConnex(connexInstance);
+      } catch (err) {
+        console.error('Failed to initialize Connex:', err);
+        setError('Failed to connect to VeChain');
+      }
+    };
 
-  // Connect wallet (VeWorld, Sync2, etc.)
+    initConnex();
+  }, []);
+
+  // Connect wallet
   const connectWallet = useCallback(async () => {
     if (!connex) {
       setError('VeChain not initialized');
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
     setError(null);
 
     try {
-      // Check if VeWorld is available
+      // Check for VeWorld wallet
       if (typeof window !== 'undefined' && (window as any).veworld) {
         const veworld = (window as any).veworld;
         const account = await veworld.getAccount();
@@ -56,117 +86,205 @@ export function useVeChainNative(network: 'testnet' | 'mainnet' = 'testnet') {
             energy: VECHAIN_UTILS.fromWei(balance.energy)
           });
           setIsConnected(true);
+          return account.address;
+        }
+      } else if (typeof window !== 'undefined' && (window as any).sync2) {
+        // Check for Sync2 wallet
+        const sync2 = (window as any).sync2;
+        const account = await sync2.getAccount();
+        
+        if (account) {
+          const balance = await connex.thor.account(account.address).get();
+          setAccount({
+            address: account.address,
+            balance: VECHAIN_UTILS.fromWei(balance.balance),
+            energy: VECHAIN_UTILS.fromWei(balance.energy)
+          });
+          setIsConnected(true);
+          return account.address;
         }
       } else {
-        // Fallback to manual connection
-        setError('VeWorld wallet not found. Please install VeWorld or use Sync2.');
+        setError('No VeChain wallet found. Please install VeWorld or Sync2.');
+        return null;
       }
     } catch (err) {
       setError('Failed to connect wallet');
       console.error('Wallet connection error:', err);
+      return null;
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, [connex]);
+
+  // Get contract addresses
+  const getContracts = useCallback(() => {
+    return getContractAddresses('testnet');
+  }, []);
+
+  // Create sarcophagus
+  const createSarcophagus = useCallback(async (beneficiaries: string[], percentages: number[]) => {
+    if (!connex || !account) {
+      throw new Error('Wallet not connected');
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const addresses = getContracts();
+      const sarcophagusAddress = addresses.sarcophagus;
+
+      // Create transaction clause
+      const clause = connex.thor.transaction()
+        .clause(sarcophagusAddress)
+        .method('createSarcophagus', [beneficiaries, percentages]);
+
+      // For now, we'll just log the transaction
+      // In a real implementation, this would trigger wallet signing
+      console.log('Create sarcophagus transaction:', clause);
+      
+      // Mock success for now
+      setHasSarcophagus(true);
+      return { wait: async () => {} };
+    } catch (e: any) {
+      const errorMsg = e.message || 'Failed to create sarcophagus';
+      setError(errorMsg);
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  }, [connex, account, getContracts]);
+
+  // Deposit tokens
+  const depositTokens = useCallback(async (vthoAmount: string, b3trAmount: string) => {
+    if (!connex || !account) {
+      throw new Error('Wallet not connected');
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const addresses = getContracts();
+      const sarcophagusAddress = addresses.sarcophagus;
+
+      // Create transaction clause
+      const clause = connex.thor.transaction()
+        .clause(sarcophagusAddress)
+        .method('depositTokens', [
+          VECHAIN_UTILS.toWei(vthoAmount || '0'),
+          VECHAIN_UTILS.toWei(b3trAmount || '0')
+        ])
+        .value(VECHAIN_UTILS.toWei('100')); // Minimum VET deposit
+
+      console.log('Deposit tokens transaction:', clause);
+      
+      // Mock success for now
+      return { wait: async () => {} };
+    } catch (e: any) {
+      const errorMsg = e.message || 'Failed to deposit tokens';
+      setError(errorMsg);
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  }, [connex, account, getContracts]);
+
+  // Get user sarcophagus data
+  const getUserSarcophagus = useCallback(async (userAddress: string) => {
+    if (!connex) return null;
+
+    try {
+      const addresses = getContracts();
+      const sarcophagusAddress = addresses.sarcophagus;
+
+      const result = await connex.thor.transaction()
+        .clause(sarcophagusAddress)
+        .method('getSarcophagus', [userAddress])
+        .call();
+
+      if (result && result.data) {
+        // Parse the result data
+        // This is a simplified version - you'd need to properly decode the ABI
+        return result.data;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting user sarcophagus:', error);
+      return null;
+    }
+  }, [connex, getContracts]);
+
+  // Refresh user data
+  const refreshUserData = useCallback(async () => {
+    if (!connex || !account) return;
+
+    try {
+      setLoading(true);
+      
+      // Get user sarcophagus data
+      const sarcophagusData = await getUserSarcophagus(account.address);
+      if (sarcophagusData) {
+        setUserSarcophagus(sarcophagusData);
+        setHasSarcophagus(true);
+      } else {
+        setHasSarcophagus(false);
+        setUserSarcophagus(null);
+      }
+
+      // Check if user is verified
+      try {
+        const addresses = getContracts();
+        const sarcophagusAddress = addresses.sarcophagus;
+        
+        const verificationResult = await connex.thor.transaction()
+          .clause(sarcophagusAddress)
+          .method('getUserVerification', [account.address])
+          .call();
+
+        setIsUserVerified(verificationResult?.data?.isVerified || false);
+      } catch (error) {
+        setIsUserVerified(false);
+      }
+
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+      setError('Failed to load user data');
+    } finally {
+      setLoading(false);
+    }
+  }, [connex, account, getUserSarcophagus, getContracts]);
 
   // Disconnect wallet
   const disconnectWallet = useCallback(() => {
     setAccount(null);
     setIsConnected(false);
     setError(null);
+    setUserSarcophagus(null);
+    setHasSarcophagus(false);
+    setIsUserVerified(false);
+    setUserStake(null);
   }, []);
 
-  // Get contract instance
-  const getContract = useCallback((contractName: string) => {
-    if (!connex) return null;
-
-    const addresses = getContractAddresses(network);
-    const address = addresses[contractName as keyof typeof addresses];
-    
-    if (!address) {
-      console.error(`Contract address not found for ${contractName}`);
-      return null;
-    }
-
-    return connex.thor.account(address);
-  }, [connex, network]);
-
-  // Call contract method (simplified)
-  const callContract = useCallback(async (
-    contractName: string, 
-    method: string, 
-    params: any[] = [],
-    value: string = '0'
-  ) => {
-    if (!connex || !account) {
-      throw new Error('Not connected to VeChain');
-    }
-
-    const contract = getContract(contractName);
-    if (!contract) {
-      throw new Error(`Contract ${contractName} not found`);
-    }
-
-    try {
-      // For now, return a mock response
-      // In a real implementation, this would create and sign transactions
-      console.log(`Contract call: ${contractName}.${method}(${params.join(', ')})`);
-      return { success: true, message: 'Transaction ready for signing' };
-    } catch (err) {
-      console.error(`Contract call error:`, err);
-      throw err;
-    }
-  }, [connex, account, getContract]);
-
-  // Get account balance
-  const getBalance = useCallback(async (address?: string) => {
-    if (!connex) return null;
-
-    const targetAddress = address || account?.address;
-    if (!targetAddress) return null;
-
-    try {
-      const balance = await connex.thor.account(targetAddress).get();
-      return {
-        vet: VECHAIN_UTILS.fromWei(balance.balance),
-        energy: VECHAIN_UTILS.fromWei(balance.energy)
-      };
-    } catch (err) {
-      console.error('Balance fetch error:', err);
-      return null;
-    }
-  }, [connex, account]);
-
-  // Get transaction history (simplified)
-  const getTransactionHistory = useCallback(async (address?: string, limit: number = 10) => {
-    if (!connex) return [];
-
-    const targetAddress = address || account?.address;
-    if (!targetAddress) return [];
-
-    try {
-      // For now, return empty array
-      // In a real implementation, this would fetch transaction history
-      console.log(`Getting transaction history for ${targetAddress}`);
-      return [];
-    } catch (err) {
-      console.error('Transaction history error:', err);
-      return [];
-    }
-  }, [connex, account]);
-
   return {
+    // State
     connex,
     account,
     isConnected,
-    isLoading,
+    loading,
     error,
+    userSarcophagus,
+    hasSarcophagus,
+    isUserVerified,
+    userStake,
+
+    // Functions
     connectWallet,
     disconnectWallet,
-    getContract,
-    callContract,
-    getBalance,
-    getTransactionHistory,
-    utils: VECHAIN_UTILS
+    createSarcophagus,
+    depositTokens,
+    getUserSarcophagus,
+    refreshUserData,
+    getContracts
   };
 } 

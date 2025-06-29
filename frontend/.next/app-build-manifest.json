@@ -1,49 +1,46 @@
 {
   "pages": {
     "/_not-found": [
-      "static/chunks/webpack-0d93af825da5f719.js",
-      "static/chunks/fd9d1056-9cfe687ebaa454e8.js",
-      "static/chunks/938-818b5c85ba584551.js",
-      "static/chunks/main-app-545745885883913f.js",
-      "static/chunks/app/_not-found-4d5c05f49b39733a.js"
+      "static/chunks/webpack-1ff52e3ffea94cce.js",
+      "static/chunks/fd9d1056-77ce8aac224cbc18.js",
+      "static/chunks/938-72161ae413884785.js",
+      "static/chunks/main-app-509478486adb78cd.js",
+      "static/chunks/app/_not-found-b747a901835438fa.js"
     ],
     "/layout": [
-      "static/chunks/webpack-0d93af825da5f719.js",
-      "static/chunks/fd9d1056-9cfe687ebaa454e8.js",
-      "static/chunks/938-818b5c85ba584551.js",
-      "static/chunks/main-app-545745885883913f.js",
-      "static/chunks/277a2c92-2b801c6cf904c2e2.js",
-      "static/chunks/995-ac10f52dc0283da6.js",
-      "static/css/7e02b9a888f10545.css",
-      "static/chunks/app/layout-e0cfbc9c211c7630.js"
-    ],
-    "/obol-token/page": [
-      "static/chunks/webpack-0d93af825da5f719.js",
-      "static/chunks/fd9d1056-9cfe687ebaa454e8.js",
-      "static/chunks/938-818b5c85ba584551.js",
-      "static/chunks/main-app-545745885883913f.js",
-      "static/chunks/277a2c92-2b801c6cf904c2e2.js",
-      "static/chunks/995-ac10f52dc0283da6.js",
-      "static/css/e7eddfe4828c1690.css",
-      "static/chunks/app/obol-token/page-057da1a17e7a685e.js"
+      "static/chunks/webpack-1ff52e3ffea94cce.js",
+      "static/chunks/fd9d1056-77ce8aac224cbc18.js",
+      "static/chunks/938-72161ae413884785.js",
+      "static/chunks/main-app-509478486adb78cd.js",
+      "static/css/fc77a3c2c7739ce9.css",
+      "static/chunks/app/layout-598ae8362c39fb1b.js"
     ],
     "/page": [
-      "static/chunks/webpack-0d93af825da5f719.js",
-      "static/chunks/fd9d1056-9cfe687ebaa454e8.js",
-      "static/chunks/938-818b5c85ba584551.js",
-      "static/chunks/main-app-545745885883913f.js",
-      "static/chunks/277a2c92-2b801c6cf904c2e2.js",
-      "static/chunks/995-ac10f52dc0283da6.js",
-      "static/chunks/560-31d76952d155864b.js",
-      "static/css/e7eddfe4828c1690.css",
-      "static/chunks/app/page-10b53b8ce87212de.js"
+      "static/chunks/webpack-1ff52e3ffea94cce.js",
+      "static/chunks/fd9d1056-77ce8aac224cbc18.js",
+      "static/chunks/938-72161ae413884785.js",
+      "static/chunks/main-app-509478486adb78cd.js",
+      "static/chunks/9f5ede1c-16468c0c7b12c0d0.js",
+      "static/chunks/8c0e17d2-aff79406215caf4a.js",
+      "static/chunks/aaea2bcf-45625ac7f9308746.js",
+      "static/chunks/ce9ed3e7-72f8029808fc1118.js",
+      "static/chunks/868dbb79-9ff41ee9b4928ae7.js",
+      "static/chunks/704-b02a319b22e8bb71.js",
+      "static/chunks/app/page-795b8a689407dc69.js"
+    ],
+    "/obol-token/page": [
+      "static/chunks/webpack-1ff52e3ffea94cce.js",
+      "static/chunks/fd9d1056-77ce8aac224cbc18.js",
+      "static/chunks/938-72161ae413884785.js",
+      "static/chunks/main-app-509478486adb78cd.js",
+      "static/chunks/app/obol-token/page-ba58a3a3810aec7b.js"
     ],
     "/test-dashboard/page": [
-      "static/chunks/webpack-0d93af825da5f719.js",
-      "static/chunks/fd9d1056-9cfe687ebaa454e8.js",
-      "static/chunks/938-818b5c85ba584551.js",
-      "static/chunks/main-app-545745885883913f.js",
-      "static/chunks/app/test-dashboard/page-b2a897d0f75389ab.js"
+      "static/chunks/webpack-1ff52e3ffea94cce.js",
+      "static/chunks/fd9d1056-77ce8aac224cbc18.js",
+      "static/chunks/938-72161ae413884785.js",
+      "static/chunks/main-app-509478486adb78cd.js",
+      "static/chunks/app/test-dashboard/page-a72ee87878cd3cb7.js"
     ]
   }
 }
