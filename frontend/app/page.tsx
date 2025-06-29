@@ -15,6 +15,7 @@ interface VeChainAccount {
 
 export default function Home() {
   const [account, setAccount] = useState<VeChainAccount | null>(null)
+  const [connex, setConnex] = useState<any>(null)
   const [userData, setUserData] = useState({
     isVerified: false,
     hasSarcophagus: false,
@@ -28,8 +29,9 @@ export default function Home() {
   }, [])
 
   // Handle account updates from VeChainConnect
-  const handleAccountUpdate = (newAccount: VeChainAccount | null) => {
+  const handleAccountUpdate = (newAccount: VeChainAccount | null, newConnex?: any) => {
     setAccount(newAccount)
+    setConnex(newConnex)
   }
 
   if (!isClient) {
@@ -67,6 +69,7 @@ export default function Home() {
           <div className="lg:col-span-2">
             <SarcophagusDashboard 
               account={account}
+              connex={connex}
             />
           </div>
         </div>

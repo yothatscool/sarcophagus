@@ -10,7 +10,7 @@ interface VeChainAccount {
 }
 
 interface VeChainConnectProps {
-  onAccountUpdate?: (account: VeChainAccount | null) => void;
+  onAccountUpdate?: (account: VeChainAccount | null, connex?: any) => void;
 }
 
 export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps) {
@@ -27,8 +27,8 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         // Dynamic import to avoid SSR issues
         const Connex = (await import('@vechain/connex')).default;
         const connexInstance = new Connex({
-          node: 'https://mainnet.vechain.org', // Use mainnet since VeWorld is connected to mainnet
-          network: 'main'
+          node: 'https://testnet.vechain.org', // Use testnet since VeWorld is connected to testnet
+          network: 'test'
         });
         setConnex(connexInstance);
       } catch (err) {
@@ -43,9 +43,9 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
   // Notify parent component when account changes
   useEffect(() => {
     if (onAccountUpdate) {
-      onAccountUpdate(account);
+      onAccountUpdate(account, connex);
     }
-  }, [account, onAccountUpdate]);
+  }, [account, connex, onAccountUpdate]);
 
   const connectWallet = async () => {
     if (!connex) {
@@ -80,11 +80,10 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           if (buddy.create) {
             console.log('Using ConnexWalletBuddy.create method...');
             try {
-              // Use mainnet configuration to match VeWorld
+              // Use testnet configuration to match VeWorld
               const buddyConnex = buddy.create({
-                node: 'https://mainnet.vechain.org',
-                network: 'main',
-                genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
+                node: 'https://testnet.vechain.org',
+                network: 'test'
               });
               console.log('ConnexWalletBuddy connex created:', buddyConnex);
               
@@ -169,16 +168,15 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           if (!walletAccount) {
             console.log('Direct request failed, trying Connex instance...');
             
-            // Use the correct genesisId that matches what VeWorld is using (mainnet)
-            const mainnetConfig = {
-              node: 'https://mainnet.vechain.org',
-              network: 'main',
-              genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
+            // Use the correct configuration that matches what VeWorld is using (testnet)
+            const testnetConfig = {
+              node: 'https://testnet.vechain.org',
+              network: 'test'
             };
             
             // Create Connex instance
             console.log('Creating Connex instance...');
-            const connexInstance = vechain.newConnex(mainnetConfig);
+            const connexInstance = vechain.newConnex(testnetConfig);
             console.log('Connex instance created:', connexInstance);
             
             // Try to get account through vendor request
