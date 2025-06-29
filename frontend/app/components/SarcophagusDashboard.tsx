@@ -158,7 +158,7 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
       
       if (signingService && signingService.signer) {
         console.log('Calling signer function...');
-        const signedTx = await signingService.signer();
+        const signedTx = await signingService.signer(account.address);
         console.log('Transaction signed:', signedTx);
         
         if (signedTx && signedTx.txid) {
@@ -221,7 +221,7 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
       
       if (signingService && signingService.signer) {
         console.log('Calling signer function...');
-        const signedTx = await signingService.signer();
+        const signedTx = await signingService.signer(account.address);
         console.log('Transaction signed:', signedTx);
         
         if (signedTx && signedTx.txid) {
