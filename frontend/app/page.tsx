@@ -13,14 +13,23 @@ interface VeChainAccount {
   energy: string;
 }
 
+interface UserData {
+  isVerified: boolean;
+  hasSarcophagus: boolean;
+  userSarcophagus: any;
+  userBeneficiaries: any[];
+  obolRewards: string;
+}
+
 export default function Home() {
   const [account, setAccount] = useState<VeChainAccount | null>(null)
   const [connex, setConnex] = useState<any>(null)
-  const [userData, setUserData] = useState({
+  const [userData, setUserData] = useState<UserData>({
     isVerified: false,
     hasSarcophagus: false,
     userSarcophagus: null,
-    userBeneficiaries: []
+    userBeneficiaries: [],
+    obolRewards: '0'
   })
   const [isClient, setIsClient] = useState(false)
 
@@ -32,6 +41,14 @@ export default function Home() {
   const handleAccountUpdate = (newAccount: VeChainAccount | null, newConnex?: any) => {
     setAccount(newAccount)
     setConnex(newConnex)
+  }
+
+  // Handle user data updates from SarcophagusDashboard
+  const handleUserDataUpdate = (newUserData: Partial<UserData>) => {
+    setUserData(prev => ({
+      ...prev,
+      ...newUserData
+    }))
   }
 
   if (!isClient) {
@@ -70,6 +87,7 @@ export default function Home() {
             <SarcophagusDashboard 
               account={account}
               connex={connex}
+              onUserDataUpdate={handleUserDataUpdate}
             />
           </div>
         </div>
@@ -81,8 +99,9 @@ export default function Home() {
             hasSarcophagus={userData.hasSarcophagus}
             userSarcophagus={userData.userSarcophagus}
             userBeneficiaries={userData.userBeneficiaries}
+            obolRewards={userData.obolRewards}
           />
-          <RecentActivity />
+          <RecentActivity userData={userData} />
         </div>
 
         {/* VeChain Info */}

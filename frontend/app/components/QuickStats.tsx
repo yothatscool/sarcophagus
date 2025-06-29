@@ -7,6 +7,7 @@ interface QuickStatsProps {
   hasSarcophagus: boolean
   userSarcophagus: any
   userBeneficiaries: any[]
+  obolRewards?: string
   tokenPrices?: any
   environmentalData?: any
   whoData?: any
@@ -17,6 +18,7 @@ export default function QuickStats({
   hasSarcophagus, 
   userSarcophagus, 
   userBeneficiaries,
+  obolRewards,
   tokenPrices,
   environmentalData,
   whoData
@@ -76,8 +78,8 @@ export default function QuickStats({
       <div className="info-card bg-black/20 backdrop-blur-sm border border-purple-500/20 rounded-lg p-6 hover:border-purple-500/40 transition-colors">
         <p className="text-sm text-gray-400">Pending Rewards</p>
         <p className="text-2xl font-bold text-green-400">
-          {userSarcophagus?.obolRewards ? 
-            (Number(userSarcophagus.obolRewards) / 1e18).toFixed(2) : '0'} OBOL
+          {obolRewards ? 
+            (Number(obolRewards) / 1e18).toFixed(2) : '0'} OBOL
         </p>
       </div>
 

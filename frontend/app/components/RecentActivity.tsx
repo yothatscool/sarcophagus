@@ -5,45 +5,81 @@ import { useContractEvents } from '../hooks/useContractEvents'
 
 interface Activity {
   id: string
-  type: 'deposit' | 'claim' | 'reward' | 'verification'
+  type: 'deposit' | 'claim' | 'reward' | 'verification' | 'vault_creation' | 'beneficiary_update' | 'funds_added'
   description: string
   amount?: string
   timestamp: Date
   status: 'pending' | 'completed' | 'failed'
 }
 
-export default function RecentActivity() {
+interface UserData {
+  isVerified: boolean;
+  hasSarcophagus: boolean;
+  userSarcophagus: any;
+  userBeneficiaries: any[];
+  obolRewards: string;
+}
+
+interface RecentActivityProps {
+  userData?: UserData;
+}
+
+export default function RecentActivity({ userData }: RecentActivityProps) {
   const [activities, setActivities] = useState<Activity[]>([])
 
-  // Mock recent activities - in real implementation, fetch from contract events
+  // Generate activities based on user data
   useEffect(() => {
-    const mockActivities: Activity[] = [
-      {
-        id: '1',
-        type: 'deposit',
-        description: 'Deposited 10 VET to vault',
-        amount: '10 VET',
-        timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-        status: 'completed'
-      },
-      {
-        id: '2',
-        type: 'reward',
-        description: 'Earned OBOL rewards',
-        amount: '5.2 OBOL',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-        status: 'completed'
-      },
-      {
-        id: '3',
+    const newActivities: Activity[] = []
+    
+    if (userData?.isVerified) {
+      newActivities.push({
+        id: 'verification',
         type: 'verification',
         description: 'User verification completed',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
+        timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
         status: 'completed'
+      })
+    }
+    
+    if (userData?.hasSarcophagus && userData?.userSarcophagus) {
+      newActivities.push({
+        id: 'vault_creation',
+        type: 'vault_creation',
+        description: 'Sarcophagus vault created',
+        amount: `${(Number(userData.userSarcophagus.vetAmount) / 1e18).toFixed(2)} VET`,
+        timestamp: new Date(Date.now() - 1000 * 60 * 20), // 20 minutes ago
+        status: 'completed'
+      })
+      
+      // Add beneficiary activity if there are beneficiaries
+      if (userData.userBeneficiaries.length > 0) {
+        newActivities.push({
+          id: 'beneficiaries',
+          type: 'beneficiary_update',
+          description: `Added ${userData.userBeneficiaries.length} beneficiaries`,
+          timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago
+          status: 'completed'
+        })
       }
-    ]
-    setActivities(mockActivities)
-  }, [])
+      
+      // Add OBOL rewards activity
+      if (userData.obolRewards && Number(userData.obolRewards) > 0) {
+        newActivities.push({
+          id: 'rewards',
+          type: 'reward',
+          description: 'Earned OBOL rewards',
+          amount: `${(Number(userData.obolRewards) / 1e18).toFixed(2)} OBOL`,
+          timestamp: new Date(Date.now() - 1000 * 60 * 10), // 10 minutes ago
+          status: 'completed'
+        })
+      }
+    }
+    
+    // Sort by timestamp (newest first)
+    newActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    
+    setActivities(newActivities)
+  }, [userData])
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -51,6 +87,9 @@ export default function RecentActivity() {
       case 'claim': return '🎁'
       case 'reward': return '⭐'
       case 'verification': return '✅'
+      case 'vault_creation': return '🏺'
+      case 'beneficiary_update': return '👥'
+      case 'funds_added': return '💎'
       default: return '📝'
     }
   }

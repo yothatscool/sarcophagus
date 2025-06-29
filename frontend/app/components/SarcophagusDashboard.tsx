@@ -11,6 +11,7 @@ interface SarcophagusDashboardProps {
     energy: string;
   } | null;
   connex?: any;
+  onUserDataUpdate?: (userData: any) => void;
 }
 
 interface SarcophagusData {
@@ -94,7 +95,7 @@ function encodeFunctionCallWithParams(functionName: string, types: string[], val
   return signature + encodedParams;
 }
 
-export default function SarcophagusDashboard({ account, connex }: SarcophagusDashboardProps) {
+export default function SarcophagusDashboard({ account, connex, onUserDataUpdate }: SarcophagusDashboardProps) {
   const [userVerification, setUserVerification] = useState<UserVerification | null>(null);
   const [sarcophagusData, setSarcophagusData] = useState<SarcophagusData | null>(null);
   const [obolBalance, setObolBalance] = useState<string>('0');
@@ -157,6 +158,17 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
           age: 35, // Mock age for now
           verificationHash: `mock-verification-${Date.now()}`
         });
+        
+        // Update parent component with verification status
+        if (onUserDataUpdate) {
+          onUserDataUpdate({
+            isVerified: true,
+            hasSarcophagus: false,
+            userSarcophagus: null,
+            userBeneficiaries: [],
+            obolRewards: '0'
+          });
+        }
         
         // Show success message in a more elegant way
         const successMessage = document.createElement('div');
@@ -230,6 +242,17 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
         
         setSarcophagusData(mockSarcophagusData);
         
+        // Update parent component with sarcophagus data
+        if (onUserDataUpdate) {
+          onUserDataUpdate({
+            isVerified: true,
+            hasSarcophagus: true,
+            userSarcophagus: mockSarcophagusData,
+            userBeneficiaries: mockSarcophagusData.beneficiaries,
+            obolRewards: '1000000000000000000' // 1 OBOL in wei
+          });
+        }
+        
         // Show success message in a more elegant way
         const successMessage = document.createElement('div');
         successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
@@ -286,6 +309,17 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
         };
         
         setSarcophagusData(updatedSarcophagusData);
+        
+        // Update parent component with new sarcophagus data
+        if (onUserDataUpdate) {
+          onUserDataUpdate({
+            isVerified: true,
+            hasSarcophagus: true,
+            userSarcophagus: updatedSarcophagusData,
+            userBeneficiaries: updatedSarcophagusData.beneficiaries,
+            obolRewards: '1500000000000000000' // Increase OBOL rewards to 1.5
+          });
+        }
         
         // Show success message
         const successMessage = document.createElement('div');
