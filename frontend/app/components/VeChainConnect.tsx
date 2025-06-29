@@ -145,35 +145,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           const connexInstance = vechain.newConnex(mainnetConfig);
           console.log('Connex instance created:', connexInstance);
           
-          // Step 2: Set up account change listener first
-          console.log('Setting up account change listener...');
-          let accountFound = false;
-          
-          const accountChangeHandler = (accountData: any) => {
-            console.log('Account changed event received:', accountData);
-            if (accountData && accountData.address && !accountFound) {
-              console.log('Account address from event:', accountData.address);
-              accountFound = true;
-              
-              // Update state immediately
-              setAccount({
-                address: accountData.address,
-                balance: '0',
-                energy: '0'
-              });
-              setIsConnected(true);
-              setError(null);
-              
-              // Remove the listener to prevent multiple calls
-              vechain.removeListener('accountChanged', accountChangeHandler);
-            }
-          };
-          
-          // Add the event listener
-          vechain.on('accountChanged', accountChangeHandler);
-          console.log('Account change listener added');
-          
-          // Step 3: Try to trigger account access through certificate signing
+          // Step 2: Try to trigger account access through certificate signing
           try {
             console.log('Trying certificate signing to trigger account access...');
             const certService = await connexInstance.vendor.sign('cert', {
@@ -206,52 +178,46 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           } catch (certError) {
             console.log('Certificate signing failed:', (certError as Error).message);
             
-            // Fallback: Try transaction signing
-            try {
-              console.log('Trying transaction signing as fallback...');
+            // Step 3: If we still don't have an account, try a simple transaction signing
+            if (!walletAccount) {
+              console.log('Trying simple transaction signing to get account...');
               
-              // Create a simple transaction that will prompt for signature
-              const clause = {
-                to: '0x0000000000000000000000000000000000000000', // Zero address
-                value: '0x0', // Zero value
-                data: '0x' // Empty data
-              };
-              
-              const tx = connexInstance.thor.transaction(clause);
-              console.log('Transaction created:', tx);
-              
-              // This should trigger the wallet to prompt for signature and reveal the account
-              const signingService = await tx.signer();
-              console.log('Signing service obtained:', signingService);
-              
-              if (signingService && typeof signingService.signer === 'function') {
-                console.log('Calling transaction signer...');
-                const signedTx = await signingService.signer();
-                console.log('Transaction signed:', signedTx);
+              try {
+                // Create a simple transaction that will prompt for signature
+                const clause = {
+                  to: '0x0000000000000000000000000000000000000000', // Zero address
+                  value: '0x0', // Zero value
+                  data: '0x' // Empty data
+                };
                 
-                // The signed transaction should contain the origin (signer address)
-                if (signedTx && signedTx.origin) {
-                  console.log('Found signer address in transaction:', signedTx.origin);
-                  walletAccount = { address: signedTx.origin };
+                const tx = connexInstance.thor.transaction(clause);
+                console.log('Simple transaction created:', tx);
+                
+                // This should trigger the wallet to prompt for signature and reveal the account
+                const signingService = await tx.signer();
+                console.log('Simple transaction signing service obtained:', signingService);
+                
+                if (signingService && typeof signingService.signer === 'function') {
+                  console.log('Calling simple transaction signer...');
+                  const signedTx = await signingService.signer();
+                  console.log('Simple transaction signed:', signedTx);
+                  console.log('Simple transaction full object:', JSON.stringify(signedTx, null, 2));
+                  
+                  // The signed transaction should contain the origin (signer address)
+                  if (signedTx && signedTx.origin) {
+                    console.log('Found signer address in simple transaction:', signedTx.origin);
+                    walletAccount = { address: signedTx.origin };
+                  } else if (signedTx && signedTx.signer) {
+                    console.log('Found signer in simple transaction:', signedTx.signer);
+                    walletAccount = { address: signedTx.signer };
+                  } else if (signedTx && signedTx.from) {
+                    console.log('Found signer in simple transaction from:', signedTx.from);
+                    walletAccount = { address: signedTx.from };
+                  }
                 }
+              } catch (simpleTxError) {
+                console.log('Simple transaction signing failed:', (simpleTxError as Error).message);
               }
-            } catch (txError) {
-              console.log('Transaction signing failed:', (txError as Error).message);
-            }
-          }
-          
-          // Step 4: If we still don't have an account, try requesting it directly
-          if (!walletAccount && !accountFound) {
-            try {
-              console.log('Requesting account access directly...');
-              // Try to trigger the wallet to show account selection
-              await vechain.request({ method: 'eth_requestAccounts' });
-              console.log('Account request sent');
-              
-              // Wait a bit for the account change event to fire
-              await new Promise(resolve => setTimeout(resolve, 3000));
-            } catch (requestError) {
-              console.log('Account request failed:', (requestError as Error).message);
             }
           }
           
