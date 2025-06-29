@@ -93,46 +93,75 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           
           // Try to get account using VeWorld API methods
           try {
-            console.log('Using vechain.newConnexVendor method...');
+            console.log('=== EXPLORING VECHAIN OBJECT METHODS ===');
+            console.log('VeChain object:', vechain);
+            console.log('VeChain type:', typeof vechain);
+            console.log('All VeChain properties:', Object.getOwnPropertyNames(vechain));
             
-            // Try testnet config first (what VeWorld is actually using)
-            let vendor = null;
-            try {
-              vendor = vechain.newConnexVendor(testnetConfig);
-              console.log('Testnet config vendor created successfully');
-            } catch (error) {
-              console.log('Testnet config failed, trying mainnet:', (error as Error).message);
+            // Try to explore all methods in detail
+            for (const prop of Object.getOwnPropertyNames(vechain)) {
+              const value = vechain[prop];
+              console.log(`VeChain.${prop}:`, value);
+              console.log(`VeChain.${prop} type:`, typeof value);
+              if (typeof value === 'function') {
+                console.log(`VeChain.${prop} function parameters:`, value.length);
+              }
+            }
+            
+            // Try to use the 'on' method to listen for events
+            if (vechain.on && typeof vechain.on === 'function') {
+              console.log('Trying to use vechain.on method...');
               try {
-                vendor = vechain.newConnexVendor(mainnetConfig);
-                console.log('Mainnet vendor created successfully');
-              } catch (error2) {
-                console.log('Mainnet vendor failed, trying without config:', (error2 as Error).message);
-                try {
-                  vendor = vechain.newConnexVendor();
-                  console.log('No config vendor created successfully');
-                } catch (error3) {
-                  console.log('Vendor creation failed completely:', (error3 as Error).message);
-                }
+                vechain.on('accountChanged', (account: any) => {
+                  console.log('Account changed event:', account);
+                  if (account && account.address) {
+                    setAccount({
+                      address: account.address,
+                      balance: '0',
+                      energy: '0'
+                    });
+                    setIsConnected(true);
+                    setError(null);
+                  }
+                });
+                console.log('Account change listener added');
+              } catch (onError) {
+                console.log('Error adding account change listener:', (onError as Error).message);
               }
             }
             
-            if (vendor) {
-              console.log('Vendor methods:', Object.getOwnPropertyNames(vendor));
-              const account = await vendor.getAccount();
-              if (account) {
-                console.log('Account found via vendor:', account);
-                setAccount({
-                  address: account,
-                  balance: '0',
-                  energy: '0'
-                });
-                setIsConnected(true);
-                setError(null);
-                return;
+            // Try to use the 'request' method with different parameters
+            if (vechain.request && typeof vechain.request === 'function') {
+              console.log('Trying vechain.request with different parameters...');
+              
+              // Try requesting without parameters
+              try {
+                const result = await vechain.request();
+                console.log('VeChain request without params result:', result);
+              } catch (error) {
+                console.log('VeChain request without params failed:', (error as Error).message);
+              }
+              
+              // Try requesting with empty object
+              try {
+                const result = await vechain.request({});
+                console.log('VeChain request with empty object result:', result);
+              } catch (error) {
+                console.log('VeChain request with empty object failed:', (error as Error).message);
+              }
+              
+              // Try requesting with just method name
+              try {
+                const result = await vechain.request('accounts');
+                console.log('VeChain request with string result:', result);
+              } catch (error) {
+                console.log('VeChain request with string failed:', (error as Error).message);
               }
             }
+            
+            console.log('=== END EXPLORING VECHAIN OBJECT ===');
           } catch (error) {
-            console.log('Vendor methods: No vendor');
+            console.log('Error exploring VeChain object:', (error as Error).message);
           }
           
           // Try Connex approach
