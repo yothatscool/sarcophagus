@@ -149,15 +149,50 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
               console.log('Connex created:', connex);
               console.log('Connex methods:', connex ? Object.keys(connex) : 'No connex');
               
+              // Explore what's available on vendor and thor
+              if (connex && connex.vendor) {
+                console.log('Vendor object:', connex.vendor);
+                console.log('Vendor methods:', Object.keys(connex.vendor));
+                console.log('Vendor properties:', Object.getOwnPropertyNames(connex.vendor));
+              }
+              
+              if (connex && connex.thor) {
+                console.log('Thor object:', connex.thor);
+                console.log('Thor methods:', Object.keys(connex.thor));
+                console.log('Thor properties:', Object.getOwnPropertyNames(connex.thor));
+              }
+              
               // Try to get account info using vendor first
               if (connex && connex.vendor) {
                 console.log('Using connex.vendor to get account...');
                 try {
-                  const account = await connex.vendor.account();
-                  console.log('Account from connex.vendor:', account);
-                  if (account && account.address) {
-                    walletAccount = { address: account.address };
-                    console.log('VeChain account found via connex.vendor:', walletAccount);
+                  // Try different possible methods on vendor
+                  if (connex.vendor.account) {
+                    console.log('vendor.account exists, calling it...');
+                    const account = await connex.vendor.account();
+                    console.log('Account from connex.vendor.account():', account);
+                    if (account && account.address) {
+                      walletAccount = { address: account.address };
+                      console.log('VeChain account found via connex.vendor.account():', walletAccount);
+                    }
+                  } else if (connex.vendor.getAccount) {
+                    console.log('vendor.getAccount exists, calling it...');
+                    const account = await connex.vendor.getAccount();
+                    console.log('Account from connex.vendor.getAccount():', account);
+                    if (account && account.address) {
+                      walletAccount = { address: account.address };
+                      console.log('VeChain account found via connex.vendor.getAccount():', walletAccount);
+                    }
+                  } else if (connex.vendor.request) {
+                    console.log('vendor.request exists, trying it...');
+                    const result = await connex.vendor.request({ method: 'vechain_accounts' });
+                    console.log('Result from vendor.request:', result);
+                    if (result && result.length > 0) {
+                      walletAccount = { address: result[0] };
+                      console.log('VeChain account found via vendor.request:', walletAccount);
+                    }
+                  } else {
+                    console.log('No account method found on vendor');
                   }
                 } catch (vendorErr) {
                   console.log('Connex vendor failed:', vendorErr);
@@ -221,14 +256,50 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           if (!walletAccount && vechain.request) {
             console.log('Using vechain.request method with VeWorld methods...');
             try {
-              // Try VeWorld-specific methods instead of eth_accounts
-              const result = await vechain.request({ method: 'vechain_accounts' });
-              console.log('VeChain request result (vechain_accounts):', result);
+              // Try different request methods
+              console.log('Trying vechain.request with different methods...');
               
-              if (result && result.length > 0) {
-                walletAccount = { address: result[0] };
-                console.log('VeChain account found via request:', walletAccount);
+              // Try to get account info
+              const methods = [
+                'vechain_accounts',
+                'eth_accounts', 
+                'accounts',
+                'getAccounts',
+                'getAccount'
+              ];
+              
+              for (const method of methods) {
+                try {
+                  console.log(`Trying request method: ${method}`);
+                  const result = await vechain.request({ method });
+                  console.log(`Result from ${method}:`, result);
+                  
+                  if (result && result.length > 0) {
+                    walletAccount = { address: result[0] };
+                    console.log(`VeChain account found via ${method}:`, walletAccount);
+                    break;
+                  }
+                } catch (methodErr) {
+                  console.log(`Method ${method} failed:`, (methodErr as Error).message);
+                }
               }
+              
+              // If no method worked, try without parameters
+              if (!walletAccount) {
+                try {
+                  console.log('Trying vechain.request() without parameters...');
+                  const result = await vechain.request();
+                  console.log('Result from request() without params:', result);
+                  
+                  if (result && result.address) {
+                    walletAccount = { address: result.address };
+                    console.log('VeChain account found via request() without params:', walletAccount);
+                  }
+                } catch (noParamErr) {
+                  console.log('Request without params failed:', (noParamErr as Error).message);
+                }
+              }
+              
             } catch (requestErr) {
               console.log('Request method failed:', requestErr);
             }
