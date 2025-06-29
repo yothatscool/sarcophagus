@@ -51,20 +51,7 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
       // Load user verification status from DeathVerifier contract
       const verificationClause = connex.thor
         .account(CONTRACT_ADDRESSES.testnet.deathVerifier)
-        .method({
-          name: 'getUserVerification',
-          abi: {
-            constant: true,
-            inputs: [{ name: 'user', type: 'address' }],
-            name: 'getUserVerification',
-            outputs: [
-              { name: 'isVerified', type: 'bool' },
-              { name: 'age', type: 'uint256' },
-              { name: 'lifeExpectancy', type: 'uint256' }
-            ],
-            type: 'function'
-          }
-        })
+        .method('getUserVerification')
         .value(account.address);
 
       const verificationResult = await verificationClause.call();
@@ -77,20 +64,7 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
       // Load sarcophagus data
       const sarcophagusClause = connex.thor
         .account(CONTRACT_ADDRESSES.testnet.sarcophagus)
-        .method({
-          name: 'sarcophagi',
-          abi: {
-            constant: true,
-            inputs: [{ name: '', type: 'address' }],
-            name: 'sarcophagi',
-            outputs: [
-              { name: 'vetAmount', type: 'uint256' },
-              { name: 'createdAt', type: 'uint256' },
-              { name: 'beneficiaries', type: 'tuple[]' }
-            ],
-            type: 'function'
-          }
-        })
+        .method('sarcophagi')
         .value(account.address);
 
       const sarcophagusResult = await sarcophagusClause.call();
@@ -105,16 +79,7 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
       // Load OBOL balance
       const obolClause = connex.thor
         .account(CONTRACT_ADDRESSES.testnet.obolToken)
-        .method({
-          name: 'balanceOf',
-          abi: {
-            constant: true,
-            inputs: [{ name: 'account', type: 'address' }],
-            name: 'balanceOf',
-            outputs: [{ name: '', type: 'uint256' }],
-            type: 'function'
-          }
-        })
+        .method('balanceOf')
         .value(account.address);
 
       const obolResult = await obolClause.call();
@@ -137,19 +102,7 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
       // Create the verification transaction using vendor API
       const clause = connex.thor
         .account(CONTRACT_ADDRESSES.testnet.deathVerifier)
-        .method({
-          name: 'verifyUser',
-          abi: {
-            inputs: [
-              { name: 'user', type: 'address' },
-              { name: 'age', type: 'uint256' },
-              { name: 'verificationData', type: 'string' }
-            ],
-            name: 'verifyUser',
-            outputs: [],
-            type: 'function'
-          }
-        })
+        .method('verifyUser')
         .value(account.address, 30, 'ipfs://QmTestVerificationHash');
 
       console.log('Verification clause created:', clause);
@@ -204,23 +157,7 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
       
       const clause = connex.thor
         .account(CONTRACT_ADDRESSES.testnet.sarcophagus)
-        .method({
-          name: 'createSarcophagus',
-          abi: {
-            inputs: [
-              { name: 'beneficiaries', type: 'address[]' },
-              { name: 'percentages', type: 'uint16[]' },
-              { name: 'guardians', type: 'address[]' },
-              { name: 'isMinors', type: 'bool[]' },
-              { name: 'ages', type: 'uint8[]' },
-              { name: 'contingentBeneficiaries', type: 'address[]' },
-              { name: 'survivorshipPeriods', type: 'uint256[]' }
-            ],
-            name: 'createSarcophagus',
-            outputs: [],
-            type: 'function'
-          }
-        })
+        .method('createSarcophagus')
         .value(
           [testBeneficiary],
           [10000], // 100%
