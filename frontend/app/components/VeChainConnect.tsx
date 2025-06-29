@@ -59,10 +59,20 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
     try {
       let walletAccount = null;
 
+      // Debug: Log what wallet objects are available
+      console.log('Available wallet objects:', {
+        veworld: typeof window !== 'undefined' ? !!(window as any).veworld : false,
+        sync2: typeof window !== 'undefined' ? !!(window as any).sync2 : false,
+        sync: typeof window !== 'undefined' ? !!(window as any).sync : false,
+        connex: typeof window !== 'undefined' ? !!(window as any).connex : false
+      });
+
       // Check for VeWorld wallet
       if (typeof window !== 'undefined' && (window as any).veworld) {
         try {
+          console.log('Attempting VeWorld connection...');
           const veworld = (window as any).veworld;
+          console.log('VeWorld object:', veworld);
           walletAccount = await veworld.getAccount();
           console.log('VeWorld account found:', walletAccount);
         } catch (err) {
@@ -73,7 +83,9 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
       // Check for Sync2 wallet
       if (!walletAccount && typeof window !== 'undefined' && (window as any).sync2) {
         try {
+          console.log('Attempting Sync2 connection...');
           const sync2 = (window as any).sync2;
+          console.log('Sync2 object:', sync2);
           walletAccount = await sync2.getAccount();
           console.log('Sync2 account found:', walletAccount);
         } catch (err) {
@@ -84,11 +96,29 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
       // Check for VeChain Sync (older version)
       if (!walletAccount && typeof window !== 'undefined' && (window as any).sync) {
         try {
+          console.log('Attempting Sync connection...');
           const sync = (window as any).sync;
+          console.log('Sync object:', sync);
           walletAccount = await sync.getAccount();
           console.log('Sync account found:', walletAccount);
         } catch (err) {
           console.log('Sync connection failed:', err);
+        }
+      }
+
+      // Check for Connex wallet
+      if (!walletAccount && typeof window !== 'undefined' && (window as any).connex) {
+        try {
+          console.log('Attempting Connex connection...');
+          const connexWallet = (window as any).connex;
+          console.log('Connex object:', connexWallet);
+          // Try different Connex API methods
+          if (connexWallet.thor && connexWallet.thor.account) {
+            walletAccount = await connexWallet.thor.account().get();
+            console.log('Connex account found:', walletAccount);
+          }
+        } catch (err) {
+          console.log('Connex connection failed:', err);
         }
       }
 
@@ -104,6 +134,12 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         setIsConnected(true);
         setError(null);
       } else {
+        console.log('No wallet account found. Available objects:', {
+          veworld: typeof window !== 'undefined' ? (window as any).veworld : 'N/A',
+          sync2: typeof window !== 'undefined' ? (window as any).sync2 : 'N/A',
+          sync: typeof window !== 'undefined' ? (window as any).sync : 'N/A',
+          connex: typeof window !== 'undefined' ? (window as any).connex : 'N/A'
+        });
         setError('No VeChain wallet found. Please install VeWorld or Sync2.');
       }
     } catch (err) {
@@ -156,6 +192,30 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             {isLoading ? 'Connecting...' : 'Connect VeChain Wallet'}
+          </button>
+
+          {/* Debug button for development */}
+          <button
+            onClick={() => {
+              console.log('=== WALLET DEBUG INFO ===');
+              console.log('Window object:', typeof window !== 'undefined' ? 'Available' : 'Not available');
+              if (typeof window !== 'undefined') {
+                console.log('VeWorld:', (window as any).veworld);
+                console.log('Sync2:', (window as any).sync2);
+                console.log('Sync:', (window as any).sync);
+                console.log('Connex:', (window as any).connex);
+                console.log('All window properties:', Object.keys(window).filter(key => 
+                  key.toLowerCase().includes('vechain') || 
+                  key.toLowerCase().includes('veworld') || 
+                  key.toLowerCase().includes('sync') || 
+                  key.toLowerCase().includes('connex')
+                ));
+              }
+              alert('Check browser console for wallet debug info');
+            }}
+            className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors mt-2"
+          >
+            Debug Wallet Detection
           </button>
         </div>
       ) : (
