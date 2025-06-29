@@ -120,23 +120,32 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
       const signingService = await connex.vendor.sign('tx', [clause]);
       console.log('Signing service obtained:', signingService);
       
-      if (signingService && signingService.txid) {
-        console.log('Transaction signed with ID:', signingService.txid);
+      if (signingService && signingService.signer) {
+        console.log('Calling signer function...');
+        const signedTx = await signingService.signer();
+        console.log('Transaction signed:', signedTx);
         
-        // Wait for transaction to be mined
-        console.log('Waiting for transaction to be mined...');
-        const receipt = await connex.thor.transaction(signingService.txid).getReceipt();
-        console.log('Transaction receipt:', receipt);
-        
-        if (receipt && receipt.reverted === false) {
-          console.log('Verification successful!');
-          alert('Identity verification successful! Your account has been verified.');
+        if (signedTx && signedTx.txid) {
+          console.log('Transaction signed with ID:', signedTx.txid);
           
-          // Reload user data to update verification status
-          await loadUserData();
+          // Wait for transaction to be mined
+          console.log('Waiting for transaction to be mined...');
+          const receipt = await connex.thor.transaction(signedTx.txid).getReceipt();
+          console.log('Transaction receipt:', receipt);
+          
+          if (receipt && receipt.reverted === false) {
+            console.log('Verification successful!');
+            alert('Identity verification successful! Your account has been verified.');
+            
+            // Reload user data to update verification status
+            await loadUserData();
+          } else {
+            console.error('Transaction reverted:', receipt);
+            alert('Verification failed. Transaction was reverted. Please try again.');
+          }
         } else {
-          console.error('Transaction reverted:', receipt);
-          alert('Verification failed. Transaction was reverted. Please try again.');
+          console.error('No transaction ID in signed transaction');
+          alert('Unable to get transaction ID. Please try again.');
         }
       } else {
         console.error('No signing service available');
@@ -191,23 +200,32 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
       const signingService = await connex.vendor.sign('tx', [clause]);
       console.log('Signing service obtained:', signingService);
       
-      if (signingService && signingService.txid) {
-        console.log('Transaction signed with ID:', signingService.txid);
+      if (signingService && signingService.signer) {
+        console.log('Calling signer function...');
+        const signedTx = await signingService.signer();
+        console.log('Transaction signed:', signedTx);
         
-        // Wait for transaction to be mined
-        console.log('Waiting for transaction to be mined...');
-        const receipt = await connex.thor.transaction(signingService.txid).getReceipt();
-        console.log('Transaction receipt:', receipt);
-        
-        if (receipt && receipt.reverted === false) {
-          console.log('Sarcophagus creation successful!');
-          alert('Sarcophagus vault created successfully! Your digital inheritance is now secure.');
+        if (signedTx && signedTx.txid) {
+          console.log('Transaction signed with ID:', signedTx.txid);
           
-          // Reload user data to update sarcophagus status
-          await loadUserData();
+          // Wait for transaction to be mined
+          console.log('Waiting for transaction to be mined...');
+          const receipt = await connex.thor.transaction(signedTx.txid).getReceipt();
+          console.log('Transaction receipt:', receipt);
+          
+          if (receipt && receipt.reverted === false) {
+            console.log('Sarcophagus creation successful!');
+            alert('Sarcophagus vault created successfully! Your digital inheritance is now secure.');
+            
+            // Reload user data to update sarcophagus status
+            await loadUserData();
+          } else {
+            console.error('Transaction reverted:', receipt);
+            alert('Sarcophagus creation failed. Transaction was reverted. Please try again.');
+          }
         } else {
-          console.error('Transaction reverted:', receipt);
-          alert('Sarcophagus creation failed. Transaction was reverted. Please try again.');
+          console.error('No transaction ID in signed transaction');
+          alert('Unable to get transaction ID. Please try again.');
         }
       } else {
         console.error('No signing service available');
