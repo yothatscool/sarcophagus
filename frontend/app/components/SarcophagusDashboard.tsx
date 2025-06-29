@@ -3,6 +3,15 @@
 import { useState, useEffect } from 'react';
 import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from '../config/contracts';
 import { VECHAIN_UTILS } from '../config/vechain-native';
+import { useNotification } from '../contexts/NotificationContext';
+import { ContractInteractions } from '../utils/contractInteractions';
+import { testContractIntegration, testMockIntegration } from '../utils/test-contract-integration';
+import QuickStats from './QuickStats';
+import RecentActivity from './RecentActivity';
+import CreateSarcophagus from './CreateSarcophagus';
+import ManageVault from './ManageVault';
+import BeneficiaryModal from './BeneficiaryModal';
+import LegalDisclosure from './LegalDisclosure';
 
 interface SarcophagusDashboardProps {
   account: {
@@ -101,12 +110,14 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
   const [obolBalance, setObolBalance] = useState<string>('0');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'create' | 'manage' | 'beneficiaries' | 'verification'>('overview');
+  const [isTestMode, setIsTestMode] = useState(true); // Default to test mode
+  const [lastTransaction, setLastTransaction] = useState<{txid: string, status: 'pending' | 'success' | 'failed'} | null>(null);
 
   useEffect(() => {
     if (account && connex) {
       loadUserData();
     }
-  }, [account, connex]);
+  }, [account, connex, isTestMode]);
 
   const loadUserData = async () => {
     if (!account || !connex) return;
@@ -115,22 +126,45 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     try {
       console.log('Loading user data...');
       
-      // For now, let's set some mock data to avoid ABI errors
-      // TODO: Implement proper contract calls once we figure out the correct ABI format
+      // Initialize contract interactions
+      const contractInteractions = new ContractInteractions(connex, isTestMode);
       
-      setUserVerification({
-        isVerified: false,
-        age: 0,
-        verificationHash: 'Not verified yet'
-      });
+      // Load user verification status
+      const verification = await contractInteractions.getUserVerification(account.address);
+      setUserVerification(verification);
+      
+      // Load sarcophagus data
+      const sarcophagus = await contractInteractions.getUserSarcophagus(account.address);
+      setSarcophagusData(sarcophagus);
+      
+      // Load OBOL rewards
+      const obolRewards = await contractInteractions.getObolRewards(account.address);
+      setObolBalance(obolRewards);
 
-      setSarcophagusData(null);
-      setObolBalance('0');
+      console.log('User data loaded successfully');
 
-      console.log('User data loaded (mock data)');
+      // Update parent component
+      if (onUserDataUpdate) {
+        onUserDataUpdate({
+          isVerified: verification.isVerified,
+          hasSarcophagus: !!sarcophagus,
+          userSarcophagus: sarcophagus,
+          userBeneficiaries: sarcophagus?.beneficiaries || [],
+          obolRewards: obolRewards
+        });
+      }
 
     } catch (error) {
       console.error('Error loading user data:', error);
+      
+      // Fallback to mock data on error
+      setUserVerification({
+        isVerified: false,
+        age: 0,
+        verificationHash: 'Error loading verification'
+      });
+      setSarcophagusData(null);
+      setObolBalance('0');
     } finally {
       setIsLoading(false);
     }
@@ -146,141 +180,189 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     try {
       console.log('Starting user verification process...');
       
-      // For now, let's use a mock verification to avoid transaction signing issues
-      // This will help us test the UI flow while we fix the wallet integration
-      console.log('Using mock verification for testing...');
+      const contractInteractions = new ContractInteractions(connex, isTestMode);
       
-      // Simulate a successful verification with better UX
-      setTimeout(() => {
-        console.log('Mock verification successful!');
-        setUserVerification({
+      // Generate a mock verification hash for testing
+      const verificationHash = `verification-${account.address}-${Date.now()}`;
+      const age = 35; // Mock age for now
+      
+      // Call the contract to verify user
+      const tx = await contractInteractions.verifyUser(account.address, age, verificationHash);
+      
+      // Set transaction as pending
+      setLastTransaction({ txid: tx.txid, status: 'pending' });
+      
+      // Wait for transaction confirmation
+      const receipt = await tx.wait();
+      
+      if (receipt.reverted) {
+        setLastTransaction({ txid: tx.txid, status: 'failed' });
+        throw new Error('Transaction reverted');
+      }
+      
+      // Set transaction as successful
+      setLastTransaction({ txid: tx.txid, status: 'success' });
+      
+      console.log('Verification successful! Transaction ID:', tx.txid);
+      
+      // Update local state
+      setUserVerification({
+        isVerified: true,
+        age: age,
+        verificationHash: verificationHash
+      });
+      
+      // Update parent component
+      if (onUserDataUpdate) {
+        onUserDataUpdate({
           isVerified: true,
-          age: 35, // Mock age for now
-          verificationHash: `mock-verification-${Date.now()}`
+          hasSarcophagus: !!sarcophagusData,
+          userSarcophagus: sarcophagusData,
+          userBeneficiaries: sarcophagusData?.beneficiaries || [],
+          obolRewards: obolBalance
         });
-        
-        // Update parent component with verification status
-        if (onUserDataUpdate) {
-          onUserDataUpdate({
-            isVerified: true,
-            hasSarcophagus: false,
-            userSarcophagus: null,
-            userBeneficiaries: [],
-            obolRewards: '0'
-          });
-        }
-        
-        // Show success message in a more elegant way
-        const successMessage = document.createElement('div');
-        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-        successMessage.textContent = '✅ Identity verification successful! You can now create your sarcophagus vault.';
-        document.body.appendChild(successMessage);
-        
-        // Remove the message after 5 seconds
-        setTimeout(() => {
+      }
+      
+      // Show success message
+      const successMessage = document.createElement('div');
+      successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      successMessage.textContent = `✅ Identity verification successful! Transaction: ${tx.txid.substring(0, 10)}...`;
+      document.body.appendChild(successMessage);
+      
+      // Remove the message after 5 seconds
+      setTimeout(() => {
+        if (document.body.contains(successMessage)) {
           document.body.removeChild(successMessage);
-        }, 5000);
-        
-        setIsLoading(false);
-      }, 2000);
+        }
+      }, 5000);
       
     } catch (error) {
       console.error('Error during verification:', error);
       
-      // Show error message in a more elegant way
+      // Set transaction as failed if we have a txid
+      if (lastTransaction && lastTransaction.status === 'pending') {
+        setLastTransaction({ txid: lastTransaction.txid, status: 'failed' });
+      }
+      
+      // Show error message
       const errorMessage = document.createElement('div');
       errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-      errorMessage.textContent = `❌ Error during verification: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      errorMessage.textContent = `❌ Verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
       document.body.appendChild(errorMessage);
       
       // Remove the message after 5 seconds
       setTimeout(() => {
-        document.body.removeChild(errorMessage);
+        if (document.body.contains(errorMessage)) {
+          document.body.removeChild(errorMessage);
+        }
       }, 5000);
-      
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handleCreateSarcophagus = async () => {
-    if (!account || !connex || !userVerification?.isVerified) {
-      alert('User must be verified before creating a sarcophagus.');
+    if (!account || !connex) {
+      alert('Please connect your wallet first.');
+      return;
+    }
+    
+    if (!userVerification?.isVerified) {
+      alert('Please verify your identity first.');
       return;
     }
     
     setIsLoading(true);
     try {
-      console.log('Starting sarcophagus creation process...');
+      console.log('Creating sarcophagus...');
       
-      // For now, let's use a mock sarcophagus creation to avoid transaction signing issues
-      // This will help us test the UI flow while we fix the wallet integration
-      console.log('Using mock sarcophagus creation for testing...');
+      const contractInteractions = new ContractInteractions(connex, isTestMode);
       
-      // Simulate a successful sarcophagus creation with better UX
+      // Mock beneficiaries for now - in a real app, this would come from a form
+      const beneficiaries = [
+        '0x1234567890123456789012345678901234567890',
+        '0x0987654321098765432109876543210987654321'
+      ];
+      const percentages = [60, 40]; // 60% to first beneficiary, 40% to second
+      
+      // Call the contract to create sarcophagus
+      const tx = await contractInteractions.createSarcophagus(account.address, beneficiaries, percentages);
+      
+      // Set transaction as pending
+      setLastTransaction({ txid: tx.txid, status: 'pending' });
+      
+      // Wait for transaction confirmation
+      const receipt = await tx.wait();
+      
+      if (receipt.reverted) {
+        setLastTransaction({ txid: tx.txid, status: 'failed' });
+        throw new Error('Transaction reverted');
+      }
+      
+      // Set transaction as successful
+      setLastTransaction({ txid: tx.txid, status: 'success' });
+      
+      console.log('Sarcophagus created successfully! Transaction ID:', tx.txid);
+      
+      // Update local state with mock data (in real app, we'd fetch from blockchain)
+      const newSarcophagusData: SarcophagusData = {
+        vetAmount: '0', // Will be updated when funds are added
+        createdAt: Date.now(),
+        beneficiaries: beneficiaries.map((addr, index) => ({
+          recipient: addr,
+          percentage: percentages[index],
+          isMinor: false,
+          age: 25
+        }))
+      };
+      
+      setSarcophagusData(newSarcophagusData);
+      
+      // Update parent component
+      if (onUserDataUpdate) {
+        onUserDataUpdate({
+          isVerified: userVerification.isVerified,
+          hasSarcophagus: true,
+          userSarcophagus: newSarcophagusData,
+          userBeneficiaries: newSarcophagusData.beneficiaries,
+          obolRewards: obolBalance
+        });
+      }
+      
+      // Show success message
+      const successMessage = document.createElement('div');
+      successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      successMessage.textContent = `✅ Sarcophagus created! Transaction: ${tx.txid.substring(0, 10)}...`;
+      document.body.appendChild(successMessage);
+      
+      // Remove the message after 5 seconds
       setTimeout(() => {
-        console.log('Mock sarcophagus creation successful!');
-        
-        // Create mock sarcophagus data
-        const mockSarcophagusData: SarcophagusData = {
-          vetAmount: '1000000000000000000', // 1 VET in wei
-          createdAt: Math.floor(Date.now() / 1000),
-          beneficiaries: [
-            {
-              recipient: '0x1234567890123456789012345678901234567890',
-              percentage: 50,
-              isMinor: false,
-              age: 25
-            },
-            {
-              recipient: '0x0987654321098765432109876543210987654321',
-              percentage: 50,
-              isMinor: false,
-              age: 30
-            }
-          ]
-        };
-        
-        setSarcophagusData(mockSarcophagusData);
-        
-        // Update parent component with sarcophagus data
-        if (onUserDataUpdate) {
-          onUserDataUpdate({
-            isVerified: true,
-            hasSarcophagus: true,
-            userSarcophagus: mockSarcophagusData,
-            userBeneficiaries: mockSarcophagusData.beneficiaries,
-            obolRewards: '1000000000000000000' // 1 OBOL in wei
-          });
-        }
-        
-        // Show success message in a more elegant way
-        const successMessage = document.createElement('div');
-        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-        successMessage.textContent = '✅ Sarcophagus vault created successfully! Your digital inheritance is now secure.';
-        document.body.appendChild(successMessage);
-        
-        // Remove the message after 5 seconds
-        setTimeout(() => {
+        if (document.body.contains(successMessage)) {
           document.body.removeChild(successMessage);
-        }, 5000);
-        
-        setIsLoading(false);
-      }, 2000);
+        }
+      }, 5000);
       
     } catch (error) {
       console.error('Error creating sarcophagus:', error);
       
-      // Show error message in a more elegant way
+      // Set transaction as failed if we have a txid
+      if (lastTransaction && lastTransaction.status === 'pending') {
+        setLastTransaction({ txid: lastTransaction.txid, status: 'failed' });
+      }
+      
+      // Show error message
       const errorMessage = document.createElement('div');
       errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-      errorMessage.textContent = `❌ Error creating sarcophagus: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      errorMessage.textContent = `❌ Failed to create sarcophagus: ${error instanceof Error ? error.message : 'Unknown error'}`;
       document.body.appendChild(errorMessage);
       
       // Remove the message after 5 seconds
       setTimeout(() => {
-        document.body.removeChild(errorMessage);
+        if (document.body.contains(errorMessage)) {
+          document.body.removeChild(errorMessage);
+        }
       }, 5000);
-      
+    } finally {
       setIsLoading(false);
     }
   };
@@ -610,6 +692,40 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     }
   };
 
+  const handleTestIntegration = async () => {
+    if (!connex) {
+      alert('Please connect your wallet first.');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      console.log('Running contract integration tests...');
+      
+      // Test mock integration first
+      const mockResult = await testMockIntegration(connex);
+      
+      // Test real integration if not in test mode
+      let realResult = false;
+      if (!isTestMode) {
+        realResult = await testContractIntegration(connex);
+      }
+      
+      // Show results
+      const message = isTestMode 
+        ? `Mock Tests: ${mockResult ? '✅ PASSED' : '❌ FAILED'}`
+        : `Mock Tests: ${mockResult ? '✅ PASSED' : '❌ FAILED'}\nReal Tests: ${realResult ? '✅ PASSED' : '❌ FAILED'}`;
+      
+      alert(`Integration Test Results:\n\n${message}`);
+      
+    } catch (error) {
+      console.error('Error running integration tests:', error);
+      alert(`Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!account) {
     return (
       <div className="bg-white rounded-lg shadow-md p-8 text-center">
@@ -623,8 +739,49 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     <div className="bg-white rounded-lg shadow-md">
       {/* Header */}
       <div className="border-b border-gray-200 p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">🏺 Sarcophagus Dashboard</h2>
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-2xl font-bold text-gray-800">🏺 Sarcophagus Dashboard</h2>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">Mode:</span>
+            <button
+              onClick={() => setIsTestMode(!isTestMode)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                isTestMode 
+                  ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' 
+                  : 'bg-green-100 text-green-800 border border-green-300'
+              }`}
+            >
+              {isTestMode ? '🧪 Test Mode' : '🔗 Live Mode'}
+            </button>
+            <button
+              onClick={handleTestIntegration}
+              disabled={isLoading}
+              className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-200 disabled:opacity-50"
+            >
+              {isLoading ? '⏳ Testing...' : '🧪 Test Integration'}
+            </button>
+          </div>
+        </div>
         <p className="text-gray-600">Manage your digital inheritance on VeChain</p>
+        {isTestMode && (
+          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+            🧪 Test Mode: Using mock data. Switch to Live Mode for real blockchain transactions.
+          </div>
+        )}
+        {lastTransaction && (
+          <div className={`mt-2 p-2 rounded text-xs ${
+            lastTransaction.status === 'pending' ? 'bg-blue-50 border border-blue-200 text-blue-700' :
+            lastTransaction.status === 'success' ? 'bg-green-50 border border-green-200 text-green-700' :
+            'bg-red-50 border border-red-200 text-red-700'
+          }`}>
+            {lastTransaction.status === 'pending' && '⏳ Transaction pending...'}
+            {lastTransaction.status === 'success' && '✅ Transaction confirmed!'}
+            {lastTransaction.status === 'failed' && '❌ Transaction failed!'}
+            <span className="ml-2 font-mono text-xs">
+              {lastTransaction.txid.substring(0, 10)}...
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Navigation Tabs */}
