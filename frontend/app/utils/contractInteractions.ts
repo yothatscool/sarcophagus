@@ -1,13 +1,12 @@
 import { CONTRACT_ADDRESSES } from '../config/contracts';
 
-// Contract ABIs for real interactions
+// Simplified contract ABIs for real interactions
 export const DEATH_VERIFIER_ABI = [
   {
     "inputs": [
       {"name": "user", "type": "address"},
-      {"name": "age", "type": "uint8"},
-      {"name": "lifeExpectancy", "type": "uint8"},
-      {"name": "verificationHash", "type": "string"}
+      {"name": "age", "type": "uint256"},
+      {"name": "verificationData", "type": "string"}
     ],
     "name": "verifyUser",
     "outputs": [],
@@ -16,11 +15,11 @@ export const DEATH_VERIFIER_ABI = [
   },
   {
     "inputs": [{"name": "user", "type": "address"}],
-    "name": "verifications",
+    "name": "getUserVerification",
     "outputs": [
       {"name": "isVerified", "type": "bool"},
-      {"name": "age", "type": "uint8"},
-      {"name": "verificationHash", "type": "string"}
+      {"name": "age", "type": "uint256"},
+      {"name": "lifeExpectancy", "type": "uint256"}
     ],
     "stateMutability": "view",
     "type": "function"
@@ -104,13 +103,25 @@ export class ContractInteractions {
     }
 
     try {
+      // Use a simpler approach for Connex
       const deathVerifier = this.connex.thor.account(CONTRACT_ADDRESSES.testnet.deathVerifier);
-      const verification = await deathVerifier.method(DEATH_VERIFIER_ABI).call('verifications', [userAddress]);
+      
+      // Try to call the function directly
+      const result = await deathVerifier.method({
+        name: 'getUserVerification',
+        type: 'function',
+        inputs: [{ name: 'user', type: 'address' }],
+        outputs: [
+          { name: 'isVerified', type: 'bool' },
+          { name: 'age', type: 'uint256' },
+          { name: 'lifeExpectancy', type: 'uint256' }
+        ]
+      }).call(userAddress);
       
       return {
-        isVerified: verification.isVerified,
-        age: verification.age,
-        verificationHash: verification.verificationHash
+        isVerified: result.isVerified,
+        age: result.age,
+        verificationHash: result.isVerified ? 'Verified' : 'Not verified'
       };
     } catch (error) {
       console.error('Error getting user verification:', error);
@@ -130,16 +141,26 @@ export class ContractInteractions {
 
     try {
       const sarcophagus = this.connex.thor.account(CONTRACT_ADDRESSES.testnet.sarcophagus);
-      const sarcophagusData = await sarcophagus.method(SARCOPHAGUS_ABI).call('sarcophagi', [userAddress]);
       
-      if (sarcophagusData.vetAmount === '0') {
+      const result = await sarcophagus.method({
+        name: 'sarcophagi',
+        type: 'function',
+        inputs: [{ name: 'user', type: 'address' }],
+        outputs: [
+          { name: 'vetAmount', type: 'uint256' },
+          { name: 'createdAt', type: 'uint256' },
+          { name: 'beneficiaries', type: 'tuple[]' }
+        ]
+      }).call(userAddress);
+      
+      if (result.vetAmount === '0') {
         return null; // No sarcophagus found
       }
 
       return {
-        vetAmount: sarcophagusData.vetAmount,
-        createdAt: sarcophagusData.createdAt,
-        beneficiaries: sarcophagusData.beneficiaries || []
+        vetAmount: result.vetAmount,
+        createdAt: result.createdAt,
+        beneficiaries: result.beneficiaries || []
       };
     } catch (error) {
       console.error('Error getting user sarcophagus:', error);
@@ -155,9 +176,25 @@ export class ContractInteractions {
 
     try {
       const obol = this.connex.thor.account(CONTRACT_ADDRESSES.testnet.obolToken);
-      const stakeData = await obol.method(OBOL_ABI).call('getUserStake', [userAddress]);
       
-      return stakeData.pendingRewards || '0';
+      const result = await obol.method({
+        name: 'getUserStake',
+        type: 'function',
+        inputs: [{ name: 'user', type: 'address' }],
+        outputs: [
+          { name: 'lockedValue', type: 'uint256' },
+          { name: 'lastClaimTime', type: 'uint256' },
+          { name: 'startTime', type: 'uint256' },
+          { name: 'totalEarned', type: 'uint256' },
+          { name: 'pendingRewards', type: 'uint256' },
+          { name: 'dailyRewardRate', type: 'uint256' },
+          { name: 'isLongTermHolder', type: 'bool' },
+          { name: 'weightMultiplier', type: 'uint256' },
+          { name: 'weightedRate', type: 'uint256' }
+        ]
+      }).call(userAddress);
+      
+      return result.pendingRewards || '0';
     } catch (error) {
       console.error('Error getting OBOL rewards:', error);
       return '0';
@@ -175,16 +212,18 @@ export class ContractInteractions {
     }
 
     try {
-      const clause = {
-        to: CONTRACT_ADDRESSES.testnet.deathVerifier,
-        value: '0x0',
-        data: this.encodeFunctionCall('verifyUser', ['address', 'uint8', 'uint8', 'string'], [
-          userAddress,
-          age,
-          85, // Default life expectancy
-          verificationHash
-        ])
-      };
+      // Use Connex's built-in method for creating transactions
+      const deathVerifier = this.connex.thor.account(CONTRACT_ADDRESSES.testnet.deathVerifier);
+      
+      const clause = deathVerifier.method({
+        name: 'verifyUser',
+        type: 'function',
+        inputs: [
+          { name: 'user', type: 'address' },
+          { name: 'age', type: 'uint256' },
+          { name: 'verificationData', type: 'string' }
+        ]
+      }).value(0).asClause(userAddress, age, verificationHash);
 
       const signingService = await this.connex.vendor.sign('tx', [clause]);
       const signedTx = await signingService.signer(userAddress);
@@ -235,21 +274,29 @@ export class ContractInteractions {
       const contingentBeneficiaries = new Array(beneficiaries.length).fill('0x0000000000000000000000000000000000000000');
       const survivorshipPeriods = new Array(beneficiaries.length).fill('0');
 
-      const clause = {
-        to: CONTRACT_ADDRESSES.testnet.sarcophagus,
-        value: '0x0', // No VET sent initially
-        data: this.encodeFunctionCall('createSarcophagus', [
-          'address[]', 'uint16[]', 'address[]', 'bool[]', 'uint8[]', 'address[]', 'uint256[]'
-        ], [
-          beneficiaries,
-          percentages,
-          guardians,
-          isMinors,
-          ages,
-          contingentBeneficiaries,
-          survivorshipPeriods
-        ])
-      };
+      const sarcophagus = this.connex.thor.account(CONTRACT_ADDRESSES.testnet.sarcophagus);
+      
+      const clause = sarcophagus.method({
+        name: 'createSarcophagus',
+        type: 'function',
+        inputs: [
+          { name: 'beneficiaries', type: 'address[]' },
+          { name: 'percentages', type: 'uint16[]' },
+          { name: 'guardians', type: 'address[]' },
+          { name: 'isMinors', type: 'bool[]' },
+          { name: 'ages', type: 'uint8[]' },
+          { name: 'contingentBeneficiaries', type: 'address[]' },
+          { name: 'survivorshipPeriods', type: 'uint256[]' }
+        ]
+      }).value(0).asClause(
+        beneficiaries,
+        percentages,
+        guardians,
+        isMinors,
+        ages,
+        contingentBeneficiaries,
+        survivorshipPeriods
+      );
 
       const signingService = await this.connex.vendor.sign('tx', [clause]);
       const signedTx = await signingService.signer(userAddress);
@@ -280,22 +327,5 @@ export class ContractInteractions {
       console.error('Error creating sarcophagus:', error);
       throw error;
     }
-  }
-
-  // Helper function to encode function calls
-  private encodeFunctionCall(functionName: string, types: string[], values: any[]): string {
-    const functionSignatures: { [key: string]: string } = {
-      'verifyUser(address,uint8,uint8,string)': '0xfcaa653e',
-      'createSarcophagus(address[],uint16[],address[],bool[],uint8[],address[],uint256[])': '0x12345678',
-      'getUserStake(address)': '0x8da5cb5b'
-    };
-    
-    const signature = functionSignatures[functionName];
-    if (!signature) {
-      throw new Error(`Function signature not found for: ${functionName}`);
-    }
-    
-    // For now, return the signature - in production, we'd properly encode the parameters
-    return signature;
   }
 } 
