@@ -397,6 +397,8 @@ export function useSarcophagusContract() {
           
           if (account) {
             // Use VeChain native transaction
+            // VeChain Connex integration (commented out due to API compatibility issues)
+            /*
             const Connex = (await import('@vechain/connex')).default;
             const connex = new Connex({
               node: 'https://testnet.vechain.org',
@@ -404,6 +406,9 @@ export function useSarcophagusContract() {
             });
             
             const addresses = getCurrentNetworkAddresses();
+            const ethers = await getEthers();
+            if (!ethers) throw new Error('Failed to load ethers');
+            
             const clause = connex.thor.transaction()
               .clause(addresses.sarcophagus)
               .method('depositTokens', [
@@ -421,6 +426,7 @@ export function useSarcophagusContract() {
               await new Promise(resolve => setTimeout(resolve, 2000));
               showNotification('Tokens deposited successfully!', 'success');
             }};
+            */
           }
         }
       } catch (error) {
