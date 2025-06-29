@@ -51,6 +51,49 @@ function encodeFunctionCall(functionName: string, types: string[], values: any[]
   return signature;
 }
 
+// Simple parameter encoding for basic types
+function encodeParameter(type: string, value: any): string {
+  if (type === 'address') {
+    // Remove '0x' prefix and pad to 64 characters
+    return value.replace('0x', '').padStart(64, '0');
+  } else if (type === 'uint256' || type === 'uint8') {
+    // Convert number to hex and pad to 64 characters
+    return parseInt(value).toString(16).padStart(64, '0');
+  } else if (type === 'string') {
+    // For strings, we need to encode the offset and length
+    // This is a simplified version - in production, use a proper ABI encoder
+    const stringHex = Buffer.from(value, 'utf8').toString('hex');
+    return '0000000000000000000000000000000000000000000000000000000000000020' + // offset
+           stringHex.length.toString(16).padStart(64, '0') + // length
+           stringHex.padEnd(64, '0'); // data
+  }
+  return '';
+}
+
+// Enhanced function call encoding
+function encodeFunctionCallWithParams(functionName: string, types: string[], values: any[]): string {
+  const functionSignatures: { [key: string]: string } = {
+    'verifyUser(address,uint256,string)': '0xfcaa653e',
+    'createSarcophagus(address[],uint16[],address[],bool[],uint8[],address[],uint256[])': '0x12345678',
+    'getUserVerification(address)': '0x8da5cb5b',
+    'sarcophagi(address)': '0x12345678',
+    'balanceOf(address)': '0x70a08231'
+  };
+  
+  const signature = functionSignatures[functionName];
+  if (!signature) {
+    throw new Error(`Function signature not found for: ${functionName}`);
+  }
+  
+  // Encode parameters
+  let encodedParams = '';
+  for (let i = 0; i < types.length; i++) {
+    encodedParams += encodeParameter(types[i], values[i]);
+  }
+  
+  return signature + encodedParams;
+}
+
 export default function SarcophagusDashboard({ account, connex }: SarcophagusDashboardProps) {
   const [userVerification, setUserVerification] = useState<UserVerification | null>(null);
   const [sarcophagusData, setSarcophagusData] = useState<SarcophagusData | null>(null);
@@ -99,20 +142,11 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     try {
       console.log('Starting user verification process...');
       
-      // Encode the verifyUser function call
-      const functionName = 'verifyUser(address,uint256,string)';
-      const encodedData = encodeFunctionCall(functionName, ['address', 'uint256', 'string'], [
-        account.address,
-        30, // age
-        'ipfs://QmTestVerificationHash' // verificationData
-      ]);
-      
-      // Create the transaction clause
-      const clause = {
-        to: CONTRACT_ADDRESSES.testnet.deathVerifier,
-        value: '0x0',
-        data: encodedData
-      };
+      // Use Connex method API directly
+      const clause = connex.thor
+        .account(CONTRACT_ADDRESSES.testnet.deathVerifier)
+        .method('verifyUser')
+        .value(account.address, 30, 'ipfs://QmTestVerificationHash');
 
       console.log('Verification clause created:', clause);
       
@@ -173,28 +207,19 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
       // Generate a test beneficiary (in real app, user would input this)
       const testBeneficiary = '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
       
-      // Encode the createSarcophagus function call
-      const functionName = 'createSarcophagus(address[],uint16[],address[],bool[],uint8[],address[],uint256[])';
-      const encodedData = encodeFunctionCall(functionName, [
-        'address[]', 'uint16[]', 'address[]', 'bool[]', 'uint8[]', 'address[]', 'uint256[]'
-      ], [
-        [testBeneficiary],
-        [10000], // 100%
-        ['0x0000000000000000000000000000000000000000'],
-        [false],
-        [25],
-        ['0x0000000000000000000000000000000000000000'],
-        [0]
-      ]);
-      
-      // Create the transaction clause
-      const clause = {
-        to: CONTRACT_ADDRESSES.testnet.sarcophagus,
-        value: '0x0',
-        data: encodedData
-      };
-
-      console.log('Sarcophagus creation clause created:', clause);
+      // Use Connex method API directly
+      const clause = connex.thor
+        .account(CONTRACT_ADDRESSES.testnet.sarcophagus)
+        .method('createSarcophagus')
+        .value(
+          [testBeneficiary],
+          [10000], // 100%
+          ['0x0000000000000000000000000000000000000000'],
+          [false],
+          [25],
+          ['0x0000000000000000000000000000000000000000'],
+          [0]
+        );
       
       // Get the signing service from vendor
       const signingService = await connex.vendor.sign('tx', [clause]);
