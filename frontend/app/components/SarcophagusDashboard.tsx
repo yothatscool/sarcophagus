@@ -198,6 +198,39 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
             console.error('No transaction ID returned from promise');
             alert('Unable to get transaction ID. Please try again.');
           }
+        } else if (signedTx && typeof signedTx === 'object' && signedTx.accepted) {
+          // The signedTx might be a signing service object with an 'accepted' method
+          console.log('SignedTx has accepted method, calling it...');
+          const txid = await signedTx.accepted();
+          console.log('Transaction ID from accepted method:', txid);
+          
+          if (txid) {
+            console.log('Transaction signed with ID:', txid);
+            
+            // Wait for transaction to be mined
+            console.log('Waiting for transaction to be mined...');
+            const receipt = await connex.thor.transaction(txid).getReceipt();
+            console.log('Transaction receipt:', receipt);
+            
+            if (receipt && receipt.reverted === false) {
+              console.log('Verification successful!');
+              
+              // Update verification status
+              setUserVerification({
+                isVerified: true,
+                age: 35, // Mock age for now
+                verificationHash: txid
+              });
+              
+              alert('Identity verification successful! You can now create your sarcophagus vault.');
+            } else {
+              console.error('Transaction reverted:', receipt);
+              alert('Verification failed. Transaction was reverted. Please try again.');
+            }
+          } else {
+            console.error('No transaction ID returned from accepted method');
+            alert('Unable to get transaction ID. Please try again.');
+          }
         } else {
           // Try to find the transaction ID in different possible locations
           let txid = null;
@@ -304,6 +337,34 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
             }
           } else {
             console.error('No transaction ID returned from promise');
+            alert('Unable to get transaction ID. Please try again.');
+          }
+        } else if (signedTx && typeof signedTx === 'object' && signedTx.accepted) {
+          // The signedTx might be a signing service object with an 'accepted' method
+          console.log('SignedTx has accepted method, calling it...');
+          const txid = await signedTx.accepted();
+          console.log('Transaction ID from accepted method:', txid);
+          
+          if (txid) {
+            console.log('Transaction signed with ID:', txid);
+            
+            // Wait for transaction to be mined
+            console.log('Waiting for transaction to be mined...');
+            const receipt = await connex.thor.transaction(txid).getReceipt();
+            console.log('Transaction receipt:', receipt);
+            
+            if (receipt && receipt.reverted === false) {
+              console.log('Sarcophagus creation successful!');
+              alert('Sarcophagus vault created successfully! Your digital inheritance is now secure.');
+              
+              // Reload user data to update sarcophagus status
+              await loadUserData();
+            } else {
+              console.error('Transaction reverted:', receipt);
+              alert('Sarcophagus creation failed. Transaction was reverted. Please try again.');
+            }
+          } else {
+            console.error('No transaction ID returned from accepted method');
             alert('Unable to get transaction ID. Please try again.');
           }
         } else {
