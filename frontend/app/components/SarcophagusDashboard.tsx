@@ -201,18 +201,40 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
         } else if (signedTx && typeof signedTx === 'object' && signedTx.accepted) {
           // The signedTx might be a signing service object with an 'accepted' method
           console.log('SignedTx has accepted method, calling it with callback...');
-          
-          // Create a promise to handle the callback-based accepted method
-          const txid = await new Promise<string>((resolve, reject) => {
-            signedTx.accepted((result: any) => {
-              console.log('Accepted callback result:', result);
-              if (result && result.txid) {
-                resolve(result.txid);
-              } else {
-                reject(new Error('No transaction ID in accepted callback result'));
-              }
-            });
+          console.log('SignedTx object details:', {
+            hasAccepted: !!signedTx.accepted,
+            acceptedType: typeof signedTx.accepted,
+            allMethods: Object.keys(signedTx)
           });
+          
+          // Create a promise to handle the callback-based accepted method with timeout
+          const txid = await Promise.race([
+            new Promise<string>((resolve, reject) => {
+              console.log('Setting up accepted callback...');
+              try {
+                signedTx.accepted((result: any) => {
+                  console.log('Accepted callback triggered with result:', result);
+                  if (result && result.txid) {
+                    console.log('Found txid in result:', result.txid);
+                    resolve(result.txid);
+                  } else {
+                    console.error('No txid in result:', result);
+                    reject(new Error('No transaction ID in accepted callback result'));
+                  }
+                });
+                console.log('Accepted callback registered successfully');
+              } catch (error) {
+                console.error('Error setting up accepted callback:', error);
+                reject(error);
+              }
+            }),
+            new Promise<string>((_, reject) => {
+              setTimeout(() => {
+                console.error('Transaction signing timeout - no response from VeWorld after 30 seconds');
+                reject(new Error('Transaction signing timeout - no response from VeWorld after 30 seconds'));
+              }, 30000); // 30 second timeout
+            })
+          ]);
           
           console.log('Transaction ID from accepted method:', txid);
           
@@ -354,18 +376,40 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
         } else if (signedTx && typeof signedTx === 'object' && signedTx.accepted) {
           // The signedTx might be a signing service object with an 'accepted' method
           console.log('SignedTx has accepted method, calling it with callback...');
-          
-          // Create a promise to handle the callback-based accepted method
-          const txid = await new Promise<string>((resolve, reject) => {
-            signedTx.accepted((result: any) => {
-              console.log('Accepted callback result:', result);
-              if (result && result.txid) {
-                resolve(result.txid);
-              } else {
-                reject(new Error('No transaction ID in accepted callback result'));
-              }
-            });
+          console.log('SignedTx object details:', {
+            hasAccepted: !!signedTx.accepted,
+            acceptedType: typeof signedTx.accepted,
+            allMethods: Object.keys(signedTx)
           });
+          
+          // Create a promise to handle the callback-based accepted method with timeout
+          const txid = await Promise.race([
+            new Promise<string>((resolve, reject) => {
+              console.log('Setting up accepted callback...');
+              try {
+                signedTx.accepted((result: any) => {
+                  console.log('Accepted callback triggered with result:', result);
+                  if (result && result.txid) {
+                    console.log('Found txid in result:', result.txid);
+                    resolve(result.txid);
+                  } else {
+                    console.error('No txid in result:', result);
+                    reject(new Error('No transaction ID in accepted callback result'));
+                  }
+                });
+                console.log('Accepted callback registered successfully');
+              } catch (error) {
+                console.error('Error setting up accepted callback:', error);
+                reject(error);
+              }
+            }),
+            new Promise<string>((_, reject) => {
+              setTimeout(() => {
+                console.error('Transaction signing timeout - no response from VeWorld after 30 seconds');
+                reject(new Error('Transaction signing timeout - no response from VeWorld after 30 seconds'));
+              }, 30000); // 30 second timeout
+            })
+          ]);
           
           console.log('Transaction ID from accepted method:', txid);
           
