@@ -7,8 +7,14 @@ import Header from './components/Header'
 import QuickStats from './components/QuickStats'
 import RecentActivity from './components/RecentActivity'
 
+interface VeChainAccount {
+  address: string;
+  balance: string;
+  energy: string;
+}
+
 export default function Home() {
-  const [account, setAccount] = useState<any>(null)
+  const [account, setAccount] = useState<VeChainAccount | null>(null)
   const [userData, setUserData] = useState({
     isVerified: false,
     hasSarcophagus: false,
@@ -20,6 +26,11 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  // Handle account updates from VeChainConnect
+  const handleAccountUpdate = (newAccount: VeChainAccount | null) => {
+    setAccount(newAccount)
+  }
 
   if (!isClient) {
     return (
@@ -49,7 +60,7 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Wallet Connection */}
           <div className="lg:col-span-1">
-            <VeChainConnect />
+            <VeChainConnect onAccountUpdate={handleAccountUpdate} />
           </div>
 
           {/* Right Column - Sarcophagus Dashboard */}

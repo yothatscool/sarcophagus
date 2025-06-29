@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react'
-import ConnectWallet from './ConnectWallet'
 
 export default function Header() {
   return (
@@ -21,7 +20,7 @@ export default function Header() {
           </div>
           
           <div className="flex items-center space-x-4">
-            <ConnectWallet />
+            {/* Wallet connection moved to main content area */}
           </div>
         </div>
       </div>

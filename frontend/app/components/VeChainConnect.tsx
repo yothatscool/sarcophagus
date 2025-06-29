@@ -9,7 +9,11 @@ interface VeChainAccount {
   energy: string;
 }
 
-export default function VeChainConnect() {
+interface VeChainConnectProps {
+  onAccountUpdate?: (account: VeChainAccount | null) => void;
+}
+
+export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps) {
   const [account, setAccount] = useState<VeChainAccount | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,6 +40,13 @@ export default function VeChainConnect() {
     initConnex();
   }, []);
 
+  // Notify parent component when account changes
+  useEffect(() => {
+    if (onAccountUpdate) {
+      onAccountUpdate(account);
+    }
+  }, [account, onAccountUpdate]);
+
   const connectWallet = async () => {
     if (!connex) {
       setError('VeChain not initialized');
@@ -46,42 +57,58 @@ export default function VeChainConnect() {
     setError(null);
 
     try {
+      let walletAccount = null;
+
       // Check for VeWorld wallet
       if (typeof window !== 'undefined' && (window as any).veworld) {
-        const veworld = (window as any).veworld;
-        const account = await veworld.getAccount();
-        
-        if (account) {
-          const balance = await connex.thor.account(account.address).get();
-          setAccount({
-            address: account.address,
-            balance: VECHAIN_UTILS.fromWei(balance.balance),
-            energy: VECHAIN_UTILS.fromWei(balance.energy)
-          });
-          setIsConnected(true);
-        }
-      } else {
-        // Check for Sync2 wallet
-        if (typeof window !== 'undefined' && (window as any).sync2) {
-          const sync2 = (window as any).sync2;
-          const account = await sync2.getAccount();
-          
-          if (account) {
-            const balance = await connex.thor.account(account.address).get();
-            setAccount({
-              address: account.address,
-              balance: VECHAIN_UTILS.fromWei(balance.balance),
-              energy: VECHAIN_UTILS.fromWei(balance.energy)
-            });
-            setIsConnected(true);
-          }
-        } else {
-          setError('No VeChain wallet found. Please install VeWorld or Sync2.');
+        try {
+          const veworld = (window as any).veworld;
+          walletAccount = await veworld.getAccount();
+          console.log('VeWorld account found:', walletAccount);
+        } catch (err) {
+          console.log('VeWorld connection failed:', err);
         }
       }
+
+      // Check for Sync2 wallet
+      if (!walletAccount && typeof window !== 'undefined' && (window as any).sync2) {
+        try {
+          const sync2 = (window as any).sync2;
+          walletAccount = await sync2.getAccount();
+          console.log('Sync2 account found:', walletAccount);
+        } catch (err) {
+          console.log('Sync2 connection failed:', err);
+        }
+      }
+
+      // Check for VeChain Sync (older version)
+      if (!walletAccount && typeof window !== 'undefined' && (window as any).sync) {
+        try {
+          const sync = (window as any).sync;
+          walletAccount = await sync.getAccount();
+          console.log('Sync account found:', walletAccount);
+        } catch (err) {
+          console.log('Sync connection failed:', err);
+        }
+      }
+
+      if (walletAccount && walletAccount.address) {
+        // Get account balance and energy
+        const accountInfo = await connex.thor.account(walletAccount.address).get();
+        
+        setAccount({
+          address: walletAccount.address,
+          balance: VECHAIN_UTILS.fromWei(accountInfo.balance),
+          energy: VECHAIN_UTILS.fromWei(accountInfo.energy)
+        });
+        setIsConnected(true);
+        setError(null);
+      } else {
+        setError('No VeChain wallet found. Please install VeWorld or Sync2.');
+      }
     } catch (err) {
-      setError('Failed to connect wallet');
       console.error('Wallet connection error:', err);
+      setError('Failed to connect wallet. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -145,7 +172,7 @@ export default function VeChainConnect() {
                 <p className="text-green-800 font-semibold">
                   {parseFloat(account!.balance).toFixed(2)} VET
                 </p>
-                <p className="text-green-600 text-sm">
+                <p className="text-green-800 font-semibold">
                   {parseFloat(account!.energy).toFixed(2)} Energy
                 </p>
               </div>
