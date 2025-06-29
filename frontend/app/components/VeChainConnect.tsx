@@ -185,7 +185,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                       // Try to trigger account access through a certificate signing request
                       try {
                         console.log('Trying to sign a certificate to trigger account access...');
-                        const cert = await connex.vendor.sign('cert', {
+                        const certService = await connex.vendor.sign('cert', {
                           purpose: 'identification',
                           payload: {
                             type: 'text',
@@ -193,42 +193,66 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                           }
                         });
                         
-                        console.log('Certificate signing result:', cert);
-                        console.log('Certificate type:', typeof cert);
-                        console.log('Certificate keys:', cert ? Object.keys(cert) : 'No cert');
-                        console.log('Certificate annex:', cert?.annex);
-                        console.log('Certificate annex keys:', cert?.annex ? Object.keys(cert.annex) : 'No annex');
+                        console.log('Certificate signing result:', certService);
+                        console.log('Certificate type:', typeof certService);
+                        console.log('Certificate keys:', certService ? Object.keys(certService) : 'No cert');
                         
-                        if (cert && cert.annex && cert.annex.signer) {
-                          console.log('Found signer in annex:', cert.annex.signer);
-                          setAccount({
-                            address: cert.annex.signer,
-                            balance: '0',
-                            energy: '0'
-                          });
-                          setIsConnected(true);
-                          setError(null);
-                          return;
+                        // The result is a CertSigningService, we need to get the actual certificate
+                        if (certService && typeof certService.signer === 'function') {
+                          console.log('CertSigningService signer function found, calling it...');
+                          try {
+                            const signedCert = await certService.signer();
+                            console.log('Signed certificate:', signedCert);
+                            console.log('Signed certificate type:', typeof signedCert);
+                            console.log('Signed certificate keys:', signedCert ? Object.keys(signedCert) : 'No signed cert');
+                            
+                            if (signedCert && signedCert.annex && signedCert.annex.signer) {
+                              console.log('Found signer in annex:', signedCert.annex.signer);
+                              setAccount({
+                                address: signedCert.annex.signer,
+                                balance: '0',
+                                energy: '0'
+                              });
+                              setIsConnected(true);
+                              setError(null);
+                              return;
+                            }
+                            
+                            // Try alternative ways to get the signer
+                            if (signedCert && signedCert.signer) {
+                              console.log('Found signer directly:', signedCert.signer);
+                              setAccount({
+                                address: signedCert.signer,
+                                balance: '0',
+                                energy: '0'
+                              });
+                              setIsConnected(true);
+                              setError(null);
+                              return;
+                            }
+                            
+                            // Try to get signer from the certificate message
+                            if (signedCert && signedCert.message && signedCert.message.signer) {
+                              console.log('Found signer in message:', signedCert.message.signer);
+                              setAccount({
+                                address: signedCert.message.signer,
+                                balance: '0',
+                                energy: '0'
+                              });
+                              setIsConnected(true);
+                              setError(null);
+                              return;
+                            }
+                          } catch (signerError) {
+                            console.log('Error calling signer function:', (signerError as Error).message);
+                          }
                         }
                         
-                        // Try alternative ways to get the signer
-                        if (cert && cert.signer) {
-                          console.log('Found signer directly:', cert.signer);
+                        // Try to get signer from the service directly
+                        if (certService && certService.options && certService.options.signer) {
+                          console.log('Found signer in options:', certService.options.signer);
                           setAccount({
-                            address: cert.signer,
-                            balance: '0',
-                            energy: '0'
-                          });
-                          setIsConnected(true);
-                          setError(null);
-                          return;
-                        }
-                        
-                        // Try to get signer from the certificate message
-                        if (cert && cert.message && cert.message.signer) {
-                          console.log('Found signer in message:', cert.message.signer);
-                          setAccount({
-                            address: cert.message.signer,
+                            address: certService.options.signer,
                             balance: '0',
                             energy: '0'
                           });
