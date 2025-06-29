@@ -27,7 +27,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         // Dynamic import to avoid SSR issues
         const Connex = (await import('@vechain/connex')).default;
         const connexInstance = new Connex({
-          node: 'https://testnet.vechain.org', // Use testnet since VeWorld is connected to testnet
+          node: 'https://testnet.vechain.org',
           network: 'test'
         });
         setConnex(connexInstance);

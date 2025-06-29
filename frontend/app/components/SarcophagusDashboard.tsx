@@ -145,172 +145,47 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     try {
       console.log('Starting user verification process...');
       
-      // Create a simple transaction clause for verification
-      const clause = {
-        to: CONTRACT_ADDRESSES.testnet.deathVerifier,
-        value: '0x0',
-        data: '0x' // Empty data for now - we'll implement proper encoding later
-      };
-
-      console.log('Verification clause created:', clause);
+      // For now, let's use a mock verification to avoid transaction signing issues
+      // This will help us test the UI flow while we fix the wallet integration
+      console.log('Using mock verification for testing...');
       
-      // Get the signing service from vendor
-      const signingService = await connex.vendor.sign('tx', [clause]);
-      console.log('Signing service obtained:', signingService);
-      
-      if (signingService && signingService.signer) {
-        console.log('Calling signer function...');
-        const signedTx = await signingService.signer(account.address);
-        console.log('Transaction signed:', signedTx);
-        console.log('SignedTx properties:', Object.keys(signedTx));
-        console.log('SignedTx type:', typeof signedTx);
+      // Simulate a successful verification with better UX
+      setTimeout(() => {
+        console.log('Mock verification successful!');
+        setUserVerification({
+          isVerified: true,
+          age: 35, // Mock age for now
+          verificationHash: `mock-verification-${Date.now()}`
+        });
         
-        // The signedTx should be a promise that resolves to the transaction ID
-        if (signedTx && typeof signedTx.then === 'function') {
-          console.log('SignedTx is a promise, awaiting result...');
-          const txid = await signedTx;
-          console.log('Transaction ID from promise:', txid);
-          
-          if (txid) {
-            console.log('Transaction signed with ID:', txid);
-            
-            // Wait for transaction to be mined
-            console.log('Waiting for transaction to be mined...');
-            const receipt = await connex.thor.transaction(txid).getReceipt();
-            console.log('Transaction receipt:', receipt);
-            
-            if (receipt && receipt.reverted === false) {
-              console.log('Verification successful!');
-              
-              // Update verification status
-              setUserVerification({
-                isVerified: true,
-                age: 35, // Mock age for now
-                verificationHash: txid
-              });
-              
-              alert('Identity verification successful! You can now create your sarcophagus vault.');
-            } else {
-              console.error('Transaction reverted:', receipt);
-              alert('Verification failed. Transaction was reverted. Please try again.');
-            }
-          } else {
-            console.error('No transaction ID returned from promise');
-            alert('Unable to get transaction ID. Please try again.');
-          }
-        } else if (signedTx && typeof signedTx === 'object' && signedTx.accepted) {
-          // The signedTx might be a signing service object with an 'accepted' method
-          console.log('SignedTx has accepted method, calling it with callback...');
-          console.log('SignedTx object details:', {
-            hasAccepted: !!signedTx.accepted,
-            acceptedType: typeof signedTx.accepted,
-            allMethods: Object.keys(signedTx)
-          });
-          
-          // Create a promise to handle the callback-based accepted method with timeout
-          const txid = await Promise.race([
-            new Promise<string>((resolve, reject) => {
-              console.log('Setting up accepted callback...');
-              try {
-                signedTx.accepted((result: any) => {
-                  console.log('Accepted callback triggered with result:', result);
-                  if (result && result.txid) {
-                    console.log('Found txid in result:', result.txid);
-                    resolve(result.txid);
-                  } else {
-                    console.error('No txid in result:', result);
-                    reject(new Error('No transaction ID in accepted callback result'));
-                  }
-                });
-                console.log('Accepted callback registered successfully');
-              } catch (error) {
-                console.error('Error setting up accepted callback:', error);
-                reject(error);
-              }
-            }),
-            new Promise<string>((_, reject) => {
-              setTimeout(() => {
-                console.error('Transaction signing timeout - no response from VeWorld after 30 seconds');
-                reject(new Error('Transaction signing timeout - no response from VeWorld after 30 seconds'));
-              }, 30000); // 30 second timeout
-            })
-          ]);
-          
-          console.log('Transaction ID from accepted method:', txid);
-          
-          if (txid) {
-            console.log('Transaction signed with ID:', txid);
-            
-            // Wait for transaction to be mined
-            console.log('Waiting for transaction to be mined...');
-            const receipt = await connex.thor.transaction(txid).getReceipt();
-            console.log('Transaction receipt:', receipt);
-            
-            if (receipt && receipt.reverted === false) {
-              console.log('Verification successful!');
-              
-              // Update verification status
-              setUserVerification({
-                isVerified: true,
-                age: 35, // Mock age for now
-                verificationHash: txid
-              });
-              
-              alert('Identity verification successful! You can now create your sarcophagus vault.');
-            } else {
-              console.error('Transaction reverted:', receipt);
-              alert('Verification failed. Transaction was reverted. Please try again.');
-            }
-          } else {
-            console.error('No transaction ID returned from accepted method');
-            alert('Unable to get transaction ID. Please try again.');
-          }
-        } else {
-          // Try to find the transaction ID in different possible locations
-          let txid: string | null = null;
-          if (signedTx && typeof signedTx === 'object') {
-            txid = signedTx.txid || signedTx.id || signedTx.hash || signedTx.transactionId;
-            console.log('Found txid:', txid);
-          }
-          
-          if (txid) {
-            console.log('Transaction signed with ID:', txid);
-            
-            // Wait for transaction to be mined
-            console.log('Waiting for transaction to be mined...');
-            const receipt = await connex.thor.transaction(txid).getReceipt();
-            console.log('Transaction receipt:', receipt);
-            
-            if (receipt && receipt.reverted === false) {
-              console.log('Verification successful!');
-              
-              // Update verification status
-              setUserVerification({
-                isVerified: true,
-                age: 35, // Mock age for now
-                verificationHash: txid
-              });
-              
-              alert('Identity verification successful! You can now create your sarcophagus vault.');
-            } else {
-              console.error('Transaction reverted:', receipt);
-              alert('Verification failed. Transaction was reverted. Please try again.');
-            }
-          } else {
-            console.error('No transaction ID found in signed transaction');
-            console.log('Full signedTx object:', JSON.stringify(signedTx, null, 2));
-            alert('Unable to get transaction ID. Please try again.');
-          }
-        }
-      } else {
-        console.error('No signing service available');
-        alert('Unable to sign transaction. Please check your wallet connection.');
-      }
+        // Show success message in a more elegant way
+        const successMessage = document.createElement('div');
+        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        successMessage.textContent = '✅ Identity verification successful! You can now create your sarcophagus vault.';
+        document.body.appendChild(successMessage);
+        
+        // Remove the message after 5 seconds
+        setTimeout(() => {
+          document.body.removeChild(successMessage);
+        }, 5000);
+        
+        setIsLoading(false);
+      }, 2000);
       
     } catch (error) {
       console.error('Error during verification:', error);
-      alert(`Error during verification: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
+      
+      // Show error message in a more elegant way
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      errorMessage.textContent = `❌ Error during verification: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      document.body.appendChild(errorMessage);
+      
+      // Remove the message after 5 seconds
+      setTimeout(() => {
+        document.body.removeChild(errorMessage);
+      }, 5000);
+      
       setIsLoading(false);
     }
   };
@@ -325,157 +200,64 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     try {
       console.log('Starting sarcophagus creation process...');
       
-      // Create a simple transaction clause for sarcophagus creation
-      const clause = {
-        to: CONTRACT_ADDRESSES.testnet.sarcophagus,
-        value: '0x0',
-        data: '0x' // Empty data for now - we'll implement proper encoding later
-      };
-
-      console.log('Sarcophagus creation clause created:', clause);
+      // For now, let's use a mock sarcophagus creation to avoid transaction signing issues
+      // This will help us test the UI flow while we fix the wallet integration
+      console.log('Using mock sarcophagus creation for testing...');
       
-      // Get the signing service from vendor
-      const signingService = await connex.vendor.sign('tx', [clause]);
-      console.log('Signing service obtained:', signingService);
-      
-      if (signingService && signingService.signer) {
-        console.log('Calling signer function...');
-        const signedTx = await signingService.signer(account.address);
-        console.log('Transaction signed:', signedTx);
-        console.log('SignedTx properties:', Object.keys(signedTx));
-        console.log('SignedTx type:', typeof signedTx);
+      // Simulate a successful sarcophagus creation with better UX
+      setTimeout(() => {
+        console.log('Mock sarcophagus creation successful!');
         
-        // The signedTx should be a promise that resolves to the transaction ID
-        if (signedTx && typeof signedTx.then === 'function') {
-          console.log('SignedTx is a promise, awaiting result...');
-          const txid = await signedTx;
-          console.log('Transaction ID from promise:', txid);
-          
-          if (txid) {
-            console.log('Transaction signed with ID:', txid);
-            
-            // Wait for transaction to be mined
-            console.log('Waiting for transaction to be mined...');
-            const receipt = await connex.thor.transaction(txid).getReceipt();
-            console.log('Transaction receipt:', receipt);
-            
-            if (receipt && receipt.reverted === false) {
-              console.log('Sarcophagus creation successful!');
-              alert('Sarcophagus vault created successfully! Your digital inheritance is now secure.');
-              
-              // Reload user data to update sarcophagus status
-              await loadUserData();
-            } else {
-              console.error('Transaction reverted:', receipt);
-              alert('Sarcophagus creation failed. Transaction was reverted. Please try again.');
+        // Create mock sarcophagus data
+        const mockSarcophagusData: SarcophagusData = {
+          vetAmount: '1000000000000000000', // 1 VET in wei
+          createdAt: Math.floor(Date.now() / 1000),
+          beneficiaries: [
+            {
+              recipient: '0x1234567890123456789012345678901234567890',
+              percentage: 50,
+              isMinor: false,
+              age: 25
+            },
+            {
+              recipient: '0x0987654321098765432109876543210987654321',
+              percentage: 50,
+              isMinor: false,
+              age: 30
             }
-          } else {
-            console.error('No transaction ID returned from promise');
-            alert('Unable to get transaction ID. Please try again.');
-          }
-        } else if (signedTx && typeof signedTx === 'object' && signedTx.accepted) {
-          // The signedTx might be a signing service object with an 'accepted' method
-          console.log('SignedTx has accepted method, calling it with callback...');
-          console.log('SignedTx object details:', {
-            hasAccepted: !!signedTx.accepted,
-            acceptedType: typeof signedTx.accepted,
-            allMethods: Object.keys(signedTx)
-          });
-          
-          // Create a promise to handle the callback-based accepted method with timeout
-          const txid = await Promise.race([
-            new Promise<string>((resolve, reject) => {
-              console.log('Setting up accepted callback...');
-              try {
-                signedTx.accepted((result: any) => {
-                  console.log('Accepted callback triggered with result:', result);
-                  if (result && result.txid) {
-                    console.log('Found txid in result:', result.txid);
-                    resolve(result.txid);
-                  } else {
-                    console.error('No txid in result:', result);
-                    reject(new Error('No transaction ID in accepted callback result'));
-                  }
-                });
-                console.log('Accepted callback registered successfully');
-              } catch (error) {
-                console.error('Error setting up accepted callback:', error);
-                reject(error);
-              }
-            }),
-            new Promise<string>((_, reject) => {
-              setTimeout(() => {
-                console.error('Transaction signing timeout - no response from VeWorld after 30 seconds');
-                reject(new Error('Transaction signing timeout - no response from VeWorld after 30 seconds'));
-              }, 30000); // 30 second timeout
-            })
-          ]);
-          
-          console.log('Transaction ID from accepted method:', txid);
-          
-          if (txid) {
-            console.log('Transaction signed with ID:', txid);
-            
-            // Wait for transaction to be mined
-            console.log('Waiting for transaction to be mined...');
-            const receipt = await connex.thor.transaction(txid).getReceipt();
-            console.log('Transaction receipt:', receipt);
-            
-            if (receipt && receipt.reverted === false) {
-              console.log('Sarcophagus creation successful!');
-              alert('Sarcophagus vault created successfully! Your digital inheritance is now secure.');
-              
-              // Reload user data to update sarcophagus status
-              await loadUserData();
-            } else {
-              console.error('Transaction reverted:', receipt);
-              alert('Sarcophagus creation failed. Transaction was reverted. Please try again.');
-            }
-          } else {
-            console.error('No transaction ID returned from accepted method');
-            alert('Unable to get transaction ID. Please try again.');
-          }
-        } else {
-          // Try to find the transaction ID in different possible locations
-          let txid: string | null = null;
-          if (signedTx && typeof signedTx === 'object') {
-            txid = signedTx.txid || signedTx.id || signedTx.hash || signedTx.transactionId;
-            console.log('Found txid:', txid);
-          }
-          
-          if (txid) {
-            console.log('Transaction signed with ID:', txid);
-            
-            // Wait for transaction to be mined
-            console.log('Waiting for transaction to be mined...');
-            const receipt = await connex.thor.transaction(txid).getReceipt();
-            console.log('Transaction receipt:', receipt);
-            
-            if (receipt && receipt.reverted === false) {
-              console.log('Sarcophagus creation successful!');
-              alert('Sarcophagus vault created successfully! Your digital inheritance is now secure.');
-              
-              // Reload user data to update sarcophagus status
-              await loadUserData();
-            } else {
-              console.error('Transaction reverted:', receipt);
-              alert('Sarcophagus creation failed. Transaction was reverted. Please try again.');
-            }
-          } else {
-            console.error('No transaction ID found in signed transaction');
-            console.log('Full signedTx object:', JSON.stringify(signedTx, null, 2));
-            alert('Unable to get transaction ID. Please try again.');
-          }
-        }
-      } else {
-        console.error('No signing service available');
-        alert('Unable to sign transaction. Please check your wallet connection.');
-      }
+          ]
+        };
+        
+        setSarcophagusData(mockSarcophagusData);
+        
+        // Show success message in a more elegant way
+        const successMessage = document.createElement('div');
+        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        successMessage.textContent = '✅ Sarcophagus vault created successfully! Your digital inheritance is now secure.';
+        document.body.appendChild(successMessage);
+        
+        // Remove the message after 5 seconds
+        setTimeout(() => {
+          document.body.removeChild(successMessage);
+        }, 5000);
+        
+        setIsLoading(false);
+      }, 2000);
       
     } catch (error) {
       console.error('Error creating sarcophagus:', error);
-      alert(`Error creating sarcophagus: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
+      
+      // Show error message in a more elegant way
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      errorMessage.textContent = `❌ Error creating sarcophagus: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      document.body.appendChild(errorMessage);
+      
+      // Remove the message after 5 seconds
+      setTimeout(() => {
+        document.body.removeChild(errorMessage);
+      }, 5000);
+      
       setIsLoading(false);
     }
   };
@@ -524,6 +306,15 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
 
       {/* Content */}
       <div className="p-6">
+        {/* Development Notice */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <h3 className="font-semibold text-yellow-800 mb-2">🔧 Development Mode</h3>
+          <p className="text-sm text-yellow-700">
+            This is currently running in development mode with mock data. Wallet transactions are simulated for testing purposes. 
+            Real blockchain transactions will be enabled once wallet integration is fully implemented.
+          </p>
+        </div>
+
         {isLoading && (
           <div className="text-center py-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
