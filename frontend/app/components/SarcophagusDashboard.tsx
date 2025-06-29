@@ -262,6 +262,320 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     }
   };
 
+  // Add Funds Handler
+  const handleAddFunds = async () => {
+    if (!account || !connex || !sarcophagusData) {
+      alert('Please connect your wallet and ensure you have an active vault.');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      console.log('Starting add funds process...');
+      
+      // Mock add funds process
+      setTimeout(() => {
+        console.log('Mock add funds successful!');
+        
+        // Update the sarcophagus data with more funds
+        const currentAmount = BigInt(sarcophagusData.vetAmount);
+        const newAmount = currentAmount + BigInt('500000000000000000'); // Add 0.5 VET
+        const updatedSarcophagusData = {
+          ...sarcophagusData,
+          vetAmount: newAmount.toString()
+        };
+        
+        setSarcophagusData(updatedSarcophagusData);
+        
+        // Show success message
+        const successMessage = document.createElement('div');
+        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        successMessage.textContent = '✅ Funds added successfully! 0.5 VET added to your vault.';
+        document.body.appendChild(successMessage);
+        
+        setTimeout(() => {
+          document.body.removeChild(successMessage);
+        }, 5000);
+        
+        setIsLoading(false);
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error adding funds:', error);
+      
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      errorMessage.textContent = `❌ Error adding funds: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      document.body.appendChild(errorMessage);
+      
+      setTimeout(() => {
+        document.body.removeChild(errorMessage);
+      }, 5000);
+      
+      setIsLoading(false);
+    }
+  };
+
+  // Update Beneficiaries Handler
+  const handleUpdateBeneficiaries = async () => {
+    if (!account || !connex || !sarcophagusData) {
+      alert('Please connect your wallet and ensure you have an active vault.');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      console.log('Starting update beneficiaries process...');
+      
+      // Mock update beneficiaries process
+      setTimeout(() => {
+        console.log('Mock update beneficiaries successful!');
+        
+        // Update with new beneficiary data
+        const updatedBeneficiaries = [
+          {
+            recipient: '0x1234567890123456789012345678901234567890',
+            percentage: 40,
+            isMinor: false,
+            age: 25
+          },
+          {
+            recipient: '0x0987654321098765432109876543210987654321',
+            percentage: 35,
+            isMinor: false,
+            age: 30
+          },
+          {
+            recipient: '0x1111111111111111111111111111111111111111',
+            percentage: 25,
+            isMinor: true,
+            age: 15
+          }
+        ];
+        
+        const updatedSarcophagusData = {
+          ...sarcophagusData,
+          beneficiaries: updatedBeneficiaries
+        };
+        
+        setSarcophagusData(updatedSarcophagusData);
+        
+        // Show success message
+        const successMessage = document.createElement('div');
+        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        successMessage.textContent = '✅ Beneficiaries updated successfully! Added 1 new beneficiary.';
+        document.body.appendChild(successMessage);
+        
+        setTimeout(() => {
+          document.body.removeChild(successMessage);
+        }, 5000);
+        
+        setIsLoading(false);
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error updating beneficiaries:', error);
+      
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      errorMessage.textContent = `❌ Error updating beneficiaries: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      document.body.appendChild(errorMessage);
+      
+      setTimeout(() => {
+        document.body.removeChild(errorMessage);
+      }, 5000);
+      
+      setIsLoading(false);
+    }
+  };
+
+  // Emergency Withdraw Handler
+  const handleEmergencyWithdraw = async () => {
+    if (!account || !connex || !sarcophagusData) {
+      alert('Please connect your wallet and ensure you have an active vault.');
+      return;
+    }
+    
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      '⚠️ Emergency Withdraw Warning\n\n' +
+      'This action will immediately withdraw all funds from your vault and distribute them to beneficiaries.\n' +
+      'This action cannot be undone.\n\n' +
+      'Are you sure you want to proceed?'
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      console.log('Starting emergency withdraw process...');
+      
+      // Mock emergency withdraw process
+      setTimeout(() => {
+        console.log('Mock emergency withdraw successful!');
+        
+        // Clear the sarcophagus data (withdraw all funds)
+        setSarcophagusData(null);
+        
+        // Show success message
+        const successMessage = document.createElement('div');
+        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        successMessage.textContent = '✅ Emergency withdraw completed! All funds have been distributed to beneficiaries.';
+        document.body.appendChild(successMessage);
+        
+        setTimeout(() => {
+          document.body.removeChild(successMessage);
+        }, 5000);
+        
+        setIsLoading(false);
+      }, 3000); // Longer delay for emergency action
+      
+    } catch (error) {
+      console.error('Error during emergency withdraw:', error);
+      
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      errorMessage.textContent = `❌ Error during emergency withdraw: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      document.body.appendChild(errorMessage);
+      
+      setTimeout(() => {
+        document.body.removeChild(errorMessage);
+      }, 5000);
+      
+      setIsLoading(false);
+    }
+  };
+
+  // Add New Beneficiary Handler
+  const handleAddNewBeneficiary = async () => {
+    if (!account || !connex || !sarcophagusData) {
+      alert('Please connect your wallet and ensure you have an active vault.');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      console.log('Starting add new beneficiary process...');
+      
+      // Mock add new beneficiary process
+      setTimeout(() => {
+        console.log('Mock add new beneficiary successful!');
+        
+        // Add a new beneficiary
+        const newBeneficiary = {
+          recipient: '0x2222222222222222222222222222222222222222',
+          percentage: 20,
+          isMinor: false,
+          age: 28
+        };
+        
+        const updatedBeneficiaries = [...sarcophagusData.beneficiaries, newBeneficiary];
+        
+        // Recalculate percentages to ensure they add up to 100%
+        const totalPercentage = updatedBeneficiaries.reduce((sum, b) => sum + b.percentage, 0);
+        if (totalPercentage > 100) {
+          // Adjust the last beneficiary's percentage
+          updatedBeneficiaries[updatedBeneficiaries.length - 1].percentage = 
+            updatedBeneficiaries[updatedBeneficiaries.length - 1].percentage - (totalPercentage - 100);
+        }
+        
+        const updatedSarcophagusData = {
+          ...sarcophagusData,
+          beneficiaries: updatedBeneficiaries
+        };
+        
+        setSarcophagusData(updatedSarcophagusData);
+        
+        // Show success message
+        const successMessage = document.createElement('div');
+        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        successMessage.textContent = '✅ New beneficiary added successfully!';
+        document.body.appendChild(successMessage);
+        
+        setTimeout(() => {
+          document.body.removeChild(successMessage);
+        }, 5000);
+        
+        setIsLoading(false);
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error adding new beneficiary:', error);
+      
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      errorMessage.textContent = `❌ Error adding new beneficiary: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      document.body.appendChild(errorMessage);
+      
+      setTimeout(() => {
+        document.body.removeChild(errorMessage);
+      }, 5000);
+      
+      setIsLoading(false);
+    }
+  };
+
+  // Edit Beneficiary Handler
+  const handleEditBeneficiary = async (index: number) => {
+    if (!account || !connex || !sarcophagusData) {
+      alert('Please connect your wallet and ensure you have an active vault.');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      console.log(`Starting edit beneficiary process for index ${index}...`);
+      
+      // Mock edit beneficiary process
+      setTimeout(() => {
+        console.log('Mock edit beneficiary successful!');
+        
+        // Update the beneficiary at the specified index
+        const updatedBeneficiaries = [...sarcophagusData.beneficiaries];
+        updatedBeneficiaries[index] = {
+          ...updatedBeneficiaries[index],
+          percentage: updatedBeneficiaries[index].percentage + 5, // Increase percentage by 5%
+          age: updatedBeneficiaries[index].age + 1 // Increase age by 1
+        };
+        
+        const updatedSarcophagusData = {
+          ...sarcophagusData,
+          beneficiaries: updatedBeneficiaries
+        };
+        
+        setSarcophagusData(updatedSarcophagusData);
+        
+        // Show success message
+        const successMessage = document.createElement('div');
+        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        successMessage.textContent = '✅ Beneficiary updated successfully!';
+        document.body.appendChild(successMessage);
+        
+        setTimeout(() => {
+          document.body.removeChild(successMessage);
+        }, 5000);
+        
+        setIsLoading(false);
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error editing beneficiary:', error);
+      
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      errorMessage.textContent = `❌ Error editing beneficiary: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      document.body.appendChild(errorMessage);
+      
+      setTimeout(() => {
+        document.body.removeChild(errorMessage);
+      }, 5000);
+      
+      setIsLoading(false);
+    }
+  };
+
   if (!account) {
     return (
       <div className="bg-white rounded-lg shadow-md p-8 text-center">
@@ -468,13 +782,22 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h4 className="font-medium text-gray-800 mb-2">Quick Actions</h4>
                     <div className="space-y-2">
-                      <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                      <button
+                        onClick={handleAddFunds}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                      >
                         Add Funds
                       </button>
-                      <button className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded text-sm">
+                      <button
+                        onClick={handleUpdateBeneficiaries}
+                        className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded text-sm"
+                      >
                         Update Beneficiaries
                       </button>
-                      <button className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm">
+                      <button
+                        onClick={handleEmergencyWithdraw}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+                      >
                         Emergency Withdraw
                       </button>
                     </div>
@@ -511,13 +834,19 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
                           {beneficiary.isMinor && ' • Minor'}
                         </p>
                       </div>
-                      <button className="text-blue-600 hover:text-blue-800 text-sm">
+                      <button
+                        onClick={() => handleEditBeneficiary(index)}
+                        className="text-blue-600 hover:text-blue-800 text-sm"
+                      >
                         Edit
                       </button>
                     </div>
                   </div>
                 ))}
-                <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+                <button
+                  onClick={handleAddNewBeneficiary}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+                >
                   Add New Beneficiary
                 </button>
               </div>
