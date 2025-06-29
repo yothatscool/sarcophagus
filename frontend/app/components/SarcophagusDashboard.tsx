@@ -160,13 +160,22 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
         console.log('Calling signer function...');
         const signedTx = await signingService.signer(account.address);
         console.log('Transaction signed:', signedTx);
+        console.log('SignedTx properties:', Object.keys(signedTx));
+        console.log('SignedTx type:', typeof signedTx);
         
-        if (signedTx && signedTx.txid) {
-          console.log('Transaction signed with ID:', signedTx.txid);
+        // Try to find the transaction ID in different possible locations
+        let txid = null;
+        if (signedTx && typeof signedTx === 'object') {
+          txid = signedTx.txid || signedTx.id || signedTx.hash || signedTx.transactionId;
+          console.log('Found txid:', txid);
+        }
+        
+        if (txid) {
+          console.log('Transaction signed with ID:', txid);
           
           // Wait for transaction to be mined
           console.log('Waiting for transaction to be mined...');
-          const receipt = await connex.thor.transaction(signedTx.txid).getReceipt();
+          const receipt = await connex.thor.transaction(txid).getReceipt();
           console.log('Transaction receipt:', receipt);
           
           if (receipt && receipt.reverted === false) {
@@ -180,7 +189,8 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
             alert('Verification failed. Transaction was reverted. Please try again.');
           }
         } else {
-          console.error('No transaction ID in signed transaction');
+          console.error('No transaction ID found in signed transaction');
+          console.log('Full signedTx object:', JSON.stringify(signedTx, null, 2));
           alert('Unable to get transaction ID. Please try again.');
         }
       } else {
@@ -223,13 +233,22 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
         console.log('Calling signer function...');
         const signedTx = await signingService.signer(account.address);
         console.log('Transaction signed:', signedTx);
+        console.log('SignedTx properties:', Object.keys(signedTx));
+        console.log('SignedTx type:', typeof signedTx);
         
-        if (signedTx && signedTx.txid) {
-          console.log('Transaction signed with ID:', signedTx.txid);
+        // Try to find the transaction ID in different possible locations
+        let txid = null;
+        if (signedTx && typeof signedTx === 'object') {
+          txid = signedTx.txid || signedTx.id || signedTx.hash || signedTx.transactionId;
+          console.log('Found txid:', txid);
+        }
+        
+        if (txid) {
+          console.log('Transaction signed with ID:', txid);
           
           // Wait for transaction to be mined
           console.log('Waiting for transaction to be mined...');
-          const receipt = await connex.thor.transaction(signedTx.txid).getReceipt();
+          const receipt = await connex.thor.transaction(txid).getReceipt();
           console.log('Transaction receipt:', receipt);
           
           if (receipt && receipt.reverted === false) {
@@ -243,7 +262,8 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
             alert('Sarcophagus creation failed. Transaction was reverted. Please try again.');
           }
         } else {
-          console.error('No transaction ID in signed transaction');
+          console.error('No transaction ID found in signed transaction');
+          console.log('Full signedTx object:', JSON.stringify(signedTx, null, 2));
           alert('Unable to get transaction ID. Please try again.');
         }
       } else {
