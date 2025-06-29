@@ -185,7 +185,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                       // Try to trigger account access through a certificate signing request
                       try {
                         console.log('Trying to sign a certificate to trigger account access...');
-                        const cert = connex.vendor.sign('cert', {
+                        const cert = await connex.vendor.sign('cert', {
                           purpose: 'identification',
                           payload: {
                             type: 'text',
@@ -194,9 +194,41 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                         });
                         
                         console.log('Certificate signing result:', cert);
+                        console.log('Certificate type:', typeof cert);
+                        console.log('Certificate keys:', cert ? Object.keys(cert) : 'No cert');
+                        console.log('Certificate annex:', cert?.annex);
+                        console.log('Certificate annex keys:', cert?.annex ? Object.keys(cert.annex) : 'No annex');
+                        
                         if (cert && cert.annex && cert.annex.signer) {
+                          console.log('Found signer in annex:', cert.annex.signer);
                           setAccount({
                             address: cert.annex.signer,
+                            balance: '0',
+                            energy: '0'
+                          });
+                          setIsConnected(true);
+                          setError(null);
+                          return;
+                        }
+                        
+                        // Try alternative ways to get the signer
+                        if (cert && cert.signer) {
+                          console.log('Found signer directly:', cert.signer);
+                          setAccount({
+                            address: cert.signer,
+                            balance: '0',
+                            energy: '0'
+                          });
+                          setIsConnected(true);
+                          setError(null);
+                          return;
+                        }
+                        
+                        // Try to get signer from the certificate message
+                        if (cert && cert.message && cert.message.signer) {
+                          console.log('Found signer in message:', cert.message.signer);
+                          setAccount({
+                            address: cert.message.signer,
                             balance: '0',
                             energy: '0'
                           });
