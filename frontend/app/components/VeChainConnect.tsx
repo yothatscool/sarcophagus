@@ -27,8 +27,8 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         // Dynamic import to avoid SSR issues
         const Connex = (await import('@vechain/connex')).default;
         const connexInstance = new Connex({
-          node: 'https://testnet.vechain.org',
-          network: 'test'
+          node: 'https://mainnet.vechain.org', // Use mainnet since VeWorld is connected to mainnet
+          network: 'main'
         });
         setConnex(connexInstance);
       } catch (err) {
@@ -69,7 +69,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         ConnexWalletBuddy: typeof window !== 'undefined' ? !!(window as any).ConnexWalletBuddy : false
       });
 
-      // Check for VeChain wallet (VeWorld/Sync2 via ConnexWalletBuddy)
+      // Check for VeChain wallet (VeWorld/Sync2)
       if (typeof window !== 'undefined' && (window as any).vechain) {
         try {
           console.log('Attempting VeChain wallet connection...');
@@ -77,379 +77,133 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           console.log('VeChain object:', vechain);
           console.log('VeChain methods:', Object.keys(vechain));
           
-          // VeChain Testnet configuration
-          const testnetConfig = {
-            node: 'https://testnet.vechain.org',
-            network: 'test',
-            genesisId: '0x00000000851caf3cfdb6e899cf5958bfb1ac3413d346d43539627e6be7ec1b4a'
-          };
-          
-          // VeChain Mainnet configuration (what VeWorld is actually using)
+          // Use the correct genesisId that matches what VeWorld is using (mainnet)
           const mainnetConfig = {
             node: 'https://mainnet.vechain.org',
             network: 'main',
             genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
           };
           
-          // Try to get account using VeWorld API methods
+          // First, establish connection before listening for events
           try {
-            console.log('=== EXPLORING VECHAIN OBJECT METHODS ===');
-            console.log('VeChain object:', vechain);
-            console.log('VeChain type:', typeof vechain);
-            console.log('All VeChain properties:', Object.getOwnPropertyNames(vechain));
+            console.log('Establishing connection with VeWorld...');
             
-            // Try to explore all methods in detail
-            for (const prop of Object.getOwnPropertyNames(vechain)) {
-              const value = vechain[prop];
-              console.log(`VeChain.${prop}:`, value);
-              console.log(`VeChain.${prop} type:`, typeof value);
-              if (typeof value === 'function') {
-                console.log(`VeChain.${prop} function parameters:`, value.length);
-              }
-            }
+            // Try to create a Connex instance first to establish connection
+            const connexInstance = vechain.newConnex(mainnetConfig);
+            console.log('Connex instance created:', connexInstance);
             
-            // Try to use the 'on' method to listen for events
-            if (vechain.on && typeof vechain.on === 'function') {
-              console.log('Trying to use vechain.on method...');
-              try {
-                vechain.on('accountChanged', (account: any) => {
-                  console.log('Account changed event:', account);
-                  if (account && account.address) {
-                    setAccount({
-                      address: account.address,
-                      balance: '0',
-                      energy: '0'
-                    });
-                    setIsConnected(true);
-                    setError(null);
-                  }
-                });
-                console.log('Account change listener added');
-              } catch (onError) {
-                console.log('Error adding account change listener:', (onError as Error).message);
-              }
-            }
-            
-            // Try to use the 'request' method with different parameters
-            if (vechain.request && typeof vechain.request === 'function') {
-              console.log('Trying vechain.request with different parameters...');
+            // Try to get account through vendor first
+            if (connexInstance.vendor && connexInstance.vendor.extensionSigner) {
+              console.log('ExtensionSigner found, trying to get account...');
               
-              // Try requesting without parameters
+              // Try to trigger account access through a simple transaction signing
               try {
-                const result = await vechain.request();
-                console.log('VeChain request without params result:', result);
-              } catch (error) {
-                console.log('VeChain request without params failed:', (error as Error).message);
-              }
-              
-              // Try requesting with empty object
-              try {
-                const result = await vechain.request({});
-                console.log('VeChain request with empty object result:', result);
-              } catch (error) {
-                console.log('VeChain request with empty object failed:', (error as Error).message);
-              }
-              
-              // Try requesting with just method name
-              try {
-                const result = await vechain.request('accounts');
-                console.log('VeChain request with string result:', result);
-              } catch (error) {
-                console.log('VeChain request with string failed:', (error as Error).message);
-              }
-            }
-            
-            console.log('=== END EXPLORING VECHAIN OBJECT ===');
-          } catch (error) {
-            console.log('Error exploring VeChain object:', (error as Error).message);
-          }
-          
-          // Try Connex approach
-          try {
-            console.log('Using vechain.newConnex method...');
-            const connex = vechain.newConnex(testnetConfig);
-            console.log('Connex created:', connex);
-            console.log('Connex methods:', Object.getOwnPropertyNames(connex));
-            
-            if (connex.vendor) {
-              console.log('Vendor object:', connex.vendor);
-              console.log('Vendor methods:', Object.getOwnPropertyNames(connex.vendor));
-              console.log('Vendor properties:', Object.keys(connex.vendor));
-              
-              if (connex.vendor.extensionSigner) {
-                console.log('vendor.extensionSigner exists, trying it...');
-                const extensionSigner = connex.vendor.extensionSigner;
-                console.log('ExtensionSigner object:', extensionSigner);
-                console.log('ExtensionSigner methods:', Object.getOwnPropertyNames(extensionSigner));
+                console.log('Trying to sign a simple transaction to trigger account access...');
                 
-                // Try to get account info from thor instead
-                if (connex.thor) {
-                  console.log('Thor object:', connex.thor);
-                  console.log('Thor methods:', Object.getOwnPropertyNames(connex.thor));
-                  console.log('Thor properties:', Object.keys(connex.thor));
+                // Create a simple transaction that will prompt for signature
+                const clause = {
+                  to: '0x0000000000000000000000000000000000000000', // Zero address
+                  value: '0x0', // Zero value
+                  data: '0x' // Empty data
+                };
+                
+                const tx = connexInstance.thor.transaction(clause);
+                console.log('Transaction created:', tx);
+                
+                // This should trigger the wallet to prompt for signature and reveal the account
+                const signingService = await tx.signer();
+                console.log('Signing service obtained:', signingService);
+                
+                if (signingService && typeof signingService.signer === 'function') {
+                  console.log('Calling transaction signer...');
+                  const signedTx = await signingService.signer();
+                  console.log('Transaction signed:', signedTx);
                   
-                  // Try to get account info using thor.account with a dummy address first
-                  try {
-                    // Try to get the current account from the extension signer
-                    if (extensionSigner.genesisId) {
-                      console.log('ExtensionSigner genesisId:', extensionSigner.genesisId);
-                      
-                      // Try to get account info using a different approach
-                      // Since we can't get the account directly, let's try to get it from the vendor
-                      if (connex.vendor.getAccount) {
-                        const account = await connex.vendor.getAccount();
-                        console.log('Account from vendor.getAccount:', account);
-                        if (account) {
-                          setAccount({
-                            address: account,
-                            balance: '0',
-                            energy: '0'
-                          });
-                          setIsConnected(true);
-                          setError(null);
-                          return;
-                        }
-                      }
-                      
-                      // Try to trigger account access through a certificate signing request
-                      try {
-                        console.log('Trying to sign a certificate to trigger account access...');
-                        const certService = await connex.vendor.sign('cert', {
-                          purpose: 'identification',
-                          payload: {
-                            type: 'text',
-                            content: 'Requesting account access for VeChain connection'
-                          }
-                        });
-                        
-                        console.log('Certificate signing result:', certService);
-                        console.log('Certificate type:', typeof certService);
-                        console.log('Certificate keys:', certService ? Object.keys(certService) : 'No cert');
-                        
-                        // The result is a CertSigningService, we need to get the actual certificate
-                        if (certService && typeof certService.signer === 'function') {
-                          console.log('CertSigningService signer function found, calling it...');
-                          try {
-                            const signedCert = await certService.signer();
-                            console.log('Signed certificate:', signedCert);
-                            console.log('Signed certificate type:', typeof signedCert);
-                            console.log('Signed certificate keys:', signedCert ? Object.keys(signedCert) : 'No signed cert');
-                            
-                            if (signedCert && signedCert.annex && signedCert.annex.signer) {
-                              console.log('Found signer in annex:', signedCert.annex.signer);
-                              setAccount({
-                                address: signedCert.annex.signer,
-                                balance: '0',
-                                energy: '0'
-                              });
-                              setIsConnected(true);
-                              setError(null);
-                              return;
-                            }
-                            
-                            // Try alternative ways to get the signer
-                            if (signedCert && signedCert.signer) {
-                              console.log('Found signer directly:', signedCert.signer);
-                              setAccount({
-                                address: signedCert.signer,
-                                balance: '0',
-                                energy: '0'
-                              });
-                              setIsConnected(true);
-                              setError(null);
-                              return;
-                            }
-                            
-                            // Try to get signer from the certificate message
-                            if (signedCert && signedCert.message && signedCert.message.signer) {
-                              console.log('Found signer in message:', signedCert.message.signer);
-                              setAccount({
-                                address: signedCert.message.signer,
-                                balance: '0',
-                                energy: '0'
-                              });
-                              setIsConnected(true);
-                              setError(null);
-                              return;
-                            }
-                          } catch (signerError) {
-                            console.log('Error calling signer function:', (signerError as Error).message);
-                          }
-                        }
-                        
-                        // Try to get signer from the service directly
-                        if (certService && certService.options && certService.options.signer) {
-                          console.log('Found signer in options:', certService.options.signer);
-                          setAccount({
-                            address: certService.options.signer,
-                            balance: '0',
-                            energy: '0'
-                          });
-                          setIsConnected(true);
-                          setError(null);
-                          return;
-                        }
-                      } catch (certError) {
-                        console.log('Certificate signing failed:', (certError as Error).message);
-                      }
-                      
-                      // Try ConnexWalletBuddy certificate signing as alternative
-                      try {
-                        console.log('Trying ConnexWalletBuddy certificate signing...');
-                        if (typeof window !== 'undefined' && (window as any).ConnexWalletBuddy) {
-                          const buddy = (window as any).ConnexWalletBuddy;
-                          const buddyConnex = buddy.create({
-                            node: 'https://mainnet.vechain.org',
-                            network: 'main',
-                            genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
-                          });
-                          
-                          if (buddyConnex && buddyConnex.signCert) {
-                            console.log('Using ConnexWalletBuddy signCert...');
-                            const cert = await buddyConnex.signCert({
-                              purpose: 'identification',
-                              payload: {
-                                type: 'text',
-                                content: 'Requesting account access for VeChain connection'
-                              }
-                            });
-                            
-                            console.log('ConnexWalletBuddy certificate result:', cert);
-                            if (cert && cert.annex && cert.annex.signer) {
-                              console.log('Found signer in ConnexWalletBuddy cert:', cert.annex.signer);
-                              setAccount({
-                                address: cert.annex.signer,
-                                balance: '0',
-                                energy: '0'
-                              });
-                              setIsConnected(true);
-                              setError(null);
-                              return;
-                            }
-                          }
-                        }
-                      } catch (buddyCertError) {
-                        console.log('ConnexWalletBuddy certificate signing failed:', (buddyCertError as Error).message);
-                      }
-                      
-                      // Try transaction signing as another approach
-                      try {
-                        console.log('Trying transaction signing to get account access...');
-                        const clause = {
-                          to: '0x0000000000000000000000000000000000000000', // Zero address
-                          value: '0x0', // Zero value
-                          data: '0x' // Empty data
-                        };
-                        
-                        const tx = connex.thor.transaction(clause);
-                        const signingService = await tx.signer();
-                        
-                        console.log('Transaction signing service:', signingService);
-                        if (signingService && typeof signingService.signer === 'function') {
-                          console.log('Calling transaction signer...');
-                          const signedTx = await signingService.signer();
-                          console.log('Signed transaction:', signedTx);
-                          
-                          if (signedTx && signedTx.origin) {
-                            console.log('Found origin in signed transaction:', signedTx.origin);
-                            setAccount({
-                              address: signedTx.origin,
-                              balance: '0',
-                              energy: '0'
-                            });
-                            setIsConnected(true);
-                            setError(null);
-                            return;
-                          }
-                        }
-                      } catch (txError) {
-                        console.log('Transaction signing failed:', (txError as Error).message);
-                      }
-                      
-                      // Try to request account access using VeWorld-specific methods
-                      if (connex.vendor.request) {
-                        console.log('Trying vendor.request to get account...');
-                        try {
-                          // Try VeWorld-specific methods instead of eth_accounts
-                          const result = await connex.vendor.request({ method: 'vechain_accounts' });
-                          console.log('Vendor request result (vechain_accounts):', result);
-                          if (result && result.length > 0) {
-                            setAccount({
-                              address: result[0],
-                              balance: '0',
-                              energy: '0'
-                            });
-                            setIsConnected(true);
-                            setError(null);
-                            return;
-                          }
-                        } catch (requestError) {
-                          console.log('Vendor request failed (vechain_accounts):', (requestError as Error).message);
-                        }
-                        
-                        try {
-                          const result = await connex.vendor.request({ method: 'accounts' });
-                          console.log('Vendor request result (accounts):', result);
-                          if (result && result.length > 0) {
-                            setAccount({
-                              address: result[0],
-                              balance: '0',
-                              energy: '0'
-                            });
-                            setIsConnected(true);
-                            setError(null);
-                            return;
-                          }
-                        } catch (requestError) {
-                          console.log('Vendor request failed (accounts):', (requestError as Error).message);
-                        }
-                      }
-                    }
-                  } catch (thorError) {
-                    console.log('Thor account method failed:', (thorError as Error).message);
+                  // The signed transaction should contain the origin (signer address)
+                  if (signedTx && signedTx.origin) {
+                    console.log('Found signer address in transaction:', signedTx.origin);
+                    walletAccount = { address: signedTx.origin };
                   }
+                }
+              } catch (txError) {
+                console.log('Transaction signing failed:', (txError as Error).message);
+                
+                // Fallback: Try certificate signing
+                try {
+                  console.log('Trying certificate signing as fallback...');
+                  const certService = await connexInstance.vendor.sign('cert', {
+                    purpose: 'identification',
+                    payload: {
+                      type: 'text',
+                      content: 'Requesting account access for VeChain connection'
+                    }
+                  });
+                  
+                  console.log('Certificate service obtained:', certService);
+                  
+                  if (certService && typeof certService.signer === 'function') {
+                    console.log('Calling certificate signer...');
+                    const signedCert = await certService.signer();
+                    console.log('Certificate signed:', signedCert);
+                    
+                    // Try to extract signer address from certificate
+                    if (signedCert && signedCert.annex && signedCert.annex.signer) {
+                      console.log('Found signer in certificate annex:', signedCert.annex.signer);
+                      walletAccount = { address: signedCert.annex.signer };
+                    } else if (signedCert && signedCert.signer) {
+                      console.log('Found signer directly in certificate:', signedCert.signer);
+                      walletAccount = { address: signedCert.signer };
+                    }
+                  }
+                } catch (certError) {
+                  console.log('Certificate signing failed:', (certError as Error).message);
                 }
               }
             }
-          } catch (error) {
-            console.log('Connex vendor failed:', (error as Error).message);
-          }
-          
-          // Try vechain.request method as fallback with VeWorld-specific methods
-          try {
-            console.log('Trying vechain.request method to get account...');
             
-            // Try VeWorld-specific methods
-            const methods = ['vechain_accounts', 'accounts', 'getAccounts', 'getAccount'];
-            
-            for (const method of methods) {
-              try {
-                console.log(`Trying vechain.request with method: ${method}`);
-                const result = await vechain.request({ method });
-                console.log(`VeChain request result (${method}):`, result);
-                if (result && result.length > 0) {
+            // If we still don't have an account, try listening for account changes
+            if (!walletAccount) {
+              console.log('Setting up account change listener...');
+              
+              // Add event listener for account changes
+              vechain.on('accountChanged', (accountData: any) => {
+                console.log('Account changed event received:', accountData);
+                if (accountData && accountData.address) {
+                  console.log('Account address from event:', accountData.address);
+                  walletAccount = { address: accountData.address };
+                  
+                  // Update state
                   setAccount({
-                    address: result[0],
+                    address: accountData.address,
                     balance: '0',
                     energy: '0'
                   });
                   setIsConnected(true);
                   setError(null);
-                  return;
                 }
+              });
+              
+              // Try to trigger account access by requesting it
+              try {
+                console.log('Requesting account access...');
+                // Try to trigger the wallet to show account selection
+                await vechain.request({ method: 'eth_requestAccounts' });
+                console.log('Account request sent');
               } catch (requestError) {
-                console.log(`VeChain request failed (${method}):`, (requestError as Error).message);
+                console.log('Account request failed:', (requestError as Error).message);
               }
             }
-          } catch (requestError) {
-            console.log('All VeChain request methods failed:', (requestError as Error).message);
+            
+          } catch (connexError) {
+            console.log('Connex creation failed:', (connexError as Error).message);
           }
+          
         } catch (err) {
           console.log('VeChain connection failed:', err);
         }
       }
 
-      // Check for ConnexWalletBuddy
+      // Check for ConnexWalletBuddy as fallback
       if (!walletAccount && typeof window !== 'undefined' && (window as any).ConnexWalletBuddy) {
         try {
           console.log('Attempting ConnexWalletBuddy connection...');
@@ -457,48 +211,39 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           console.log('ConnexWalletBuddy object:', buddy);
           console.log('ConnexWalletBuddy methods:', Object.keys(buddy));
           
-          // Try to get account using ConnexWalletBuddy
           if (buddy.create) {
             console.log('Using ConnexWalletBuddy.create method...');
             try {
-              // Create ConnexWalletBuddy with testnet configuration (what VeWorld is using)
-              const connex = buddy.create({
-                node: 'https://testnet.vechain.org',
-                network: 'test',
-                genesisId: '0x00000000851caf3cfdb6e899cf5958bfb1ac3413d346d43539627e6be7ec1b4a'
+              // Use mainnet configuration to match VeWorld
+              const buddyConnex = buddy.create({
+                node: 'https://mainnet.vechain.org',
+                network: 'main',
+                genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
               });
-              console.log('ConnexWalletBuddy connex created:', connex);
-              console.log('ConnexWalletBuddy methods:', connex ? Object.keys(connex) : 'No connex');
+              console.log('ConnexWalletBuddy connex created:', buddyConnex);
               
-              if (connex && connex.thor && connex.thor.account) {
-                const account = await connex.thor.account().get();
-                console.log('Account from ConnexWalletBuddy:', account);
-                if (account && account.address) {
-                  walletAccount = { address: account.address };
-                  console.log('ConnexWalletBuddy account found:', walletAccount);
-                }
-              } else if (connex && connex.account) {
-                const account = await connex.account();
-                console.log('Account from ConnexWalletBuddy:', account);
-                if (account && account.address) {
-                  walletAccount = { address: account.address };
-                  console.log('ConnexWalletBuddy account found:', walletAccount);
+              if (buddyConnex && buddyConnex.signCert) {
+                console.log('Using ConnexWalletBuddy signCert...');
+                try {
+                  const cert = await buddyConnex.signCert({
+                    purpose: 'identification',
+                    payload: {
+                      type: 'text',
+                      content: 'Requesting account access for VeChain connection'
+                    }
+                  });
+                  
+                  console.log('ConnexWalletBuddy certificate result:', cert);
+                  if (cert && cert.annex && cert.annex.signer) {
+                    console.log('Found signer in ConnexWalletBuddy cert:', cert.annex.signer);
+                    walletAccount = { address: cert.annex.signer };
+                  }
+                } catch (certError) {
+                  console.log('ConnexWalletBuddy certificate signing failed:', (certError as Error).message);
                 }
               }
             } catch (createErr) {
               console.log('ConnexWalletBuddy create failed:', createErr);
-            }
-          } else if (buddy.getAccount) {
-            walletAccount = await buddy.getAccount();
-            console.log('ConnexWalletBuddy account found:', walletAccount);
-          } else if (buddy.request) {
-            console.log('Using ConnexWalletBuddy.request method...');
-            const result = await buddy.request({ method: 'eth_accounts' });
-            console.log('ConnexWalletBuddy request result:', result);
-            
-            if (result && result.length > 0) {
-              walletAccount = { address: result[0] };
-              console.log('ConnexWalletBuddy account found via request:', walletAccount);
             }
           }
         } catch (err) {
@@ -506,10 +251,10 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         }
       }
 
-      // Check for VeWorld wallet (legacy check)
+      // Check for legacy wallet objects as final fallback
       if (!walletAccount && typeof window !== 'undefined' && (window as any).veworld) {
         try {
-          console.log('Attempting VeWorld connection...');
+          console.log('Attempting VeWorld legacy connection...');
           const veworld = (window as any).veworld;
           console.log('VeWorld object:', veworld);
           walletAccount = await veworld.getAccount();
@@ -519,8 +264,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         }
       }
 
-      // Check for Sync2 wallet (legacy check)
-      if (!walletAccount && typeof window !== 'undefined' && (window as any).sync2) {
+      if (typeof window !== 'undefined' && (window as any).sync2) {
         try {
           console.log('Attempting Sync2 connection...');
           const sync2 = (window as any).sync2;
@@ -532,46 +276,29 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         }
       }
 
-      // Check for VeChain Sync (older version)
-      if (!walletAccount && typeof window !== 'undefined' && (window as any).sync) {
-        try {
-          console.log('Attempting Sync connection...');
-          const sync = (window as any).sync;
-          console.log('Sync object:', sync);
-          walletAccount = await sync.getAccount();
-          console.log('Sync account found:', walletAccount);
-        } catch (err) {
-          console.log('Sync connection failed:', err);
-        }
-      }
-
-      // Check for Connex wallet (legacy check)
-      if (!walletAccount && typeof window !== 'undefined' && (window as any).connex) {
-        try {
-          console.log('Attempting Connex connection...');
-          const connexWallet = (window as any).connex;
-          console.log('Connex object:', connexWallet);
-          // Try different Connex API methods
-          if (connexWallet.thor && connexWallet.thor.account) {
-            walletAccount = await connexWallet.thor.account().get();
-            console.log('Connex account found:', walletAccount);
-          }
-        } catch (err) {
-          console.log('Connex connection failed:', err);
-        }
-      }
-
       if (walletAccount && walletAccount.address) {
         // Get account balance and energy
-        const accountInfo = await connex.thor.account(walletAccount.address).get();
-        
-        setAccount({
-          address: walletAccount.address,
-          balance: VECHAIN_UTILS.fromWei(accountInfo.balance),
-          energy: VECHAIN_UTILS.fromWei(accountInfo.energy)
-        });
-        setIsConnected(true);
-        setError(null);
+        try {
+          const accountInfo = await connex.thor.account(walletAccount.address).get();
+          
+          setAccount({
+            address: walletAccount.address,
+            balance: VECHAIN_UTILS.fromWei(accountInfo.balance),
+            energy: VECHAIN_UTILS.fromWei(accountInfo.energy)
+          });
+          setIsConnected(true);
+          setError(null);
+        } catch (balanceError) {
+          console.log('Failed to get account balance:', balanceError);
+          // Still set the account even if we can't get balance
+          setAccount({
+            address: walletAccount.address,
+            balance: '0',
+            energy: '0'
+          });
+          setIsConnected(true);
+          setError(null);
+        }
       } else {
         console.log('No wallet account found. Available objects:', {
           veworld: typeof window !== 'undefined' ? (window as any).veworld : 'N/A',
