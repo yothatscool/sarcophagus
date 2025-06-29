@@ -95,18 +95,18 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           try {
             console.log('Using vechain.newConnexVendor method...');
             
-            // Try mainnet config first (what VeWorld is actually using)
+            // Try testnet config first (what VeWorld is actually using)
             let vendor = null;
             try {
-              vendor = vechain.newConnexVendor(mainnetConfig);
-              console.log('Mainnet config vendor created successfully');
+              vendor = vechain.newConnexVendor(testnetConfig);
+              console.log('Testnet config vendor created successfully');
             } catch (error) {
-              console.log('Mainnet config failed, trying testnet:', (error as Error).message);
+              console.log('Testnet config failed, trying mainnet:', (error as Error).message);
               try {
-                vendor = vechain.newConnexVendor(testnetConfig);
-                console.log('Testnet vendor created successfully');
+                vendor = vechain.newConnexVendor(mainnetConfig);
+                console.log('Mainnet vendor created successfully');
               } catch (error2) {
-                console.log('Testnet vendor failed, trying without config:', (error2 as Error).message);
+                console.log('Mainnet vendor failed, trying without config:', (error2 as Error).message);
                 try {
                   vendor = vechain.newConnexVendor();
                   console.log('No config vendor created successfully');
@@ -138,7 +138,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           // Try Connex approach
           try {
             console.log('Using vechain.newConnex method...');
-            const connex = vechain.newConnex(mainnetConfig);
+            const connex = vechain.newConnex(testnetConfig);
             console.log('Connex created:', connex);
             console.log('Connex methods:', Object.getOwnPropertyNames(connex));
             
@@ -180,6 +180,32 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                           setError(null);
                           return;
                         }
+                      }
+                      
+                      // Try to trigger account access through a certificate signing request
+                      try {
+                        console.log('Trying to sign a certificate to trigger account access...');
+                        const cert = connex.vendor.sign('cert', {
+                          purpose: 'identification',
+                          payload: {
+                            type: 'text',
+                            content: 'Requesting account access for VeChain connection'
+                          }
+                        });
+                        
+                        console.log('Certificate signing result:', cert);
+                        if (cert && cert.annex && cert.annex.signer) {
+                          setAccount({
+                            address: cert.annex.signer,
+                            balance: '0',
+                            energy: '0'
+                          });
+                          setIsConnected(true);
+                          setError(null);
+                          return;
+                        }
+                      } catch (certError) {
+                        console.log('Certificate signing failed:', (certError as Error).message);
                       }
                       
                       // Try to request account access using VeWorld-specific methods
@@ -277,11 +303,11 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           if (buddy.create) {
             console.log('Using ConnexWalletBuddy.create method...');
             try {
-              // Create ConnexWalletBuddy with mainnet configuration (what VeWorld is using)
+              // Create ConnexWalletBuddy with testnet configuration (what VeWorld is using)
               const connex = buddy.create({
-                node: 'https://mainnet.vechain.org',
-                network: 'main',
-                genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
+                node: 'https://testnet.vechain.org',
+                network: 'test',
+                genesisId: '0x00000000851caf3cfdb6e899cf5958bfb1ac3413d346d43539627e6be7ec1b4a'
               });
               console.log('ConnexWalletBuddy connex created:', connex);
               console.log('ConnexWalletBuddy methods:', connex ? Object.keys(connex) : 'No connex');
