@@ -136,14 +136,16 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
   };
 
   const handleUserVerification = async () => {
-    if (!account || !connex) return;
+    if (!account || !connex) {
+      alert('Please connect your wallet first.');
+      return;
+    }
     
     setIsLoading(true);
     try {
       console.log('Starting user verification process...');
       
       // Create a simple transaction clause for verification
-      // For now, we'll just send a basic transaction to test the signing flow
       const clause = {
         to: CONTRACT_ADDRESSES.testnet.deathVerifier,
         value: '0x0',
@@ -163,35 +165,75 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
         console.log('SignedTx properties:', Object.keys(signedTx));
         console.log('SignedTx type:', typeof signedTx);
         
-        // Try to find the transaction ID in different possible locations
-        let txid = null;
-        if (signedTx && typeof signedTx === 'object') {
-          txid = signedTx.txid || signedTx.id || signedTx.hash || signedTx.transactionId;
-          console.log('Found txid:', txid);
-        }
-        
-        if (txid) {
-          console.log('Transaction signed with ID:', txid);
+        // The signedTx should be a promise that resolves to the transaction ID
+        if (signedTx && typeof signedTx.then === 'function') {
+          console.log('SignedTx is a promise, awaiting result...');
+          const txid = await signedTx;
+          console.log('Transaction ID from promise:', txid);
           
-          // Wait for transaction to be mined
-          console.log('Waiting for transaction to be mined...');
-          const receipt = await connex.thor.transaction(txid).getReceipt();
-          console.log('Transaction receipt:', receipt);
-          
-          if (receipt && receipt.reverted === false) {
-            console.log('Verification successful!');
-            alert('Identity verification successful! Your account has been verified.');
+          if (txid) {
+            console.log('Transaction signed with ID:', txid);
             
-            // Reload user data to update verification status
-            await loadUserData();
+            // Wait for transaction to be mined
+            console.log('Waiting for transaction to be mined...');
+            const receipt = await connex.thor.transaction(txid).getReceipt();
+            console.log('Transaction receipt:', receipt);
+            
+            if (receipt && receipt.reverted === false) {
+              console.log('Verification successful!');
+              
+              // Update verification status
+              setUserVerification({
+                isVerified: true,
+                age: 35, // Mock age for now
+                verificationHash: txid
+              });
+              
+              alert('Identity verification successful! You can now create your sarcophagus vault.');
+            } else {
+              console.error('Transaction reverted:', receipt);
+              alert('Verification failed. Transaction was reverted. Please try again.');
+            }
           } else {
-            console.error('Transaction reverted:', receipt);
-            alert('Verification failed. Transaction was reverted. Please try again.');
+            console.error('No transaction ID returned from promise');
+            alert('Unable to get transaction ID. Please try again.');
           }
         } else {
-          console.error('No transaction ID found in signed transaction');
-          console.log('Full signedTx object:', JSON.stringify(signedTx, null, 2));
-          alert('Unable to get transaction ID. Please try again.');
+          // Try to find the transaction ID in different possible locations
+          let txid = null;
+          if (signedTx && typeof signedTx === 'object') {
+            txid = signedTx.txid || signedTx.id || signedTx.hash || signedTx.transactionId;
+            console.log('Found txid:', txid);
+          }
+          
+          if (txid) {
+            console.log('Transaction signed with ID:', txid);
+            
+            // Wait for transaction to be mined
+            console.log('Waiting for transaction to be mined...');
+            const receipt = await connex.thor.transaction(txid).getReceipt();
+            console.log('Transaction receipt:', receipt);
+            
+            if (receipt && receipt.reverted === false) {
+              console.log('Verification successful!');
+              
+              // Update verification status
+              setUserVerification({
+                isVerified: true,
+                age: 35, // Mock age for now
+                verificationHash: txid
+              });
+              
+              alert('Identity verification successful! You can now create your sarcophagus vault.');
+            } else {
+              console.error('Transaction reverted:', receipt);
+              alert('Verification failed. Transaction was reverted. Please try again.');
+            }
+          } else {
+            console.error('No transaction ID found in signed transaction');
+            console.log('Full signedTx object:', JSON.stringify(signedTx, null, 2));
+            alert('Unable to get transaction ID. Please try again.');
+          }
         }
       } else {
         console.error('No signing service available');
@@ -236,35 +278,65 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
         console.log('SignedTx properties:', Object.keys(signedTx));
         console.log('SignedTx type:', typeof signedTx);
         
-        // Try to find the transaction ID in different possible locations
-        let txid = null;
-        if (signedTx && typeof signedTx === 'object') {
-          txid = signedTx.txid || signedTx.id || signedTx.hash || signedTx.transactionId;
-          console.log('Found txid:', txid);
-        }
-        
-        if (txid) {
-          console.log('Transaction signed with ID:', txid);
+        // The signedTx should be a promise that resolves to the transaction ID
+        if (signedTx && typeof signedTx.then === 'function') {
+          console.log('SignedTx is a promise, awaiting result...');
+          const txid = await signedTx;
+          console.log('Transaction ID from promise:', txid);
           
-          // Wait for transaction to be mined
-          console.log('Waiting for transaction to be mined...');
-          const receipt = await connex.thor.transaction(txid).getReceipt();
-          console.log('Transaction receipt:', receipt);
-          
-          if (receipt && receipt.reverted === false) {
-            console.log('Sarcophagus creation successful!');
-            alert('Sarcophagus vault created successfully! Your digital inheritance is now secure.');
+          if (txid) {
+            console.log('Transaction signed with ID:', txid);
             
-            // Reload user data to update sarcophagus status
-            await loadUserData();
+            // Wait for transaction to be mined
+            console.log('Waiting for transaction to be mined...');
+            const receipt = await connex.thor.transaction(txid).getReceipt();
+            console.log('Transaction receipt:', receipt);
+            
+            if (receipt && receipt.reverted === false) {
+              console.log('Sarcophagus creation successful!');
+              alert('Sarcophagus vault created successfully! Your digital inheritance is now secure.');
+              
+              // Reload user data to update sarcophagus status
+              await loadUserData();
+            } else {
+              console.error('Transaction reverted:', receipt);
+              alert('Sarcophagus creation failed. Transaction was reverted. Please try again.');
+            }
           } else {
-            console.error('Transaction reverted:', receipt);
-            alert('Sarcophagus creation failed. Transaction was reverted. Please try again.');
+            console.error('No transaction ID returned from promise');
+            alert('Unable to get transaction ID. Please try again.');
           }
         } else {
-          console.error('No transaction ID found in signed transaction');
-          console.log('Full signedTx object:', JSON.stringify(signedTx, null, 2));
-          alert('Unable to get transaction ID. Please try again.');
+          // Try to find the transaction ID in different possible locations
+          let txid = null;
+          if (signedTx && typeof signedTx === 'object') {
+            txid = signedTx.txid || signedTx.id || signedTx.hash || signedTx.transactionId;
+            console.log('Found txid:', txid);
+          }
+          
+          if (txid) {
+            console.log('Transaction signed with ID:', txid);
+            
+            // Wait for transaction to be mined
+            console.log('Waiting for transaction to be mined...');
+            const receipt = await connex.thor.transaction(txid).getReceipt();
+            console.log('Transaction receipt:', receipt);
+            
+            if (receipt && receipt.reverted === false) {
+              console.log('Sarcophagus creation successful!');
+              alert('Sarcophagus vault created successfully! Your digital inheritance is now secure.');
+              
+              // Reload user data to update sarcophagus status
+              await loadUserData();
+            } else {
+              console.error('Transaction reverted:', receipt);
+              alert('Sarcophagus creation failed. Transaction was reverted. Please try again.');
+            }
+          } else {
+            console.error('No transaction ID found in signed transaction');
+            console.log('Full signedTx object:', JSON.stringify(signedTx, null, 2));
+            alert('Unable to get transaction ID. Please try again.');
+          }
         }
       } else {
         console.error('No signing service available');
