@@ -200,8 +200,20 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
           }
         } else if (signedTx && typeof signedTx === 'object' && signedTx.accepted) {
           // The signedTx might be a signing service object with an 'accepted' method
-          console.log('SignedTx has accepted method, calling it...');
-          const txid = await signedTx.accepted();
+          console.log('SignedTx has accepted method, calling it with callback...');
+          
+          // Create a promise to handle the callback-based accepted method
+          const txid = await new Promise<string>((resolve, reject) => {
+            signedTx.accepted((result: any) => {
+              console.log('Accepted callback result:', result);
+              if (result && result.txid) {
+                resolve(result.txid);
+              } else {
+                reject(new Error('No transaction ID in accepted callback result'));
+              }
+            });
+          });
+          
           console.log('Transaction ID from accepted method:', txid);
           
           if (txid) {
@@ -233,7 +245,7 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
           }
         } else {
           // Try to find the transaction ID in different possible locations
-          let txid = null;
+          let txid: string | null = null;
           if (signedTx && typeof signedTx === 'object') {
             txid = signedTx.txid || signedTx.id || signedTx.hash || signedTx.transactionId;
             console.log('Found txid:', txid);
@@ -341,8 +353,20 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
           }
         } else if (signedTx && typeof signedTx === 'object' && signedTx.accepted) {
           // The signedTx might be a signing service object with an 'accepted' method
-          console.log('SignedTx has accepted method, calling it...');
-          const txid = await signedTx.accepted();
+          console.log('SignedTx has accepted method, calling it with callback...');
+          
+          // Create a promise to handle the callback-based accepted method
+          const txid = await new Promise<string>((resolve, reject) => {
+            signedTx.accepted((result: any) => {
+              console.log('Accepted callback result:', result);
+              if (result && result.txid) {
+                resolve(result.txid);
+              } else {
+                reject(new Error('No transaction ID in accepted callback result'));
+              }
+            });
+          });
+          
           console.log('Transaction ID from accepted method:', txid);
           
           if (txid) {
@@ -369,7 +393,7 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
           }
         } else {
           // Try to find the transaction ID in different possible locations
-          let txid = null;
+          let txid: string | null = null;
           if (signedTx && typeof signedTx === 'object') {
             txid = signedTx.txid || signedTx.id || signedTx.hash || signedTx.transactionId;
             console.log('Found txid:', txid);
