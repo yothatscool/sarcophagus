@@ -132,6 +132,9 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     
     setIsLoading(true);
     try {
+      console.log('Starting user verification process...');
+      
+      // Create the verification transaction
       const clause = connex.thor
         .transaction()
         .clause(CONTRACT_ADDRESSES.testnet.deathVerifier)
@@ -151,13 +154,40 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
         })
         .value(account.address, 30, 85, 'ipfs://QmTestVerificationHash');
 
-      // This would trigger wallet signing in a real implementation
-      console.log('Verification transaction ready:', clause);
-      alert('Verification transaction ready. Please approve in your wallet.');
+      console.log('Verification transaction created:', clause);
+      
+      // Get the signing service
+      const signingService = await clause.signer();
+      console.log('Signing service obtained:', signingService);
+      
+      if (signingService && typeof signingService.signer === 'function') {
+        console.log('Calling transaction signer...');
+        const signedTx = await signingService.signer();
+        console.log('Transaction signed:', signedTx);
+        
+        // Wait for transaction to be mined
+        console.log('Waiting for transaction to be mined...');
+        const receipt = await connex.thor.transaction(signedTx.id).getReceipt();
+        console.log('Transaction receipt:', receipt);
+        
+        if (receipt && receipt.reverted === false) {
+          console.log('Verification successful!');
+          alert('Identity verification successful! Your account has been verified.');
+          
+          // Reload user data to update verification status
+          await loadUserData();
+        } else {
+          console.error('Transaction reverted:', receipt);
+          alert('Verification failed. Transaction was reverted. Please try again.');
+        }
+      } else {
+        console.error('No signing service available');
+        alert('Unable to sign transaction. Please check your wallet connection.');
+      }
       
     } catch (error) {
-      console.error('Error initiating verification:', error);
-      alert('Error initiating verification. Please try again.');
+      console.error('Error during verification:', error);
+      alert(`Error during verification: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -171,6 +201,8 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     
     setIsLoading(true);
     try {
+      console.log('Starting sarcophagus creation process...');
+      
       // Generate a test beneficiary (in real app, user would input this)
       const testBeneficiary = '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
       
@@ -205,13 +237,40 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
         )
         .comment('Create Sarcophagus');
 
-      // This would trigger wallet signing in a real implementation
-      console.log('Sarcophagus creation transaction ready:', clause);
-      alert('Sarcophagus creation transaction ready. Please approve in your wallet.');
+      console.log('Sarcophagus creation transaction created:', clause);
+      
+      // Get the signing service
+      const signingService = await clause.signer();
+      console.log('Signing service obtained:', signingService);
+      
+      if (signingService && typeof signingService.signer === 'function') {
+        console.log('Calling transaction signer...');
+        const signedTx = await signingService.signer();
+        console.log('Transaction signed:', signedTx);
+        
+        // Wait for transaction to be mined
+        console.log('Waiting for transaction to be mined...');
+        const receipt = await connex.thor.transaction(signedTx.id).getReceipt();
+        console.log('Transaction receipt:', receipt);
+        
+        if (receipt && receipt.reverted === false) {
+          console.log('Sarcophagus creation successful!');
+          alert('Sarcophagus vault created successfully! Your digital inheritance is now secure.');
+          
+          // Reload user data to update sarcophagus status
+          await loadUserData();
+        } else {
+          console.error('Transaction reverted:', receipt);
+          alert('Sarcophagus creation failed. Transaction was reverted. Please try again.');
+        }
+      } else {
+        console.error('No signing service available');
+        alert('Unable to sign transaction. Please check your wallet connection.');
+      }
       
     } catch (error) {
       console.error('Error creating sarcophagus:', error);
-      alert('Error creating sarcophagus. Please try again.');
+      alert(`Error creating sarcophagus: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
