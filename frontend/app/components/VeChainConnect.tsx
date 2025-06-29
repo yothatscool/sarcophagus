@@ -135,9 +135,61 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                   walletAccount = { address: result[0] };
                   console.log('VeChain account found via vendor request:', walletAccount);
                 }
+              } else if (vendor && vendor.extensionSigner) {
+                console.log('vendor.extensionSigner exists, trying it...');
+                const signer = vendor.extensionSigner;
+                console.log('ExtensionSigner object:', signer);
+                console.log('ExtensionSigner methods:', Object.keys(signer));
+                
+                // Try to get account from extensionSigner
+                if (signer.account) {
+                  console.log('extensionSigner.account exists, calling it...');
+                  const account = await signer.account();
+                  console.log('Account from extensionSigner.account():', account);
+                  if (account && account.address) {
+                    walletAccount = { address: account.address };
+                    console.log('VeChain account found via extensionSigner.account():', walletAccount);
+                  }
+                } else if (signer.getAccount) {
+                  console.log('extensionSigner.getAccount exists, calling it...');
+                  const account = await signer.getAccount();
+                  console.log('Account from extensionSigner.getAccount():', account);
+                  if (account && account.address) {
+                    walletAccount = { address: account.address };
+                    console.log('VeChain account found via extensionSigner.getAccount():', walletAccount);
+                  }
+                } else if (signer.request) {
+                  console.log('extensionSigner.request exists, trying it...');
+                  const result = await signer.request({ method: 'accounts' });
+                  console.log('Result from extensionSigner.request:', result);
+                  if (result && result.length > 0) {
+                    walletAccount = { address: result[0] };
+                    console.log('VeChain account found via extensionSigner.request:', walletAccount);
+                  }
+                } else {
+                  console.log('No account method found on extensionSigner');
+                }
+              } else if (vendor.getAccount) {
+                console.log('vendor.getAccount exists, calling it...');
+                const account = await vendor.getAccount();
+                console.log('Account from vendor.getAccount():', account);
+                if (account && account.address) {
+                  walletAccount = { address: account.address };
+                  console.log('VeChain account found via vendor.getAccount():', walletAccount);
+                }
+              } else if (vendor.request) {
+                console.log('vendor.request exists, trying it...');
+                const result = await vendor.request({ method: 'vechain_accounts' });
+                console.log('Result from vendor.request:', result);
+                if (result && result.length > 0) {
+                  walletAccount = { address: result[0] };
+                  console.log('VeChain account found via vendor.request:', walletAccount);
+                }
+              } else {
+                console.log('No account method found on vendor');
               }
             } catch (vendorErr) {
-              console.log('Vendor method failed:', vendorErr);
+              console.log('Connex vendor failed:', vendorErr);
             }
           }
           
@@ -190,6 +242,40 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                     if (result && result.length > 0) {
                       walletAccount = { address: result[0] };
                       console.log('VeChain account found via vendor.request:', walletAccount);
+                    }
+                  } else if (connex.vendor.extensionSigner) {
+                    console.log('vendor.extensionSigner exists, trying it...');
+                    const signer = connex.vendor.extensionSigner;
+                    console.log('ExtensionSigner object:', signer);
+                    console.log('ExtensionSigner methods:', Object.keys(signer));
+                    
+                    // Try to get account from extensionSigner
+                    if (signer.account) {
+                      console.log('extensionSigner.account exists, calling it...');
+                      const account = await signer.account();
+                      console.log('Account from extensionSigner.account():', account);
+                      if (account && account.address) {
+                        walletAccount = { address: account.address };
+                        console.log('VeChain account found via extensionSigner.account():', walletAccount);
+                      }
+                    } else if (signer.getAccount) {
+                      console.log('extensionSigner.getAccount exists, calling it...');
+                      const account = await signer.getAccount();
+                      console.log('Account from extensionSigner.getAccount():', account);
+                      if (account && account.address) {
+                        walletAccount = { address: account.address };
+                        console.log('VeChain account found via extensionSigner.getAccount():', walletAccount);
+                      }
+                    } else if (signer.request) {
+                      console.log('extensionSigner.request exists, trying it...');
+                      const result = await signer.request({ method: 'accounts' });
+                      console.log('Result from extensionSigner.request:', result);
+                      if (result && result.length > 0) {
+                        walletAccount = { address: result[0] };
+                        console.log('VeChain account found via extensionSigner.request:', walletAccount);
+                      }
+                    } else {
+                      console.log('No account method found on extensionSigner');
                     }
                   } else {
                     console.log('No account method found on vendor');
