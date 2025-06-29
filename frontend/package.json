@@ -26,6 +26,7 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@vechain/connex": "^2.2.1",
+    "@vechain/dapp-kit-react": "^2.0.2",
     "autoprefixer": "10.4.16",
     "bufferutil": "^4.0.9",
     "clsx": "^2.0.0",

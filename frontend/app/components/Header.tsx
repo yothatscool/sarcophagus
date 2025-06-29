@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { WalletButton } from '@vechain/dapp-kit-react';
+import ConnectWallet from './ConnectWallet'
 
 export default function Header() {
   return (
@@ -21,7 +21,7 @@ export default function Header() {
           </div>
           
           <div className="flex items-center space-x-4">
-            <WalletButton />
+            <ConnectWallet />
           </div>
         </div>
       </div>
