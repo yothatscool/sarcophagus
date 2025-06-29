@@ -84,12 +84,38 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
             genesisId: '0x00000000851caf3cfdb6e899cf5958bfb1ac3413d346d43539627e6be7ec1b4a'
           };
           
+          // VeChain Mainnet configuration (fallback)
+          const mainnetConfig = {
+            node: 'https://mainnet.vechain.org',
+            network: 'main',
+            genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
+          };
+          
           // Try to get account using VeWorld API methods
           if (vechain.newConnexVendor) {
             console.log('Using vechain.newConnexVendor method...');
             try {
-              const vendor = vechain.newConnexVendor(testnetConfig);
-              console.log('ConnexVendor created:', vendor);
+              // Try testnet first
+              let vendor = null;
+              try {
+                vendor = vechain.newConnexVendor(testnetConfig);
+                console.log('ConnexVendor created with testnet config:', vendor);
+              } catch (testnetErr) {
+                console.log('Testnet vendor failed, trying mainnet:', testnetErr);
+                try {
+                  vendor = vechain.newConnexVendor(mainnetConfig);
+                  console.log('ConnexVendor created with mainnet config:', vendor);
+                } catch (mainnetErr) {
+                  console.log('Mainnet vendor failed, trying without config:', mainnetErr);
+                  try {
+                    vendor = vechain.newConnexVendor();
+                    console.log('ConnexVendor created without config:', vendor);
+                  } catch (noConfigErr) {
+                    console.log('Vendor creation failed completely:', noConfigErr);
+                  }
+                }
+              }
+              
               console.log('Vendor methods:', vendor ? Object.keys(vendor) : 'No vendor');
               
               // Try to get account info
@@ -123,14 +149,45 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
               console.log('Connex created:', connex);
               console.log('Connex methods:', connex ? Object.keys(connex) : 'No connex');
               
-              // Try to get account info
-              if (connex && connex.thor && connex.thor.account) {
-                console.log('Calling connex.thor.account().get()...');
-                const account = await connex.thor.account().get();
-                console.log('Account from connex:', account);
-                if (account && account.address) {
-                  walletAccount = { address: account.address };
-                  console.log('VeChain account found via connex:', walletAccount);
+              // Try to get account info using vendor first
+              if (connex && connex.vendor) {
+                console.log('Using connex.vendor to get account...');
+                try {
+                  const account = await connex.vendor.account();
+                  console.log('Account from connex.vendor:', account);
+                  if (account && account.address) {
+                    walletAccount = { address: account.address };
+                    console.log('VeChain account found via connex.vendor:', walletAccount);
+                  }
+                } catch (vendorErr) {
+                  console.log('Connex vendor failed:', vendorErr);
+                }
+              }
+              
+              // If vendor didn't work, try thor with the account address
+              if (!walletAccount && connex && connex.thor && connex.thor.account) {
+                console.log('Trying to get account info from thor...');
+                try {
+                  // First try to get the current account address
+                  if (connex.vendor && connex.vendor.account) {
+                    const currentAccount = await connex.vendor.account();
+                    if (currentAccount && currentAccount.address) {
+                      console.log('Got current account address:', currentAccount.address);
+                      // Now use that address to get account details
+                      const accountInfo = await connex.thor.account(currentAccount.address).get();
+                      console.log('Account info from thor:', accountInfo);
+                      if (accountInfo) {
+                        walletAccount = { 
+                          address: currentAccount.address,
+                          balance: accountInfo.balance,
+                          energy: accountInfo.energy
+                        };
+                        console.log('VeChain account found via thor:', walletAccount);
+                      }
+                    }
+                  }
+                } catch (thorErr) {
+                  console.log('Thor method failed:', thorErr);
                 }
               }
             } catch (connexErr) {
