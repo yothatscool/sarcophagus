@@ -1,6 +1,5 @@
 const { ethers } = require("hardhat");
 const fs = require('fs');
-const path = require('path');
 require('dotenv').config();
 
 async function main() {
@@ -15,13 +14,23 @@ async function main() {
   }
 
   try {
-    // Create wallet from mnemonic
+    // Get the provider from hardhat
+    const provider = ethers.provider;
+    
+    // Create wallet from mnemonic manually
     const mnemonic = process.env.MNEMONIC;
     const wallet = ethers.Wallet.fromPhrase(mnemonic);
     
-    // Create provider for VeChain testnet
-    const provider = new ethers.JsonRpcProvider("https://testnet.vechain.energy");
-    const connectedWallet = wallet.connect(provider);
+    // Try to get the signer from hardhat first, fallback to manual wallet
+    let connectedWallet;
+    try {
+      const [signer] = await ethers.getSigners();
+      connectedWallet = signer;
+      console.log("✅ Using Hardhat signer");
+    } catch (error) {
+      console.log("⚠️ Using manual wallet connection");
+      connectedWallet = wallet.connect(provider);
+    }
     
     console.log("📋 Deploying contracts with account:", connectedWallet.address);
     
@@ -75,34 +84,38 @@ async function main() {
     await obol.waitForDeployment();
     console.log("✅ OBOL Token deployed to:", await obol.getAddress());
 
-    // 3. Deploy B3TR Rewards
-    console.log("📋 Deploying B3TR Rewards...");
-    const B3TRRewards = await ethers.getContractFactory("B3TRRewards", connectedWallet);
-    const b3trRewards = await B3TRRewards.deploy(await obol.getAddress());
-    await b3trRewards.waitForDeployment();
-    console.log("✅ B3TR Rewards deployed to:", await b3trRewards.getAddress());
-
-    // 4. Deploy MultiSig Wallet
+    // 3. Deploy MultiSig Wallet
     console.log("📋 Deploying MultiSig Wallet...");
     const MultiSigWallet = await ethers.getContractFactory("MultiSigWallet", connectedWallet);
     const multiSigWallet = await MultiSigWallet.deploy(MULTISIG_SIGNERS, MULTISIG_WEIGHTS, MULTISIG_THRESHOLD);
     await multiSigWallet.waitForDeployment();
     console.log("✅ MultiSig Wallet deployed to:", await multiSigWallet.getAddress());
 
-    // 5. Deploy Sarcophagus (main contract)
+    // 4. Deploy Sarcophagus (main contract)
     console.log("📋 Deploying Sarcophagus...");
     const Sarcophagus = await ethers.getContractFactory("Sarcophagus", connectedWallet);
     const sarcophagus = await Sarcophagus.deploy(
-      await deathVerifier.getAddress(),
-      await obol.getAddress(),
-      await b3trRewards.getAddress(),
-      await multiSigWallet.getAddress(),
-      VTHO_ADDRESS,
-      B3TR_ADDRESS,
-      GLO_ADDRESS
+      VTHO_ADDRESS,                     // _vthoToken
+      B3TR_ADDRESS,                     // _b3trToken
+      await obol.getAddress(),          // _obolToken
+      GLO_ADDRESS,                      // _gloToken
+      await deathVerifier.getAddress(), // _deathVerifier
+      await obol.getAddress(),          // _obol (same as obolToken)
+      await multiSigWallet.getAddress() // _feeCollector
     );
     await sarcophagus.waitForDeployment();
     console.log("✅ Sarcophagus deployed to:", await sarcophagus.getAddress());
+
+    // 5. Deploy B3TR Rewards with correct sarcophagus address
+    console.log("📋 Deploying B3TR Rewards...");
+    const B3TRRewards = await ethers.getContractFactory("B3TRRewards", connectedWallet);
+    const b3trRewards = await B3TRRewards.deploy(
+      B3TR_ADDRESS,                     // _b3trToken
+      await sarcophagus.getAddress(),   // _sarcophagusContract
+      80                                // _rateAdjustmentThreshold
+    );
+    await b3trRewards.waitForDeployment();
+    console.log("✅ B3TR Rewards deployed to:", await b3trRewards.getAddress());
 
     // Set up roles and permissions
     console.log("\n🔐 Setting up roles and permissions...");
@@ -171,16 +184,6 @@ async function main() {
     console.log("\n🔗 Oracle Addresses:", ORACLE_ADDRESSES);
     console.log("\n🌐 Testnet Explorer: https://explore-testnet.vechain.org");
     console.log("🔍 View your contracts by searching the addresses above");
-    
-    // Update frontend configuration
-    console.log("\n🔄 Updating frontend configuration...");
-    try {
-      const { updateFrontendConfig } = require('./update-frontend-config');
-      await updateFrontendConfig(deploymentInfo);
-      console.log("✅ Frontend configuration updated");
-    } catch (error) {
-      console.log("⚠️ Could not update frontend config:", error.message);
-    }
 
   } catch (error) {
     console.error("❌ Deployment failed:", error);

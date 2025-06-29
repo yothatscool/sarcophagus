@@ -1,6 +1,5 @@
 const { ethers } = require("hardhat");
 const fs = require('fs');
-const path = require('path');
 require('dotenv').config();
 
 async function main() {
@@ -15,17 +14,11 @@ async function main() {
   }
 
   try {
-    // Create wallet from mnemonic
-    const mnemonic = process.env.MNEMONIC;
-    const wallet = ethers.Wallet.fromPhrase(mnemonic);
+    // Get the signer from hardhat
+    const [deployer] = await ethers.getSigners();
+    console.log("📋 Deploying contracts with account:", deployer.address);
     
-    // Create provider for VeChain testnet
-    const provider = new ethers.JsonRpcProvider("https://testnet.vechain.energy");
-    const connectedWallet = wallet.connect(provider);
-    
-    console.log("📋 Deploying contracts with account:", connectedWallet.address);
-    
-    const balance = await provider.getBalance(connectedWallet.address);
+    const balance = await ethers.provider.getBalance(deployer.address);
     console.log("💰 Account balance:", ethers.formatEther(balance), "VET");
 
     if (balance === 0n) {
@@ -42,7 +35,7 @@ async function main() {
     
     // MultiSig signer addresses (you can update these)
     const MULTISIG_SIGNERS = [
-      connectedWallet.address, // Deployer as first signer
+      deployer.address, // Deployer as first signer
       "0x0000000000000000000000000000000000000001", // Placeholder
       "0x0000000000000000000000000000000000000002"  // Placeholder
     ];
@@ -63,80 +56,90 @@ async function main() {
 
     // 1. Deploy DeathVerifier
     console.log("📋 Deploying DeathVerifier...");
-    const DeathVerifier = await ethers.getContractFactory("DeathVerifier", connectedWallet);
+    const DeathVerifier = await ethers.getContractFactory("DeathVerifier");
     const deathVerifier = await DeathVerifier.deploy(ORACLE_ADDRESSES);
     await deathVerifier.waitForDeployment();
     console.log("✅ DeathVerifier deployed to:", await deathVerifier.getAddress());
 
     // 2. Deploy OBOL Token
     console.log("📋 Deploying OBOL Token...");
-    const OBOL = await ethers.getContractFactory("OBOL", connectedWallet);
+    const OBOL = await ethers.getContractFactory("OBOL");
     const obol = await OBOL.deploy();
     await obol.waitForDeployment();
     console.log("✅ OBOL Token deployed to:", await obol.getAddress());
 
-    // 3. Deploy B3TR Rewards
-    console.log("📋 Deploying B3TR Rewards...");
-    const B3TRRewards = await ethers.getContractFactory("B3TRRewards", connectedWallet);
-    const b3trRewards = await B3TRRewards.deploy(await obol.getAddress());
-    await b3trRewards.waitForDeployment();
-    console.log("✅ B3TR Rewards deployed to:", await b3trRewards.getAddress());
-
-    // 4. Deploy MultiSig Wallet
+    // 3. Deploy MultiSig Wallet
     console.log("📋 Deploying MultiSig Wallet...");
-    const MultiSigWallet = await ethers.getContractFactory("MultiSigWallet", connectedWallet);
+    const MultiSigWallet = await ethers.getContractFactory("MultiSigWallet");
     const multiSigWallet = await MultiSigWallet.deploy(MULTISIG_SIGNERS, MULTISIG_WEIGHTS, MULTISIG_THRESHOLD);
     await multiSigWallet.waitForDeployment();
     console.log("✅ MultiSig Wallet deployed to:", await multiSigWallet.getAddress());
 
-    // 5. Deploy Sarcophagus (main contract)
+    // 4. Deploy Sarcophagus (main contract)
     console.log("📋 Deploying Sarcophagus...");
-    const Sarcophagus = await ethers.getContractFactory("Sarcophagus", connectedWallet);
+    const Sarcophagus = await ethers.getContractFactory("Sarcophagus");
     const sarcophagus = await Sarcophagus.deploy(
-      await deathVerifier.getAddress(),
-      await obol.getAddress(),
-      await b3trRewards.getAddress(),
-      await multiSigWallet.getAddress(),
-      VTHO_ADDRESS,
-      B3TR_ADDRESS,
-      GLO_ADDRESS
+      VTHO_ADDRESS,                     // _vthoToken
+      B3TR_ADDRESS,                     // _b3trToken
+      await obol.getAddress(),          // _obolToken
+      GLO_ADDRESS,                      // _gloToken
+      await deathVerifier.getAddress(), // _deathVerifier
+      await obol.getAddress(),          // _obol (same as obolToken)
+      await multiSigWallet.getAddress() // _feeCollector
     );
     await sarcophagus.waitForDeployment();
     console.log("✅ Sarcophagus deployed to:", await sarcophagus.getAddress());
 
+    // 5. Deploy B3TR Rewards with correct sarcophagus address
+    console.log("📋 Deploying B3TR Rewards...");
+    const B3TRRewards = await ethers.getContractFactory("B3TRRewards");
+    const b3trRewards = await B3TRRewards.deploy(
+      B3TR_ADDRESS,                     // _b3trToken
+      await sarcophagus.getAddress(),   // _sarcophagusContract
+      80                                // _rateAdjustmentThreshold
+    );
+    await b3trRewards.waitForDeployment();
+    console.log("✅ B3TR Rewards deployed to:", await b3trRewards.getAddress());
+
     // Set up roles and permissions
     console.log("\n🔐 Setting up roles and permissions...");
 
+    // Define role constants (these should match the contract constants)
+    const ORACLE_ROLE = "0xba54f2292b0957a023c27fd3d16fa2d7fa186bc6";
+    const ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000";
+    const REWARD_MINTER_ROLE = "0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6";
+    const DEATH_VERIFIER_ROLE = "0xba54f2292b0957a023c27fd3d16fa2d7fa186bc6";
+
     // Grant ORACLE_ROLE to oracle addresses
     for (const oracle of ORACLE_ADDRESSES) {
-      await deathVerifier.grantRole(await deathVerifier.ORACLE_ROLE(), oracle);
+      await deathVerifier.grantRole(ORACLE_ROLE, oracle);
       console.log("✅ Granted ORACLE_ROLE to:", oracle);
     }
 
     // Grant ADMIN_ROLE to deployer
-    await deathVerifier.grantRole(await deathVerifier.ADMIN_ROLE(), connectedWallet.address);
-    await obol.grantRole(await obol.ADMIN_ROLE(), connectedWallet.address);
-    await b3trRewards.grantRole(await b3trRewards.ADMIN_ROLE(), connectedWallet.address);
+    await deathVerifier.grantRole(ADMIN_ROLE, deployer.address);
+    await obol.grantRole(ADMIN_ROLE, deployer.address);
+    await b3trRewards.grantRole(ADMIN_ROLE, deployer.address);
     console.log("✅ Granted ADMIN_ROLE to deployer");
 
     // Grant REWARD_MINTER_ROLE to B3TR Rewards contract
-    await obol.grantRole(await obol.REWARD_MINTER_ROLE(), await b3trRewards.getAddress());
+    await obol.grantRole(REWARD_MINTER_ROLE, await b3trRewards.getAddress());
     console.log("✅ Granted REWARD_MINTER_ROLE to B3TR Rewards");
 
     // Grant DEATH_VERIFIER_ROLE to DeathVerifier contract
-    await sarcophagus.grantRole(await sarcophagus.DEATH_VERIFIER_ROLE(), await deathVerifier.getAddress());
+    await sarcophagus.grantRole(DEATH_VERIFIER_ROLE, await deathVerifier.getAddress());
     console.log("✅ Granted DEATH_VERIFIER_ROLE to DeathVerifier");
 
     // Grant ORACLE_ROLE to oracle addresses in Sarcophagus
     for (const oracle of ORACLE_ADDRESSES) {
-      await sarcophagus.grantRole(await sarcophagus.ORACLE_ROLE(), oracle);
+      await sarcophagus.grantRole(ORACLE_ROLE, oracle);
       console.log("✅ Granted ORACLE_ROLE to Sarcophagus for:", oracle);
     }
 
     // Save deployment info
     const deploymentInfo = {
       network: "VeChain Testnet",
-      deployer: connectedWallet.address,
+      deployer: deployer.address,
       deploymentTime: new Date().toISOString(),
       contracts: {
         DeathVerifier: await deathVerifier.getAddress(),
@@ -171,16 +174,6 @@ async function main() {
     console.log("\n🔗 Oracle Addresses:", ORACLE_ADDRESSES);
     console.log("\n🌐 Testnet Explorer: https://explore-testnet.vechain.org");
     console.log("🔍 View your contracts by searching the addresses above");
-    
-    // Update frontend configuration
-    console.log("\n🔄 Updating frontend configuration...");
-    try {
-      const { updateFrontendConfig } = require('./update-frontend-config');
-      await updateFrontendConfig(deploymentInfo);
-      console.log("✅ Frontend configuration updated");
-    } catch (error) {
-      console.log("⚠️ Could not update frontend config:", error.message);
-    }
 
   } catch (error) {
     console.error("❌ Deployment failed:", error);

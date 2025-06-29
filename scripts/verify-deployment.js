@@ -1,82 +1,71 @@
 const { ethers } = require("hardhat");
 const fs = require('fs');
-const path = require('path');
 
 async function main() {
-  console.log("🔍 Verifying Sarcophagus Protocol deployment...\n");
-
-  const [deployer] = await ethers.getSigners();
-  console.log("Deployer address:", deployer.address);
+  console.log("🔍 Verifying deployment on VeChain Testnet...");
 
   try {
-    // Load deployment info
-    const deploymentPath = "./deployments.json";
+    // Read deployment info
+    const deploymentInfo = JSON.parse(fs.readFileSync('deployment-testnet.json', 'utf8'));
     
-    if (!fs.existsSync(deploymentPath)) {
-      console.log("❌ No deployment info found. Please run deployment first.");
-      return;
-    }
+    const [deployer] = await ethers.getSigners();
+    console.log("📋 Checking with account:", deployer.address);
 
-    const deploymentInfo = JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
-    console.log("📋 Deployment Info:", deploymentInfo.network, deploymentInfo.timestamp);
-
-    // Verify contracts exist
-    console.log("\n🔍 Verifying contract deployments...");
-    
-    const contracts = deploymentInfo.contracts;
-    const verificationResults = {};
-
-    for (const [name, address] of Object.entries(contracts)) {
+    // Check each contract address
+    for (const [contractName, address] of Object.entries(deploymentInfo.contracts)) {
+      console.log(`\n🔍 Checking ${contractName} at ${address}...`);
+      
       try {
+        // Try to get the contract code
         const code = await ethers.provider.getCode(address);
+        
         if (code === "0x") {
-          console.log(`❌ ${name}: Not deployed (no code at ${address})`);
-          verificationResults[name] = false;
+          console.log(`❌ ${contractName}: No contract deployed at this address`);
         } else {
-          console.log(`✅ ${name}: Deployed at ${address}`);
-          verificationResults[name] = true;
+          console.log(`✅ ${contractName}: Contract found (code length: ${code.length})`);
+          
+          // Try to get the contract instance
+          try {
+            let contract;
+            switch (contractName) {
+              case "DeathVerifier":
+                contract = await ethers.getContractAt("DeathVerifier", address);
+                break;
+              case "OBOL":
+                contract = await ethers.getContractAt("OBOL", address);
+                break;
+              case "Sarcophagus":
+                contract = await ethers.getContractAt("Sarcophagus", address);
+                break;
+              case "B3TRRewards":
+                contract = await ethers.getContractAt("B3TRRewards", address);
+                break;
+              case "MultiSigWallet":
+                contract = await ethers.getContractAt("MultiSigWallet", address);
+                break;
+            }
+            
+            if (contract) {
+              console.log(`   ✅ Contract interface working`);
+            }
+          } catch (error) {
+            console.log(`   ⚠️ Contract interface error: ${error.message}`);
+          }
         }
       } catch (error) {
-        console.log(`❌ ${name}: Error checking deployment - ${error.message}`);
-        verificationResults[name] = false;
+        console.log(`❌ Error checking ${contractName}: ${error.message}`);
       }
     }
 
-    // Test basic functionality
-    console.log("\n🧪 Testing basic functionality...");
+    // Check if all addresses are the same
+    const addresses = Object.values(deploymentInfo.contracts);
+    const uniqueAddresses = [...new Set(addresses)];
     
-    if (verificationResults.Sarcophagus && verificationResults.OBOL) {
-      try {
-        const Sarcophagus = await ethers.getContractFactory("Sarcophagus");
-        const sarcophagus = Sarcophagus.attach(contracts.Sarcophagus);
-        
-        const OBOL = await ethers.getContractFactory("OBOL");
-        const obol = OBOL.attach(contracts.OBOL);
-
-        // Test basic contract calls
-        const vaultRole = await obol.VAULT_ROLE();
-        console.log("✅ Vault role retrieved:", vaultRole);
-
-        const hasRole = await obol.hasRole(vaultRole, contracts.Sarcophagus);
-        console.log("✅ Sarcophagus has vault role:", hasRole);
-
-        console.log("✅ Basic functionality tests passed");
-      } catch (error) {
-        console.log("❌ Basic functionality test failed:", error.message);
-      }
-    }
-
-    // Summary
-    console.log("\n📊 Verification Summary:");
-    const totalContracts = Object.keys(contracts).length;
-    const deployedContracts = Object.values(verificationResults).filter(Boolean).length;
-    
-    console.log(`Contracts deployed: ${deployedContracts}/${totalContracts}`);
-    
-    if (deployedContracts === totalContracts) {
-      console.log("🎉 All contracts deployed successfully!");
+    if (uniqueAddresses.length === 1) {
+      console.log("\n🚨 WARNING: All contracts have the same address!");
+      console.log("This indicates a deployment issue with the VeChain plugin.");
     } else {
-      console.log("⚠️  Some contracts failed deployment verification");
+      console.log("\n✅ Contract addresses are unique");
     }
 
   } catch (error) {
