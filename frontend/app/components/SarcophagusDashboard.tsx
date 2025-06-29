@@ -142,11 +142,13 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     try {
       console.log('Starting user verification process...');
       
-      // Use Connex method API directly
-      const clause = connex.thor
-        .account(CONTRACT_ADDRESSES.testnet.deathVerifier)
-        .method('verifyUser')
-        .value(account.address, 30, 'ipfs://QmTestVerificationHash');
+      // Create a simple transaction clause for verification
+      // For now, we'll just send a basic transaction to test the signing flow
+      const clause = {
+        to: CONTRACT_ADDRESSES.testnet.deathVerifier,
+        value: '0x0',
+        data: '0x' // Empty data for now - we'll implement proper encoding later
+      };
 
       console.log('Verification clause created:', clause);
       
@@ -204,22 +206,14 @@ export default function SarcophagusDashboard({ account, connex }: SarcophagusDas
     try {
       console.log('Starting sarcophagus creation process...');
       
-      // Generate a test beneficiary (in real app, user would input this)
-      const testBeneficiary = '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
-      
-      // Use Connex method API directly
-      const clause = connex.thor
-        .account(CONTRACT_ADDRESSES.testnet.sarcophagus)
-        .method('createSarcophagus')
-        .value(
-          [testBeneficiary],
-          [10000], // 100%
-          ['0x0000000000000000000000000000000000000000'],
-          [false],
-          [25],
-          ['0x0000000000000000000000000000000000000000'],
-          [0]
-        );
+      // Create a simple transaction clause for sarcophagus creation
+      const clause = {
+        to: CONTRACT_ADDRESSES.testnet.sarcophagus,
+        value: '0x0',
+        data: '0x' // Empty data for now - we'll implement proper encoding later
+      };
+
+      console.log('Sarcophagus creation clause created:', clause);
       
       // Get the signing service from vendor
       const signingService = await connex.vendor.sign('tx', [clause]);
