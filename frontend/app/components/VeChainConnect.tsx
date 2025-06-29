@@ -64,11 +64,50 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         veworld: typeof window !== 'undefined' ? !!(window as any).veworld : false,
         sync2: typeof window !== 'undefined' ? !!(window as any).sync2 : false,
         sync: typeof window !== 'undefined' ? !!(window as any).sync : false,
-        connex: typeof window !== 'undefined' ? !!(window as any).connex : false
+        connex: typeof window !== 'undefined' ? !!(window as any).connex : false,
+        vechain: typeof window !== 'undefined' ? !!(window as any).vechain : false,
+        ConnexWalletBuddy: typeof window !== 'undefined' ? !!(window as any).ConnexWalletBuddy : false
       });
 
-      // Check for VeWorld wallet
-      if (typeof window !== 'undefined' && (window as any).veworld) {
+      // Check for VeChain wallet (VeWorld/Sync2 via ConnexWalletBuddy)
+      if (typeof window !== 'undefined' && (window as any).vechain) {
+        try {
+          console.log('Attempting VeChain wallet connection...');
+          const vechain = (window as any).vechain;
+          console.log('VeChain object:', vechain);
+          
+          // Try to get account using VeChain wallet API
+          if (vechain.getAccount) {
+            walletAccount = await vechain.getAccount();
+            console.log('VeChain account found:', walletAccount);
+          } else if (vechain.account) {
+            walletAccount = await vechain.account();
+            console.log('VeChain account found:', walletAccount);
+          }
+        } catch (err) {
+          console.log('VeChain connection failed:', err);
+        }
+      }
+
+      // Check for ConnexWalletBuddy
+      if (!walletAccount && typeof window !== 'undefined' && (window as any).ConnexWalletBuddy) {
+        try {
+          console.log('Attempting ConnexWalletBuddy connection...');
+          const buddy = (window as any).ConnexWalletBuddy;
+          console.log('ConnexWalletBuddy object:', buddy);
+          
+          // Try to get account using ConnexWalletBuddy
+          if (buddy.getAccount) {
+            walletAccount = await buddy.getAccount();
+            console.log('ConnexWalletBuddy account found:', walletAccount);
+          }
+        } catch (err) {
+          console.log('ConnexWalletBuddy connection failed:', err);
+        }
+      }
+
+      // Check for VeWorld wallet (legacy check)
+      if (!walletAccount && typeof window !== 'undefined' && (window as any).veworld) {
         try {
           console.log('Attempting VeWorld connection...');
           const veworld = (window as any).veworld;
@@ -80,7 +119,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         }
       }
 
-      // Check for Sync2 wallet
+      // Check for Sync2 wallet (legacy check)
       if (!walletAccount && typeof window !== 'undefined' && (window as any).sync2) {
         try {
           console.log('Attempting Sync2 connection...');
@@ -106,7 +145,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         }
       }
 
-      // Check for Connex wallet
+      // Check for Connex wallet (legacy check)
       if (!walletAccount && typeof window !== 'undefined' && (window as any).connex) {
         try {
           console.log('Attempting Connex connection...');
@@ -138,7 +177,9 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           veworld: typeof window !== 'undefined' ? (window as any).veworld : 'N/A',
           sync2: typeof window !== 'undefined' ? (window as any).sync2 : 'N/A',
           sync: typeof window !== 'undefined' ? (window as any).sync : 'N/A',
-          connex: typeof window !== 'undefined' ? (window as any).connex : 'N/A'
+          connex: typeof window !== 'undefined' ? (window as any).connex : 'N/A',
+          vechain: typeof window !== 'undefined' ? (window as any).vechain : 'N/A',
+          ConnexWalletBuddy: typeof window !== 'undefined' ? (window as any).ConnexWalletBuddy : 'N/A'
         });
         setError('No VeChain wallet found. Please install VeWorld or Sync2.');
       }
@@ -204,6 +245,8 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                 console.log('Sync2:', (window as any).sync2);
                 console.log('Sync:', (window as any).sync);
                 console.log('Connex:', (window as any).connex);
+                console.log('VeChain:', (window as any).vechain);
+                console.log('ConnexWalletBuddy:', (window as any).ConnexWalletBuddy);
                 console.log('All window properties:', Object.keys(window).filter(key => 
                   key.toLowerCase().includes('vechain') || 
                   key.toLowerCase().includes('veworld') || 
