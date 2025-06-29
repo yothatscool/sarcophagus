@@ -84,118 +84,119 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
             genesisId: '0x000000000b2bce3c70bc649a02749e8687721b09ed2e15997f466536b20bb127'
           };
           
-          // First, establish connection before listening for events
-          try {
-            console.log('Establishing connection with VeWorld...');
-            
-            // Try to create a Connex instance first to establish connection
-            const connexInstance = vechain.newConnex(mainnetConfig);
-            console.log('Connex instance created:', connexInstance);
-            
-            // Try to get account through vendor first
-            if (connexInstance.vendor && connexInstance.vendor.extensionSigner) {
-              console.log('ExtensionSigner found, trying to get account...');
+          // Step 1: Create Connex instance
+          console.log('Creating Connex instance...');
+          const connexInstance = vechain.newConnex(mainnetConfig);
+          console.log('Connex instance created:', connexInstance);
+          
+          // Step 2: Set up account change listener BEFORE any signing attempts
+          console.log('Setting up account change listener...');
+          let accountFound = false;
+          
+          const accountChangeHandler = (accountData: any) => {
+            console.log('Account changed event received:', accountData);
+            if (accountData && accountData.address && !accountFound) {
+              console.log('Account address from event:', accountData.address);
+              accountFound = true;
               
-              // Try to trigger account access through a simple transaction signing
-              try {
-                console.log('Trying to sign a simple transaction to trigger account access...');
-                
-                // Create a simple transaction that will prompt for signature
-                const clause = {
-                  to: '0x0000000000000000000000000000000000000000', // Zero address
-                  value: '0x0', // Zero value
-                  data: '0x' // Empty data
-                };
-                
-                const tx = connexInstance.thor.transaction(clause);
-                console.log('Transaction created:', tx);
-                
-                // This should trigger the wallet to prompt for signature and reveal the account
-                const signingService = await tx.signer();
-                console.log('Signing service obtained:', signingService);
-                
-                if (signingService && typeof signingService.signer === 'function') {
-                  console.log('Calling transaction signer...');
-                  const signedTx = await signingService.signer();
-                  console.log('Transaction signed:', signedTx);
-                  
-                  // The signed transaction should contain the origin (signer address)
-                  if (signedTx && signedTx.origin) {
-                    console.log('Found signer address in transaction:', signedTx.origin);
-                    walletAccount = { address: signedTx.origin };
-                  }
-                }
-              } catch (txError) {
-                console.log('Transaction signing failed:', (txError as Error).message);
-                
-                // Fallback: Try certificate signing
-                try {
-                  console.log('Trying certificate signing as fallback...');
-                  const certService = await connexInstance.vendor.sign('cert', {
-                    purpose: 'identification',
-                    payload: {
-                      type: 'text',
-                      content: 'Requesting account access for VeChain connection'
-                    }
-                  });
-                  
-                  console.log('Certificate service obtained:', certService);
-                  
-                  if (certService && typeof certService.signer === 'function') {
-                    console.log('Calling certificate signer...');
-                    const signedCert = await certService.signer();
-                    console.log('Certificate signed:', signedCert);
-                    
-                    // Try to extract signer address from certificate
-                    if (signedCert && signedCert.annex && signedCert.annex.signer) {
-                      console.log('Found signer in certificate annex:', signedCert.annex.signer);
-                      walletAccount = { address: signedCert.annex.signer };
-                    } else if (signedCert && signedCert.signer) {
-                      console.log('Found signer directly in certificate:', signedCert.signer);
-                      walletAccount = { address: signedCert.signer };
-                    }
-                  }
-                } catch (certError) {
-                  console.log('Certificate signing failed:', (certError as Error).message);
-                }
-              }
-            }
-            
-            // If we still don't have an account, try listening for account changes
-            if (!walletAccount) {
-              console.log('Setting up account change listener...');
-              
-              // Add event listener for account changes
-              vechain.on('accountChanged', (accountData: any) => {
-                console.log('Account changed event received:', accountData);
-                if (accountData && accountData.address) {
-                  console.log('Account address from event:', accountData.address);
-                  walletAccount = { address: accountData.address };
-                  
-                  // Update state
-                  setAccount({
-                    address: accountData.address,
-                    balance: '0',
-                    energy: '0'
-                  });
-                  setIsConnected(true);
-                  setError(null);
-                }
+              // Update state immediately
+              setAccount({
+                address: accountData.address,
+                balance: '0',
+                energy: '0'
               });
+              setIsConnected(true);
+              setError(null);
               
-              // Try to trigger account access by requesting it
-              try {
-                console.log('Requesting account access...');
-                // Try to trigger the wallet to show account selection
-                await vechain.request({ method: 'eth_requestAccounts' });
-                console.log('Account request sent');
-              } catch (requestError) {
-                console.log('Account request failed:', (requestError as Error).message);
+              // Remove the listener to prevent multiple calls
+              vechain.removeListener('accountChanged', accountChangeHandler);
+            }
+          };
+          
+          // Add the event listener
+          vechain.on('accountChanged', accountChangeHandler);
+          console.log('Account change listener added');
+          
+          // Step 3: Try to trigger account access through certificate signing
+          try {
+            console.log('Trying certificate signing to trigger account access...');
+            const certService = await connexInstance.vendor.sign('cert', {
+              purpose: 'identification',
+              payload: {
+                type: 'text',
+                content: 'Requesting account access for VeChain connection'
+              }
+            });
+            
+            console.log('Certificate service obtained:', certService);
+            
+            if (certService && typeof certService.signer === 'function') {
+              console.log('Calling certificate signer...');
+              const signedCert = await certService.signer();
+              console.log('Certificate signed:', signedCert);
+              
+              // Try to extract signer address from certificate
+              if (signedCert && signedCert.annex && signedCert.annex.signer) {
+                console.log('Found signer in certificate annex:', signedCert.annex.signer);
+                walletAccount = { address: signedCert.annex.signer };
+              } else if (signedCert && signedCert.signer) {
+                console.log('Found signer directly in certificate:', signedCert.signer);
+                walletAccount = { address: signedCert.signer };
+              } else if (signedCert && signedCert.origin) {
+                console.log('Found signer in certificate origin:', signedCert.origin);
+                walletAccount = { address: signedCert.origin };
               }
             }
+          } catch (certError) {
+            console.log('Certificate signing failed:', (certError as Error).message);
             
-          } catch (connexError) {
-            console.log('Connex creation failed:', (connexError as Error).message);
+            // Fallback: Try transaction signing
+            try {
+              console.log('Trying transaction signing as fallback...');
+              
+              // Create a simple transaction that will prompt for signature
+              const clause = {
+                to: '0x0000000000000000000000000000000000000000', // Zero address
+                value: '0x0', // Zero value
+                data: '0x' // Empty data
+              };
+              
+              const tx = connexInstance.thor.transaction(clause);
+              console.log('Transaction created:', tx);
+              
+              // This should trigger the wallet to prompt for signature and reveal the account
+              const signingService = await tx.signer();
+              console.log('Signing service obtained:', signingService);
+              
+              if (signingService && typeof signingService.signer === 'function') {
+                console.log('Calling transaction signer...');
+                const signedTx = await signingService.signer();
+                console.log('Transaction signed:', signedTx);
+                
+                // The signed transaction should contain the origin (signer address)
+                if (signedTx && signedTx.origin) {
+                  console.log('Found signer address in transaction:', signedTx.origin);
+                  walletAccount = { address: signedTx.origin };
+                }
+              }
+            } catch (txError) {
+              console.log('Transaction signing failed:', (txError as Error).message);
+            }
+          }
+          
+          // Step 4: If we still don't have an account, try requesting it directly
+          if (!walletAccount && !accountFound) {
+            try {
+              console.log('Requesting account access directly...');
+              // Try to trigger the wallet to show account selection
+              await vechain.request({ method: 'eth_requestAccounts' });
+              console.log('Account request sent');
+              
+              // Wait a bit for the account change event to fire
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            } catch (requestError) {
+              console.log('Account request failed:', (requestError as Error).message);
+            }
           }
           
         } catch (err) {
@@ -300,7 +301,8 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           setError(null);
         }
       } else {
-        console.log('No wallet account found. Available objects:', {
+        // Check if we're still waiting for the account change event
+        console.log('No wallet account found yet. Available objects:', {
           veworld: typeof window !== 'undefined' ? (window as any).veworld : 'N/A',
           sync2: typeof window !== 'undefined' ? (window as any).sync2 : 'N/A',
           sync: typeof window !== 'undefined' ? (window as any).sync : 'N/A',
@@ -308,7 +310,13 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           vechain: typeof window !== 'undefined' ? (window as any).vechain : 'N/A',
           ConnexWalletBuddy: typeof window !== 'undefined' ? (window as any).ConnexWalletBuddy : 'N/A'
         });
-        setError('No VeChain wallet found. Please install VeWorld or Sync2.');
+        
+        // If we have VeChain available, the connection might still be in progress
+        if (typeof window !== 'undefined' && (window as any).vechain) {
+          setError('Connection in progress... Please check your VeWorld wallet and sign the request if prompted.');
+        } else {
+          setError('No VeChain wallet found. Please install VeWorld or Sync2.');
+        }
       }
     } catch (err) {
       console.error('Wallet connection error:', err);
