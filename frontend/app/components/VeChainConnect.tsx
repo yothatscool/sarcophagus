@@ -75,14 +75,25 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           console.log('Attempting VeChain wallet connection...');
           const vechain = (window as any).vechain;
           console.log('VeChain object:', vechain);
+          console.log('VeChain methods:', Object.keys(vechain));
           
           // Try to get account using VeChain wallet API
-          if (vechain.getAccount) {
+          if (vechain.request) {
+            console.log('Using vechain.request method...');
+            // Try to request account access
+            const result = await vechain.request({ method: 'eth_accounts' });
+            console.log('VeChain request result:', result);
+            
+            if (result && result.length > 0) {
+              walletAccount = { address: result[0] };
+              console.log('VeChain account found via request:', walletAccount);
+            }
+          } else if (vechain.getAccount) {
             walletAccount = await vechain.getAccount();
-            console.log('VeChain account found:', walletAccount);
+            console.log('VeChain account found via getAccount:', walletAccount);
           } else if (vechain.account) {
             walletAccount = await vechain.account();
-            console.log('VeChain account found:', walletAccount);
+            console.log('VeChain account found via account:', walletAccount);
           }
         } catch (err) {
           console.log('VeChain connection failed:', err);
@@ -95,11 +106,21 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           console.log('Attempting ConnexWalletBuddy connection...');
           const buddy = (window as any).ConnexWalletBuddy;
           console.log('ConnexWalletBuddy object:', buddy);
+          console.log('ConnexWalletBuddy methods:', Object.keys(buddy));
           
           // Try to get account using ConnexWalletBuddy
           if (buddy.getAccount) {
             walletAccount = await buddy.getAccount();
             console.log('ConnexWalletBuddy account found:', walletAccount);
+          } else if (buddy.request) {
+            console.log('Using ConnexWalletBuddy.request method...');
+            const result = await buddy.request({ method: 'eth_accounts' });
+            console.log('ConnexWalletBuddy request result:', result);
+            
+            if (result && result.length > 0) {
+              walletAccount = { address: result[0] };
+              console.log('ConnexWalletBuddy account found via request:', walletAccount);
+            }
           }
         } catch (err) {
           console.log('ConnexWalletBuddy connection failed:', err);
@@ -247,6 +268,14 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                 console.log('Connex:', (window as any).connex);
                 console.log('VeChain:', (window as any).vechain);
                 console.log('ConnexWalletBuddy:', (window as any).ConnexWalletBuddy);
+                
+                if ((window as any).vechain) {
+                  console.log('VeChain methods:', Object.keys((window as any).vechain));
+                }
+                if ((window as any).ConnexWalletBuddy) {
+                  console.log('ConnexWalletBuddy methods:', Object.keys((window as any).ConnexWalletBuddy));
+                }
+                
                 console.log('All window properties:', Object.keys(window).filter(key => 
                   key.toLowerCase().includes('vechain') || 
                   key.toLowerCase().includes('veworld') || 
