@@ -1,5 +1,3 @@
-import Connex from '@vechain/connex';
-
 // VeChain Native Configuration
 export const VECHAIN_CONFIG = {
   // Testnet configuration - Updated with actual deployed contracts
@@ -46,9 +44,10 @@ export const ORACLE_ADDRESSES = [
   '0x6c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c'
 ];
 
-// Initialize Connex instance
-export function createConnex(network: 'testnet' | 'mainnet' = 'testnet') {
+// Initialize Connex instance (dynamic import to avoid SSR issues)
+export async function createConnex(network: 'testnet' | 'mainnet' = 'testnet') {
   const config = VECHAIN_CONFIG[network];
+  const Connex = (await import('@vechain/connex')).default;
   return new Connex({
     node: config.node,
     network: config.network
