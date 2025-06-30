@@ -113,6 +113,45 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
   const [isTestMode, setIsTestMode] = useState(true); // Default to test mode
   const [lastTransaction, setLastTransaction] = useState<{txid: string, status: 'pending' | 'success' | 'failed'} | null>(null);
 
+  // Age input validation state
+  const [ageInput, setAgeInput] = useState<string>('');
+  const [ageError, setAgeError] = useState<string>('');
+  const [showAgeInput, setShowAgeInput] = useState(false);
+
+  // Age validation function
+  const validateAge = (age: string): { isValid: boolean; error: string } => {
+    if (!age.trim()) {
+      return { isValid: false, error: 'Age is required' };
+    }
+    
+    const ageNum = parseInt(age);
+    
+    if (isNaN(ageNum)) {
+      return { isValid: false, error: 'Please enter a valid number' };
+    }
+    
+    if (ageNum < 18) {
+      return { isValid: false, error: 'You must be at least 18 years old to use this service' };
+    }
+    
+    if (ageNum > 120) {
+      return { isValid: false, error: 'Please enter a valid age (maximum 120 years)' };
+    }
+    
+    if (ageNum < 0) {
+      return { isValid: false, error: 'Age cannot be negative' };
+    }
+    
+    return { isValid: true, error: '' };
+  };
+
+  // Handle age input change
+  const handleAgeChange = (value: string) => {
+    setAgeInput(value);
+    const validation = validateAge(value);
+    setAgeError(validation.error);
+  };
+
   useEffect(() => {
     if (account && connex) {
       loadUserData();
@@ -176,6 +215,13 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       return;
     }
     
+    // Validate age before proceeding
+    const ageValidation = validateAge(ageInput);
+    if (!ageValidation.isValid) {
+      setAgeError(ageValidation.error);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       console.log('Starting user verification process...');
@@ -185,7 +231,7 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       
       // Generate a mock verification hash for testing
       const verificationHash = `verification-${account.address}-${Date.now()}`;
-      const age = 35; // Mock age for now
+      const age = parseInt(ageInput); // Use validated age input
       
       console.log('Calling verifyUser with:', { userAddress: account.address, age, verificationHash });
       
@@ -941,15 +987,75 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
             </div>
 
             {!userVerification?.isVerified ? (
-              <div className="text-center py-8">
-                <p className="text-gray-600 mb-4">You must verify your identity before creating a vault.</p>
-                <button
-                  onClick={handleUserVerification}
-                  disabled={isLoading}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium"
-                >
-                  Verify Identity First
-                </button>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h4 className="font-medium text-blue-800 mb-4">Complete Identity Verification</h4>
+                <p className="text-sm text-blue-700 mb-4">
+                  To create your digital inheritance vault, we need to verify your identity and age. 
+                  This is a one-time process that ensures the security and legitimacy of your digital inheritance plan.
+                </p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="age-input-create" className="block text-sm font-medium text-gray-700 mb-2">
+                      Your Age *
+                    </label>
+                    <input
+                      id="age-input-create"
+                      type="number"
+                      min="18"
+                      max="120"
+                      value={ageInput}
+                      onChange={(e) => handleAgeChange(e.target.value)}
+                      placeholder="Enter your age (18-120)"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        ageError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      disabled={isLoading}
+                    />
+                    {ageError && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center">
+                        <span className="mr-1">⚠️</span>
+                        {ageError}
+                      </p>
+                    )}
+                    {!ageError && ageInput && (
+                      <p className="mt-1 text-sm text-green-600 flex items-center">
+                        <span className="mr-1">✅</span>
+                        Age looks good!
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <p className="text-xs text-yellow-800">
+                      <strong>Privacy Notice:</strong> Your age is used solely for verification purposes 
+                      and to ensure you meet the minimum age requirement (18+). This information is 
+                      stored securely on the blockchain.
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={handleUserVerification}
+                    disabled={isLoading || !ageInput || !!ageError}
+                    className={`w-full px-6 py-3 rounded-lg font-medium transition-colors ${
+                      isLoading || !ageInput || !!ageError
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Verifying Identity...
+                      </span>
+                    ) : (
+                      'Verify Identity & Continue'
+                    )}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1092,13 +1198,76 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
                   )}
                 </div>
                 {!userVerification.isVerified && (
-                  <button
-                    onClick={handleUserVerification}
-                    disabled={isLoading}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium"
-                  >
-                    {isLoading ? 'Verifying...' : 'Verify Identity'}
-                  </button>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                    <h4 className="font-medium text-blue-800 mb-4">Complete Identity Verification</h4>
+                    <p className="text-sm text-blue-700 mb-4">
+                      To create your digital inheritance vault, we need to verify your identity and age. 
+                      This information helps us ensure compliance and provide appropriate services.
+                    </p>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="age-input" className="block text-sm font-medium text-gray-700 mb-2">
+                          Your Age *
+                        </label>
+                        <input
+                          id="age-input"
+                          type="number"
+                          min="18"
+                          max="120"
+                          value={ageInput}
+                          onChange={(e) => handleAgeChange(e.target.value)}
+                          placeholder="Enter your age (18-120)"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            ageError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                          }`}
+                          disabled={isLoading}
+                        />
+                        {ageError && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center">
+                            <span className="mr-1">⚠️</span>
+                            {ageError}
+                          </p>
+                        )}
+                        {!ageError && ageInput && (
+                          <p className="mt-1 text-sm text-green-600 flex items-center">
+                            <span className="mr-1">✅</span>
+                            Age looks good!
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                        <p className="text-xs text-yellow-800">
+                          <strong>Privacy Notice:</strong> Your age is used solely for verification purposes 
+                          and to ensure you meet the minimum age requirement (18+). This information is 
+                          stored securely on the blockchain.
+                        </p>
+                      </div>
+                      
+                      <button
+                        onClick={handleUserVerification}
+                        disabled={isLoading || !ageInput || !!ageError}
+                        className={`w-full px-6 py-3 rounded-lg font-medium transition-colors ${
+                          isLoading || !ageInput || !!ageError
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        }`}
+                      >
+                        {isLoading ? (
+                          <span className="flex items-center justify-center">
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Verifying Identity...
+                          </span>
+                        ) : (
+                          'Verify Identity'
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             ) : (
