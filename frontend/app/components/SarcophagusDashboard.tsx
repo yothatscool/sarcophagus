@@ -27,6 +27,25 @@ interface Transaction {
   error?: string;
 }
 
+// Enhanced error handling interfaces
+interface ErrorInfo {
+  type: 'wallet' | 'network' | 'validation' | 'contract' | 'user' | 'system';
+  code: string;
+  title: string;
+  message: string;
+  suggestion: string;
+  action?: string;
+  helpUrl?: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+}
+
+interface ErrorContext {
+  action: string;
+  step: string;
+  userData?: any;
+  contractData?: any;
+}
+
 interface SarcophagusDashboardProps {
   account: {
     address: string;
@@ -581,6 +600,182 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     return new Date(timestamp).toLocaleDateString();
   };
 
+  // Enhanced error handling state
+  const [currentError, setCurrentError] = useState<ErrorInfo | null>(null);
+  const [errorHistory, setErrorHistory] = useState<ErrorInfo[]>([]);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
+
+  // Error handling functions
+  const analyzeError = (error: any, context: ErrorContext): ErrorInfo => {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorString = errorMessage.toLowerCase();
+    
+    // Wallet-related errors
+    if (errorString.includes('wallet') || errorString.includes('connect') || errorString.includes('account')) {
+      return {
+        type: 'wallet',
+        code: 'WALLET_CONNECTION_ERROR',
+        title: 'Wallet Connection Issue',
+        message: 'Unable to connect to your VeChain wallet. This is required to use the Sarcophagus Protocol.',
+        suggestion: 'Please ensure VeWorld is installed and unlocked, then try connecting again.',
+        action: 'Connect Wallet',
+        helpUrl: 'https://docs.vechain.org/use-wallet/',
+        severity: 'high'
+      };
+    }
+    
+    // Network-related errors
+    if (errorString.includes('network') || errorString.includes('connection') || errorString.includes('timeout')) {
+      return {
+        type: 'network',
+        code: 'NETWORK_ERROR',
+        title: 'Network Connection Issue',
+        message: 'Unable to connect to the VeChain network. This may be due to network congestion or connectivity issues.',
+        suggestion: 'Please check your internet connection and try again. If the problem persists, try switching networks.',
+        action: 'Retry',
+        severity: 'medium'
+      };
+    }
+    
+    // Contract-related errors
+    if (errorString.includes('contract') || errorString.includes('function') || errorString.includes('abi')) {
+      return {
+        type: 'contract',
+        code: 'CONTRACT_ERROR',
+        title: 'Smart Contract Issue',
+        message: 'There was an issue interacting with the smart contract. This may be due to contract updates or network issues.',
+        suggestion: 'Please try again in a few moments. If the problem continues, contact support.',
+        action: 'Retry',
+        severity: 'high'
+      };
+    }
+    
+    // Gas-related errors
+    if (errorString.includes('gas') || errorString.includes('insufficient') || errorString.includes('balance')) {
+      return {
+        type: 'user',
+        code: 'INSUFFICIENT_BALANCE',
+        title: 'Insufficient Balance',
+        message: 'You don\'t have enough VET to complete this transaction. Gas fees are required for all blockchain operations.',
+        suggestion: 'Please add more VET to your wallet to cover the transaction costs.',
+        action: 'Add Funds',
+        severity: 'medium'
+      };
+    }
+    
+    // Validation errors
+    if (errorString.includes('validation') || errorString.includes('invalid') || errorString.includes('required')) {
+      return {
+        type: 'validation',
+        code: 'VALIDATION_ERROR',
+        title: 'Input Validation Error',
+        message: 'Some information you provided is invalid or incomplete.',
+        suggestion: 'Please check your inputs and ensure all required fields are filled correctly.',
+        action: 'Fix Inputs',
+        severity: 'low'
+      };
+    }
+    
+    // Transaction timeout
+    if (errorString.includes('timeout') || errorString.includes('expired')) {
+      return {
+        type: 'network',
+        code: 'TRANSACTION_TIMEOUT',
+        title: 'Transaction Timeout',
+        message: 'The transaction took too long to process and timed out.',
+        suggestion: 'This usually resolves itself. Please check your transaction history to see if it was actually processed.',
+        action: 'Check History',
+        severity: 'medium'
+      };
+    }
+    
+    // Default error
+    return {
+      type: 'system',
+      code: 'UNKNOWN_ERROR',
+      title: 'Unexpected Error',
+      message: 'An unexpected error occurred. We\'re working to resolve this issue.',
+      suggestion: 'Please try again. If the problem persists, contact our support team.',
+      action: 'Contact Support',
+      helpUrl: 'https://sarcophagus.org/support',
+      severity: 'high'
+    };
+  };
+
+  const showError = (error: any, context: ErrorContext) => {
+    const errorInfo = analyzeError(error, context);
+    setCurrentError(errorInfo);
+    setErrorHistory(prev => [errorInfo, ...prev.slice(0, 9)]); // Keep last 10 errors
+    
+    // Log error for debugging
+    console.error(`Error in ${context.action}/${context.step}:`, error);
+    console.error('Error context:', context);
+    console.error('Analyzed error info:', errorInfo);
+  };
+
+  const clearError = () => {
+    setCurrentError(null);
+    setShowErrorDetails(false);
+  };
+
+  const handleErrorAction = (errorInfo: ErrorInfo) => {
+    switch (errorInfo.action) {
+      case 'Connect Wallet':
+        // Trigger wallet connection
+        break;
+      case 'Retry':
+        // Retry the last action
+        break;
+      case 'Add Funds':
+        setActiveTab('manage');
+        break;
+      case 'Fix Inputs':
+        // Focus on the problematic input
+        break;
+      case 'Check History':
+        setShowTransactionHistory(true);
+        break;
+      case 'Contact Support':
+        window.open(errorInfo.helpUrl || 'https://sarcophagus.org/support', '_blank');
+        break;
+    }
+    clearError();
+  };
+
+  const getErrorIcon = (type: ErrorInfo['type']) => {
+    switch (type) {
+      case 'wallet':
+        return '🔗';
+      case 'network':
+        return '🌐';
+      case 'validation':
+        return '⚠️';
+      case 'contract':
+        return '📄';
+      case 'user':
+        return '👤';
+      case 'system':
+        return '⚙️';
+      default:
+        return '❌';
+    }
+  };
+
+  const getErrorColor = (severity: ErrorInfo['severity']) => {
+    switch (severity) {
+      case 'low':
+        return 'bg-yellow-50 border-yellow-200 text-yellow-800';
+      case 'medium':
+        return 'bg-orange-50 border-orange-200 text-orange-800';
+      case 'high':
+        return 'bg-red-50 border-red-200 text-red-800';
+      case 'critical':
+        return 'bg-red-100 border-red-300 text-red-900';
+      default:
+        return 'bg-gray-50 border-gray-200 text-gray-800';
+    }
+  };
+
   useEffect(() => {
     if (account && connex) {
       loadUserData();
@@ -761,23 +956,17 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     } catch (error) {
       console.error('Error during verification:', error);
       
+      // Use enhanced error handling
+      showError(error, {
+        action: 'verification',
+        step: 'user_verification',
+        userData: { address: account.address, age: parseInt(ageInput) }
+      });
+      
       // Set transaction as failed if we have a txid
       if (lastTransaction && lastTransaction.status === 'pending') {
         setLastTransaction({ txid: lastTransaction.txid, status: 'failed' });
       }
-      
-      // Show error message
-      const errorMessage = document.createElement('div');
-      errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-      errorMessage.textContent = `❌ Verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      document.body.appendChild(errorMessage);
-      
-      // Remove the message after 5 seconds
-      setTimeout(() => {
-        if (document.body.contains(errorMessage)) {
-          document.body.removeChild(errorMessage);
-        }
-      }, 5000);
     } finally {
       setIsLoading(false);
     }
@@ -886,23 +1075,21 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     } catch (error) {
       console.error('Error creating sarcophagus:', error);
       
+      // Use enhanced error handling
+      showError(error, {
+        action: 'create_vault',
+        step: 'sarcophagus_creation',
+        userData: { 
+          address: account.address, 
+          beneficiaryCount: 2,
+          totalPercentage: 100
+        }
+      });
+      
       // Set transaction as failed if we have a txid
       if (lastTransaction && lastTransaction.status === 'pending') {
         setLastTransaction({ txid: lastTransaction.txid, status: 'failed' });
       }
-      
-      // Show error message
-      const errorMessage = document.createElement('div');
-      errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-      errorMessage.textContent = `❌ Failed to create sarcophagus: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      document.body.appendChild(errorMessage);
-      
-      // Remove the message after 5 seconds
-      setTimeout(() => {
-        if (document.body.contains(errorMessage)) {
-          document.body.removeChild(errorMessage);
-        }
-      }, 5000);
     } finally {
       setIsLoading(false);
     }
@@ -1012,16 +1199,16 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     } catch (error) {
       console.error('Error adding funds:', error);
       
-      const errorMessage = document.createElement('div');
-      errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-      errorMessage.textContent = `❌ Error adding funds: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      document.body.appendChild(errorMessage);
-      
-      setTimeout(() => {
-        if (document.body.contains(errorMessage)) {
-          document.body.removeChild(errorMessage);
+      // Use enhanced error handling
+      showError(error, {
+        action: 'add_funds',
+        step: 'fund_deposit',
+        userData: { 
+          address: account.address, 
+          amount: amountForm.vetAmount,
+          vaultBalance: sarcophagusData.vetAmount
         }
-      }, 5000);
+      });
     } finally {
       setIsLoading(false);
     }
@@ -1375,6 +1562,64 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
 
   return (
     <div className="bg-white rounded-lg shadow-md">
+      {/* Enhanced Error Display */}
+      {currentError && (
+        <div className={`fixed top-4 right-4 max-w-md p-4 rounded-lg border shadow-lg z-50 ${getErrorColor(currentError.severity)}`}>
+          <div className="flex items-start space-x-3">
+            <span className="text-xl">{getErrorIcon(currentError.type)}</span>
+            <div className="flex-1">
+              <h4 className="font-medium mb-1">{currentError.title}</h4>
+              <p className="text-sm mb-2">{currentError.message}</p>
+              <p className="text-sm font-medium mb-3">{currentError.suggestion}</p>
+              
+              <div className="flex items-center space-x-2">
+                {currentError.action && (
+                  <button
+                    onClick={() => handleErrorAction(currentError)}
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded font-medium"
+                  >
+                    {currentError.action}
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowErrorDetails(!showErrorDetails)}
+                  className="px-3 py-1 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                >
+                  {showErrorDetails ? 'Hide Details' : 'Show Details'}
+                </button>
+                <button
+                  onClick={clearError}
+                  className="px-3 py-1 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                >
+                  Dismiss
+                </button>
+              </div>
+              
+              {showErrorDetails && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <p className="text-xs text-gray-600 mb-1">
+                    <strong>Error Code:</strong> {currentError.code}
+                  </p>
+                  <p className="text-xs text-gray-600 mb-1">
+                    <strong>Severity:</strong> {currentError.severity}
+                  </p>
+                  {currentError.helpUrl && (
+                    <a
+                      href={currentError.helpUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Get Help →
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="border-b border-gray-200 p-6">
         <div className="flex justify-between items-center mb-2">
