@@ -13,6 +13,20 @@ import ManageVault from './ManageVault';
 import BeneficiaryModal from './BeneficiaryModal';
 import LegalDisclosure from './LegalDisclosure';
 
+interface Transaction {
+  id: string;
+  txid: string;
+  type: 'verification' | 'create_vault' | 'add_funds' | 'add_beneficiary' | 'update_beneficiary' | 'emergency_withdraw';
+  status: 'pending' | 'confirmed' | 'failed' | 'reverted';
+  timestamp: number;
+  description: string;
+  amount?: string;
+  gasUsed?: string;
+  blockNumber?: number;
+  confirmations?: number;
+  error?: string;
+}
+
 interface SarcophagusDashboardProps {
   account: {
     address: string;
@@ -111,7 +125,7 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'create' | 'manage' | 'beneficiaries' | 'verification'>('overview');
   const [isTestMode, setIsTestMode] = useState(true); // Default to test mode
-  const [lastTransaction, setLastTransaction] = useState<{txid: string, status: 'pending' | 'success' | 'failed'} | null>(null);
+  const [lastTransaction, setLastTransaction] = useState<{ txid: string; status: 'pending' | 'success' | 'failed' } | null>(null);
 
   // Age input validation state
   const [ageInput, setAgeInput] = useState<string>('');
@@ -147,6 +161,12 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
   });
   const [gasEstimate, setGasEstimate] = useState<string>('0');
   const [totalValue, setTotalValue] = useState<string>('0');
+
+  // Enhanced transaction management
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [activeTransaction, setActiveTransaction] = useState<Transaction | null>(null);
+  const [showTransactionHistory, setShowTransactionHistory] = useState(false);
+  const [transactionPolling, setTransactionPolling] = useState<NodeJS.Timeout | null>(null);
 
   // Age validation function
   const validateAge = (age: string): { isValid: boolean; error: string } => {
@@ -429,11 +449,152 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     }
   };
 
+  // Transaction management functions
+  const addTransaction = (transaction: Omit<Transaction, 'id' | 'timestamp'>) => {
+    const newTransaction: Transaction = {
+      ...transaction,
+      id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: Date.now()
+    };
+    
+    setTransactions(prev => [newTransaction, ...prev]);
+    setActiveTransaction(newTransaction);
+    
+    // Start polling for transaction updates
+    if (newTransaction.status === 'pending') {
+      startTransactionPolling(newTransaction);
+    }
+    
+    return newTransaction;
+  };
+
+  const updateTransaction = (txid: string, updates: Partial<Transaction>) => {
+    setTransactions(prev => prev.map(tx => 
+      tx.txid === txid ? { ...tx, ...updates } : tx
+    ));
+    
+    setActiveTransaction(prev => 
+      prev?.txid === txid ? { ...prev, ...updates } : prev
+    );
+  };
+
+  const startTransactionPolling = (transaction: Transaction) => {
+    // Clear any existing polling
+    if (transactionPolling) {
+      clearInterval(transactionPolling);
+    }
+    
+    const pollInterval = setInterval(async () => {
+      if (!connex || !isTestMode) {
+        try {
+          // Poll transaction status from VeChain
+          const receipt = await connex.thor.transaction(transaction.txid).getReceipt();
+          
+          if (receipt) {
+            if (receipt.reverted) {
+              updateTransaction(transaction.txid, {
+                status: 'reverted',
+                error: 'Transaction was reverted on the blockchain'
+              });
+              clearInterval(pollInterval);
+              setTransactionPolling(null);
+            } else {
+              // Get transaction details
+              const tx = await connex.thor.transaction(transaction.txid).get();
+              if (tx) {
+                updateTransaction(transaction.txid, { 
+                  status: 'confirmed',
+                  gasUsed: '50000', // Default gas estimate for VeChain
+                  blockNumber: Date.now(), // Use timestamp as block number for now
+                  confirmations: 1
+                });
+                clearInterval(pollInterval);
+                setTransactionPolling(null);
+              }
+            }
+          }
+        } catch (error) {
+          console.log('Transaction still pending...');
+        }
+      } else {
+        // Test mode - simulate confirmation after 3 seconds
+        setTimeout(() => {
+          updateTransaction(transaction.txid, {
+            status: 'confirmed',
+            gasUsed: '50000',
+            blockNumber: Math.floor(Math.random() * 1000000) + 1000000,
+            confirmations: 1
+          });
+          clearInterval(pollInterval);
+          setTransactionPolling(null);
+        }, 3000);
+      }
+    }, 2000); // Poll every 2 seconds
+    
+    setTransactionPolling(pollInterval);
+  };
+
+  const getTransactionStatusIcon = (status: Transaction['status']) => {
+    switch (status) {
+      case 'pending':
+        return (
+          <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        );
+      case 'confirmed':
+        return <span className="text-green-500">✅</span>;
+      case 'failed':
+      case 'reverted':
+        return <span className="text-red-500">❌</span>;
+      default:
+        return <span className="text-gray-500">⏳</span>;
+    }
+  };
+
+  const getTransactionTypeIcon = (type: Transaction['type']) => {
+    switch (type) {
+      case 'verification':
+        return '🆔';
+      case 'create_vault':
+        return '🏺';
+      case 'add_funds':
+        return '💰';
+      case 'add_beneficiary':
+      case 'update_beneficiary':
+        return '👥';
+      case 'emergency_withdraw':
+        return '🚨';
+      default:
+        return '📝';
+    }
+  };
+
+  const formatTransactionTime = (timestamp: number) => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
+
   useEffect(() => {
     if (account && connex) {
       loadUserData();
     }
-  }, [account, connex, isTestMode]);
+  }, [account, connex]);
+
+  // Cleanup transaction polling on unmount
+  useEffect(() => {
+    return () => {
+      if (transactionPolling) {
+        clearInterval(transactionPolling);
+      }
+    };
+  }, [transactionPolling]);
 
   const loadUserData = async () => {
     if (!account || !connex) return;
@@ -523,7 +684,17 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       
       console.log('Transaction created:', tx);
       
-      // Set transaction as pending
+      // Add transaction to tracking system
+      const transaction = addTransaction({
+        txid: tx.txid,
+        type: 'verification',
+        status: 'pending',
+        description: `Identity verification for age ${age}`,
+        amount: '0',
+        gasUsed: '0'
+      });
+      
+      // Set transaction as pending (legacy support)
       setLastTransaction({ txid: tx.txid, status: 'pending' });
       
       // Wait for transaction confirmation with timeout
@@ -538,11 +709,20 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       console.log('Transaction receipt:', receipt);
       
       if (receipt.reverted) {
+        updateTransaction(tx.txid, { status: 'reverted', error: 'Transaction was reverted' });
         setLastTransaction({ txid: tx.txid, status: 'failed' });
         throw new Error('Transaction reverted');
       }
       
-      // Set transaction as successful
+      // Update transaction status
+      updateTransaction(tx.txid, { 
+        status: 'confirmed',
+        gasUsed: '50000', // Default gas estimate for VeChain
+        blockNumber: Date.now(), // Use timestamp as block number for now
+        confirmations: 1
+      });
+      
+      // Set transaction as successful (legacy support)
       setLastTransaction({ txid: tx.txid, status: 'success' });
       
       console.log('Verification successful! Transaction ID:', tx.txid);
@@ -630,18 +810,37 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       // Call the contract to create sarcophagus
       const tx = await contractInteractions.createSarcophagus(account.address, beneficiaries, percentages);
       
-      // Set transaction as pending
+      // Add transaction to tracking system
+      const transaction = addTransaction({
+        txid: tx.txid,
+        type: 'create_vault',
+        status: 'pending',
+        description: 'Create Sarcophagus vault',
+        amount: '0',
+        gasUsed: '0'
+      });
+      
+      // Set transaction as pending (legacy support)
       setLastTransaction({ txid: tx.txid, status: 'pending' });
       
       // Wait for transaction confirmation
       const receipt = await tx.wait();
       
       if (receipt.reverted) {
+        updateTransaction(tx.txid, { status: 'reverted', error: 'Transaction was reverted' });
         setLastTransaction({ txid: tx.txid, status: 'failed' });
         throw new Error('Transaction reverted');
       }
       
-      // Set transaction as successful
+      // Update transaction status
+      updateTransaction(tx.txid, { 
+        status: 'confirmed',
+        gasUsed: '50000',
+        blockNumber: Date.now(),
+        confirmations: 1
+      });
+      
+      // Set transaction as successful (legacy support)
       setLastTransaction({ txid: tx.txid, status: 'success' });
       
       console.log('Sarcophagus created successfully! Transaction ID:', tx.txid);
@@ -752,6 +951,26 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       const vetAmountWei = BigInt(Math.floor(parseFloat(amountForm.vetAmount) * 1e18));
       const vthoAmountWei = BigInt(Math.floor(parseFloat(amountForm.vthoAmount || '0') * 1e18));
       const b3trAmountWei = BigInt(Math.floor(parseFloat(amountForm.b3trAmount || '0') * 1e18));
+      
+      // Add transaction to tracking system (simulated for now)
+      const transaction = addTransaction({
+        txid: `sim_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'add_funds',
+        status: 'pending',
+        description: `Add ${amountForm.vetAmount} VET to vault`,
+        amount: amountForm.vetAmount,
+        gasUsed: '0'
+      });
+      
+      // Simulate transaction processing
+      setTimeout(() => {
+        updateTransaction(transaction.txid, { 
+          status: 'confirmed',
+          gasUsed: '50000',
+          blockNumber: Date.now(),
+          confirmations: 1
+        });
+      }, 2000);
       
       // Update the sarcophagus data with new funds
       const currentVETAmount = sarcophagusData?.vetAmount ? BigInt(sarcophagusData.vetAmount) : BigInt('0');
@@ -1249,82 +1468,151 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* User Verification Status */}
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-semibold text-blue-800 mb-2">🔐 Verification Status</h3>
-                {userVerification ? (
-                  <div>
-                    <p className={`text-sm ${userVerification.isVerified ? 'text-green-600' : 'text-red-600'}`}>
-                      {userVerification.isVerified ? '✅ Verified' : '❌ Not Verified'}
-                    </p>
-                    {userVerification.isVerified && (
-                      <p className="text-xs text-gray-600 mt-1">Age: {userVerification.age}</p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-600">Loading...</p>
-                )}
+                <h3 className="text-lg font-semibold text-blue-800">Vault Balance</h3>
+                <p className="text-2xl font-bold text-blue-600">
+                  {sarcophagusData ? VECHAIN_UTILS.formatVET(sarcophagusData.vetAmount) : '0'} VET
+                </p>
               </div>
-
-              {/* Sarcophagus Status */}
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <h3 className="font-semibold text-green-800 mb-2">📦 Vault Status</h3>
-                {sarcophagusData ? (
-                  <div>
-                    <p className="text-sm text-green-600">✅ Active Vault</p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Balance: {VECHAIN_UTILS.formatVET(sarcophagusData.vetAmount)} VET
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      Created: {new Date(sarcophagusData.createdAt * 1000).toLocaleDateString()}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-600">No active vault</p>
-                )}
-              </div>
-
-              {/* OBOL Balance */}
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h3 className="font-semibold text-purple-800 mb-2">🪙 OBOL Balance</h3>
-                <p className="text-sm text-purple-600">
+                <h3 className="text-lg font-semibold text-green-800">OBOL Rewards</h3>
+                <p className="text-2xl font-bold text-green-600">
                   {VECHAIN_UTILS.formatVET(obolBalance)} OBOL
+                </p>
+              </div>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-purple-800">Beneficiaries</h3>
+                <p className="text-2xl font-bold text-purple-600">
+                  {sarcophagusData?.beneficiaries.length || 0}
                 </p>
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-800 mb-4">Quick Actions</h3>
-              <div className="flex flex-wrap gap-3">
-                {!userVerification?.isVerified && (
-                  <button
-                    onClick={handleUserVerification}
-                    disabled={isLoading}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                  >
-                    Verify Identity
-                  </button>
+            {/* Transaction Status */}
+            {activeTransaction && (
+              <div className={`p-4 rounded-lg border ${
+                activeTransaction.status === 'pending' ? 'bg-blue-50 border-blue-200' :
+                activeTransaction.status === 'confirmed' ? 'bg-green-50 border-green-200' :
+                'bg-red-50 border-red-200'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    {getTransactionStatusIcon(activeTransaction.status)}
+                    <div>
+                      <h4 className="font-medium text-gray-800">{activeTransaction.description}</h4>
+                      <p className="text-sm text-gray-600">
+                        {activeTransaction.status === 'pending' && 'Processing transaction...'}
+                        {activeTransaction.status === 'confirmed' && 'Transaction confirmed!'}
+                        {activeTransaction.status === 'failed' && 'Transaction failed'}
+                        {activeTransaction.status === 'reverted' && 'Transaction reverted'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600">TX: {activeTransaction.txid.substring(0, 10)}...</p>
+                    <p className="text-xs text-gray-500">{formatTransactionTime(activeTransaction.timestamp)}</p>
+                  </div>
+                </div>
+                {activeTransaction.status === 'confirmed' && activeTransaction.gasUsed && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    Gas used: {activeTransaction.gasUsed} • Block: {activeTransaction.blockNumber}
+                  </div>
                 )}
-                {userVerification?.isVerified && !sarcophagusData && (
-                  <button
-                    onClick={handleCreateSarcophagus}
-                    disabled={isLoading}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                  >
-                    Create Vault
-                  </button>
-                )}
-                {sarcophagusData && (
-                  <button
-                    onClick={() => setActiveTab('manage')}
-                    className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                  >
-                    Manage Vault
-                  </button>
+                {activeTransaction.error && (
+                  <div className="mt-2 text-sm text-red-600">
+                    Error: {activeTransaction.error}
+                  </div>
                 )}
               </div>
+            )}
+
+            {/* Transaction History */}
+            {transactions.length > 0 && (
+              <div className="bg-white border border-gray-200 rounded-lg">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-800">Recent Transactions</h3>
+                  <button
+                    onClick={() => setShowTransactionHistory(!showTransactionHistory)}
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    {showTransactionHistory ? 'Hide Details' : 'Show Details'}
+                  </button>
+                </div>
+                
+                <div className="divide-y divide-gray-200">
+                  {transactions.slice(0, showTransactionHistory ? transactions.length : 3).map((tx) => (
+                    <div key={tx.id} className="p-4 hover:bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-lg">{getTransactionTypeIcon(tx.type)}</span>
+                          <div>
+                            <p className="font-medium text-gray-800">{tx.description}</p>
+                            <p className="text-sm text-gray-600">
+                              {formatTransactionTime(tx.timestamp)}
+                              {tx.amount && tx.amount !== '0' && ` • ${tx.amount} VET`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {getTransactionStatusIcon(tx.status)}
+                          <span className={`text-sm font-medium ${
+                            tx.status === 'confirmed' ? 'text-green-600' :
+                            tx.status === 'pending' ? 'text-blue-600' :
+                            'text-red-600'
+                          }`}>
+                            {tx.status === 'pending' ? 'Pending' :
+                             tx.status === 'confirmed' ? 'Confirmed' :
+                             tx.status === 'failed' ? 'Failed' :
+                             'Reverted'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {showTransactionHistory && (
+                        <div className="mt-2 text-xs text-gray-500 space-y-1">
+                          <p>Transaction ID: {tx.txid}</p>
+                          {tx.gasUsed && tx.gasUsed !== '0' && <p>Gas Used: {tx.gasUsed}</p>}
+                          {tx.blockNumber && <p>Block: {tx.blockNumber}</p>}
+                          {tx.confirmations && <p>Confirmations: {tx.confirmations}</p>}
+                          {tx.error && <p className="text-red-500">Error: {tx.error}</p>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                {transactions.length > 3 && !showTransactionHistory && (
+                  <div className="p-4 text-center">
+                    <button
+                      onClick={() => setShowTransactionHistory(true)}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      View all {transactions.length} transactions
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {!sarcophagusData ? (
+                <button
+                  onClick={() => setActiveTab('create')}
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium"
+                >
+                  Create Vault
+                </button>
+              ) : (
+                <button
+                  onClick={() => setActiveTab('manage')}
+                  className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-medium"
+                >
+                  Manage Vault
+                </button>
+              )}
             </div>
           </div>
         )}
