@@ -118,17 +118,28 @@ export class ContractInteractions {
         ]
       }).call(userAddress);
       
-      return {
-        isVerified: result.isVerified,
-        age: result.age,
-        verificationHash: result.isVerified ? 'Verified' : 'Not verified'
-      };
+      // Handle the result properly
+      if (result && typeof result.isVerified === 'boolean') {
+        return {
+          isVerified: result.isVerified,
+          age: result.age || 0,
+          verificationHash: result.isVerified ? 'Verified' : 'Not verified'
+        };
+      } else {
+        // User not verified yet
+        return {
+          isVerified: false,
+          age: 0,
+          verificationHash: 'Not verified yet'
+        };
+      }
     } catch (error) {
       console.error('Error getting user verification:', error);
+      // Return default values for any error (user might not be verified yet)
       return {
         isVerified: false,
         age: 0,
-        verificationHash: 'Error loading verification'
+        verificationHash: 'Not verified yet'
       };
     }
   }
@@ -177,6 +188,20 @@ export class ContractInteractions {
     try {
       const obol = this.connex.thor.account(CONTRACT_ADDRESSES.testnet.obolToken);
       
+      // First try to get basic balance
+      const balance = await obol.method({
+        name: 'balanceOf',
+        type: 'function',
+        inputs: [{ name: 'account', type: 'address' }],
+        outputs: [{ name: '', type: 'uint256' }]
+      }).call(userAddress);
+      
+      // If user has no balance, return 0
+      if (!balance || balance === '0') {
+        return '0';
+      }
+      
+      // Try to get stake data
       const result = await obol.method({
         name: 'getUserStake',
         type: 'function',
@@ -194,9 +219,11 @@ export class ContractInteractions {
         ]
       }).call(userAddress);
       
-      return result.pendingRewards || '0';
+      // Return pending rewards or 0 if not available
+      return result?.pendingRewards || '0';
     } catch (error) {
       console.error('Error getting OBOL rewards:', error);
+      // Return 0 for any error (user might not have stakes yet)
       return '0';
     }
   }

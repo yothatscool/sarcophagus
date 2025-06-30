@@ -383,7 +383,7 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
         console.log('Mock add funds successful!');
         
         // Update the sarcophagus data with more funds
-        const currentAmount = BigInt(sarcophagusData.vetAmount);
+        const currentAmount = sarcophagusData?.vetAmount ? BigInt(sarcophagusData.vetAmount) : BigInt('0');
         const newAmount = currentAmount + BigInt('500000000000000000'); // Add 0.5 VET
         const updatedSarcophagusData = {
           ...sarcophagusData,
