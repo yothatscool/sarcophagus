@@ -1055,9 +1055,18 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       return;
     }
     
-    setIsLoading(true);
+    // Start enhanced loading with progress tracking
+    setLoading('create_vault', true, {
+      message: 'Creating your Sarcophagus vault on the blockchain...',
+      estimatedTime: 45000 // 45 seconds
+    });
+    
     try {
       console.log('Creating sarcophagus...');
+      
+      // Step 1: Prepare vault data
+      setStep('create_vault', 'Preparing vault data', 'Setting up your vault configuration...');
+      setProgress('create_vault', 10);
       
       const contractInteractions = new ContractInteractions(connex, isTestMode);
       
@@ -1068,8 +1077,16 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       ];
       const percentages = [60, 40]; // 60% to first beneficiary, 40% to second
       
+      // Step 2: Submit vault creation
+      setStep('create_vault', 'Submitting vault creation', 'Sending vault creation to smart contract...');
+      setProgress('create_vault', 30);
+      
       // Call the contract to create sarcophagus
       const tx = await contractInteractions.createSarcophagus(account.address, beneficiaries, percentages);
+      
+      // Step 3: Wait for confirmation
+      setStep('create_vault', 'Waiting for confirmation', 'Waiting for blockchain confirmation...');
+      setProgress('create_vault', 60);
       
       // Add transaction to tracking system
       const transaction = addTransaction({
@@ -1084,6 +1101,10 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       // Set transaction as pending (legacy support)
       setLastTransaction({ txid: tx.txid, status: 'pending' });
       
+      // Step 4: Confirm transaction
+      setStep('create_vault', 'Confirming transaction', 'Confirming your vault creation on the blockchain...');
+      setProgress('create_vault', 80);
+      
       // Wait for transaction confirmation
       const receipt = await tx.wait();
       
@@ -1092,6 +1113,10 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
         setLastTransaction({ txid: tx.txid, status: 'failed' });
         throw new Error('Transaction reverted');
       }
+      
+      // Step 5: Complete vault creation
+      setStep('create_vault', 'Completing vault creation', 'Finalizing your vault setup...');
+      setProgress('create_vault', 95);
       
       // Update transaction status
       updateTransaction(tx.txid, { 
@@ -1103,6 +1128,10 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       
       // Set transaction as successful (legacy support)
       setLastTransaction({ txid: tx.txid, status: 'success' });
+      
+      // Step 6: Success
+      setStep('create_vault', 'Vault creation complete', 'Your Sarcophagus vault has been created successfully!');
+      setProgress('create_vault', 100);
       
       console.log('Sarcophagus created successfully! Transaction ID:', tx.txid);
       
@@ -1163,6 +1192,8 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
         setLastTransaction({ txid: lastTransaction.txid, status: 'failed' });
       }
     } finally {
+      // Clear loading state
+      clearLoading('create_vault');
       setIsLoading(false);
     }
   };
@@ -2084,10 +2115,17 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
                 </p>
                 <button
                   onClick={handleCreateSarcophagus}
-                  disabled={isLoading}
+                  disabled={loadingStates.create_vault?.isLoading}
                   className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium"
                 >
-                  {isLoading ? 'Creating...' : 'Create Vault'}
+                  {loadingStates.create_vault?.isLoading ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <LoadingSpinner size="sm" color="primary" />
+                      <span>Creating...</span>
+                    </div>
+                  ) : (
+                    'Create Vault'
+                  )}
                 </button>
               </div>
             )}
