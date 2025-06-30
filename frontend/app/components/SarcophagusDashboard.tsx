@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLoading } from '../contexts/LoadingContext';
+import { LoadingSpinner, ProgressBar, LoadingCard, SkeletonLoader } from './LoadingSpinner';
 import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from '../config/contracts';
 import { VECHAIN_UTILS } from '../config/vechain-native';
 import { useNotification } from '../contexts/NotificationContext';
@@ -141,7 +143,21 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
   const [userVerification, setUserVerification] = useState<UserVerification | null>(null);
   const [sarcophagusData, setSarcophagusData] = useState<SarcophagusData | null>(null);
   const [obolBalance, setObolBalance] = useState<string>('0');
+
+  // Enhanced loading state management
+  const { 
+    loadingStates, 
+    setLoading, 
+    setProgress, 
+    setStep, 
+    clearLoading, 
+    getLoadingState,
+    isAnyLoading 
+  } = useLoading();
+
+  // Legacy loading state for backward compatibility
   const [isLoading, setIsLoading] = useState(false);
+
   const [activeTab, setActiveTab] = useState<'overview' | 'create' | 'manage' | 'beneficiaries' | 'verification'>('overview');
   const [isTestMode, setIsTestMode] = useState(true); // Default to test mode
   const [lastTransaction, setLastTransaction] = useState<{ txid: string; status: 'pending' | 'success' | 'failed' } | null>(null);
@@ -776,6 +792,27 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     }
   };
 
+  const getLoadingTitle = (key: string): string => {
+    switch (key) {
+      case 'verification':
+        return 'Identity Verification';
+      case 'create_vault':
+        return 'Creating Vault';
+      case 'add_funds':
+        return 'Adding Funds';
+      case 'update_beneficiaries':
+        return 'Updating Beneficiaries';
+      case 'emergency_withdraw':
+        return 'Emergency Withdrawal';
+      case 'load_data':
+        return 'Loading Data';
+      case 'test_integration':
+        return 'Testing Integration';
+      default:
+        return 'Processing...';
+    }
+  };
+
   useEffect(() => {
     if (account && connex) {
       loadUserData();
@@ -794,51 +831,76 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
   const loadUserData = async () => {
     if (!account || !connex) return;
     
-    setIsLoading(true);
+    // Start enhanced loading
+    setLoading('load_data', true, {
+      message: 'Loading your vault data from the blockchain...',
+      estimatedTime: 10000 // 10 seconds
+    });
+    
     try {
       console.log('Loading user data...');
       
-      // Initialize contract interactions
+      // Step 1: Load basic user data
+      setStep('load_data', 'Loading user data', 'Fetching your profile information...');
+      setProgress('load_data', 20);
+      
       const contractInteractions = new ContractInteractions(connex, isTestMode);
       
-      // Load user verification status
-      const verification = await contractInteractions.getUserVerification(account.address);
-      setUserVerification(verification);
+      // Step 2: Check verification status
+      setStep('load_data', 'Checking verification', 'Verifying your identity status...');
+      setProgress('load_data', 40);
       
-      // Load sarcophagus data
-      const sarcophagus = await contractInteractions.getUserSarcophagus(account.address);
-      setSarcophagusData(sarcophagus);
+      const verificationStatus = await contractInteractions.getUserVerification(account.address);
       
-      // Load OBOL rewards
-      const obolRewards = await contractInteractions.getObolRewards(account.address);
-      setObolBalance(obolRewards);
-
-      console.log('User data loaded successfully');
-
-      // Update parent component
-      if (onUserDataUpdate) {
-        onUserDataUpdate({
-          isVerified: verification.isVerified,
-          hasSarcophagus: !!sarcophagus,
-          userSarcophagus: sarcophagus,
-          userBeneficiaries: sarcophagus?.beneficiaries || [],
-          obolRewards: obolRewards
+      if (verificationStatus.isVerified) {
+        setUserVerification({
+          isVerified: true,
+          age: verificationStatus.age || 25,
+          verificationHash: verificationStatus.verificationHash || 'mock-hash'
         });
       }
-
+      
+      // Step 3: Load sarcophagus data
+      setStep('load_data', 'Loading vault data', 'Fetching your sarcophagus information...');
+      setProgress('load_data', 60);
+      
+      const sarcophagusStatus = await contractInteractions.getUserSarcophagus(account.address);
+      
+      if (sarcophagusStatus) {
+        const sarcophagusData: SarcophagusData = {
+          vetAmount: sarcophagusStatus.vetAmount || '0',
+          createdAt: sarcophagusStatus.createdAt || Date.now(),
+          beneficiaries: sarcophagusStatus.beneficiaries || []
+        };
+        setSarcophagusData(sarcophagusData);
+      }
+      
+      // Step 4: Load OBOL balance
+      setStep('load_data', 'Loading rewards', 'Fetching your OBOL rewards...');
+      setProgress('load_data', 80);
+      
+      const obolBalance = await contractInteractions.getObolRewards(account.address);
+      setObolBalance(obolBalance);
+      
+      // Step 5: Complete loading
+      setStep('load_data', 'Loading complete', 'All data loaded successfully!');
+      setProgress('load_data', 100);
+      
+      console.log('User data loaded successfully');
+      
     } catch (error) {
       console.error('Error loading user data:', error);
       
-      // Fallback to mock data on error
-      setUserVerification({
-        isVerified: false,
-        age: 0,
-        verificationHash: 'Error loading verification'
+      // Use enhanced error handling
+      showError(error, {
+        action: 'load_data',
+        step: 'data_loading',
+        userData: { address: account.address }
       });
-      setSarcophagusData(null);
-      setObolBalance('0');
+      
     } finally {
-      setIsLoading(false);
+      // Clear loading state
+      clearLoading('load_data');
     }
   };
 
@@ -848,43 +910,46 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       return;
     }
     
-    // Validate age before proceeding
-    const ageValidation = validateAge(ageInput);
-    if (!ageValidation.isValid) {
-      setAgeError(ageValidation.error);
+    if (!ageInput || !validateAge(ageInput).isValid) {
+      alert('Please enter a valid age.');
       return;
     }
     
-    setIsLoading(true);
+    const age = parseInt(ageInput);
+    
+    // Start enhanced loading with progress tracking
+    setLoading('verification', true, {
+      message: 'Verifying your identity on the blockchain...',
+      estimatedTime: 30000 // 30 seconds
+    });
+    
     try {
-      console.log('Starting user verification process...');
-      console.log('Test mode:', isTestMode);
+      console.log('Starting user verification...');
+      
+      // Step 1: Prepare verification data
+      setStep('verification', 'Preparing verification data', 'Setting up your verification request...');
+      setProgress('verification', 10);
       
       const contractInteractions = new ContractInteractions(connex, isTestMode);
       
-      // Generate a mock verification hash for testing
+      // Step 2: Submit verification
+      setStep('verification', 'Submitting verification', 'Sending verification to smart contract...');
+      setProgress('verification', 30);
+      
+      // Generate verification hash
       const verificationHash = `verification-${account.address}-${Date.now()}`;
-      const age = parseInt(ageInput); // Use validated age input
+      const tx = await contractInteractions.verifyUser(account.address, age, verificationHash);
       
-      console.log('Calling verifyUser with:', { userAddress: account.address, age, verificationHash });
-      
-      // Call the contract to verify user with timeout
-      const txPromise = contractInteractions.verifyUser(account.address, age, verificationHash);
-      const tx = await Promise.race([
-        txPromise,
-        new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Transaction timeout after 30 seconds')), 30000)
-        )
-      ]) as Awaited<ReturnType<typeof contractInteractions.verifyUser>>;
-      
-      console.log('Transaction created:', tx);
+      // Step 3: Wait for confirmation
+      setStep('verification', 'Waiting for confirmation', 'Waiting for blockchain confirmation...');
+      setProgress('verification', 60);
       
       // Add transaction to tracking system
       const transaction = addTransaction({
         txid: tx.txid,
         type: 'verification',
         status: 'pending',
-        description: `Identity verification for age ${age}`,
+        description: 'User identity verification',
         amount: '0',
         gasUsed: '0'
       });
@@ -892,16 +957,11 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       // Set transaction as pending (legacy support)
       setLastTransaction({ txid: tx.txid, status: 'pending' });
       
-      // Wait for transaction confirmation with timeout
-      const receiptPromise = tx.wait();
-      const receipt = await Promise.race([
-        receiptPromise,
-        new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Transaction confirmation timeout after 60 seconds')), 60000)
-        )
-      ]) as Awaited<ReturnType<typeof tx.wait>>;
+      // Step 4: Confirm transaction
+      setStep('verification', 'Confirming transaction', 'Confirming your verification on the blockchain...');
+      setProgress('verification', 80);
       
-      console.log('Transaction receipt:', receipt);
+      const receipt = await tx.wait();
       
       if (receipt.reverted) {
         updateTransaction(tx.txid, { status: 'reverted', error: 'Transaction was reverted' });
@@ -909,31 +969,41 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
         throw new Error('Transaction reverted');
       }
       
+      // Step 5: Complete verification
+      setStep('verification', 'Completing verification', 'Finalizing your verification...');
+      setProgress('verification', 95);
+      
       // Update transaction status
       updateTransaction(tx.txid, { 
         status: 'confirmed',
-        gasUsed: '50000', // Default gas estimate for VeChain
-        blockNumber: Date.now(), // Use timestamp as block number for now
+        gasUsed: '50000',
+        blockNumber: Date.now(),
         confirmations: 1
       });
       
       // Set transaction as successful (legacy support)
       setLastTransaction({ txid: tx.txid, status: 'success' });
       
-      console.log('Verification successful! Transaction ID:', tx.txid);
+      // Step 6: Success
+      setStep('verification', 'Verification complete', 'Your identity has been verified successfully!');
+      setProgress('verification', 100);
+      
+      console.log('User verification successful! Transaction ID:', tx.txid);
       
       // Update local state
-      setUserVerification({
+      const newVerification: UserVerification = {
         isVerified: true,
         age: age,
-        verificationHash: verificationHash
-      });
+        verificationHash: tx.txid
+      };
+      
+      setUserVerification(newVerification);
       
       // Update parent component
       if (onUserDataUpdate) {
         onUserDataUpdate({
           isVerified: true,
-          hasSarcophagus: !!sarcophagusData,
+          hasSarcophagus: sarcophagusData !== null,
           userSarcophagus: sarcophagusData,
           userBeneficiaries: sarcophagusData?.beneficiaries || [],
           obolRewards: obolBalance
@@ -943,7 +1013,7 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       // Show success message
       const successMessage = document.createElement('div');
       successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-      successMessage.textContent = `✅ Identity verification successful! Transaction: ${tx.txid.substring(0, 10)}...`;
+      successMessage.textContent = `✅ Identity verified! Transaction: ${tx.txid.substring(0, 10)}...`;
       document.body.appendChild(successMessage);
       
       // Remove the message after 5 seconds
@@ -968,6 +1038,8 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
         setLastTransaction({ txid: lastTransaction.txid, status: 'failed' });
       }
     } finally {
+      // Clear loading state
+      clearLoading('verification');
       setIsLoading(false);
     }
   };
@@ -1562,6 +1634,28 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
 
   return (
     <div className="bg-white rounded-lg shadow-md">
+      {/* Enhanced Loading Overlay */}
+      {isAnyLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="max-w-md w-full mx-4">
+            {Object.entries(loadingStates).map(([key, state]) => 
+              state.isLoading && (
+                <LoadingCard
+                  key={key}
+                  title={getLoadingTitle(key)}
+                  message={state.message}
+                  progress={state.progress}
+                  step={state.step}
+                  estimatedTime={state.estimatedTime}
+                  startTime={state.startTime}
+                  className="mb-4"
+                />
+              )
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Enhanced Error Display */}
       {currentError && (
         <div className={`fixed top-4 right-4 max-w-md p-4 rounded-lg border shadow-lg z-50 ${getErrorColor(currentError.severity)}`}>
@@ -1859,6 +1953,46 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
                 </button>
               )}
             </div>
+
+            {/* User Status */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">User Status</h3>
+              
+              {loadingStates.load_data?.isLoading ? (
+                <SkeletonLoader type="list" lines={3} />
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Identity Verification:</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      userVerification?.isVerified 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {userVerification?.isVerified ? 'Verified' : 'Not Verified'}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Vault Status:</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      sarcophagusData 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {sarcophagusData ? 'Active' : 'Not Created'}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Age:</span>
+                    <span className="text-gray-900 font-medium">
+                      {userVerification?.age || 'Not Set'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1923,23 +2057,20 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
                   
                   <button
                     onClick={handleUserVerification}
-                    disabled={isLoading || !ageInput || !!ageError}
-                    className={`w-full px-6 py-3 rounded-lg font-medium transition-colors ${
-                      isLoading || !ageInput || !!ageError
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                    }`}
+                    disabled={loadingStates.verification?.isLoading || !ageInput || !validateAge(ageInput).isValid}
+                    className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
+                      loadingStates.verification?.isLoading
+                        ? 'bg-blue-400 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+                    } text-white shadow-md hover:shadow-lg active:shadow-sm`}
                   >
-                    {isLoading ? (
-                      <span className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Verifying Identity...
-                      </span>
+                    {loadingStates.verification?.isLoading ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <LoadingSpinner size="sm" color="primary" />
+                        <span>Verifying...</span>
+                      </div>
                     ) : (
-                      'Verify Identity & Continue'
+                      'Verify Identity'
                     )}
                   </button>
                 </div>
@@ -2476,21 +2607,18 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
                       
                       <button
                         onClick={handleUserVerification}
-                        disabled={isLoading || !ageInput || !!ageError}
-                        className={`w-full px-6 py-3 rounded-lg font-medium transition-colors ${
-                          isLoading || !ageInput || !!ageError
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white'
-                        }`}
+                        disabled={loadingStates.verification?.isLoading || !ageInput || !validateAge(ageInput).isValid}
+                        className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
+                          loadingStates.verification?.isLoading
+                            ? 'bg-blue-400 cursor-not-allowed'
+                            : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+                        } text-white shadow-md hover:shadow-lg active:shadow-sm`}
                       >
-                        {isLoading ? (
-                          <span className="flex items-center justify-center">
-                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Verifying Identity...
-                          </span>
+                        {loadingStates.verification?.isLoading ? (
+                          <div className="flex items-center justify-center space-x-2">
+                            <LoadingSpinner size="sm" color="primary" />
+                            <span>Verifying...</span>
+                          </div>
                         ) : (
                           'Verify Identity'
                         )}
