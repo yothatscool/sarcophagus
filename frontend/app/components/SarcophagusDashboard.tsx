@@ -133,6 +133,21 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     age: ''
   });
 
+  // Amount validation state
+  const [showAmountForm, setShowAmountForm] = useState(false);
+  const [amountForm, setAmountForm] = useState({
+    vetAmount: '',
+    vthoAmount: '',
+    b3trAmount: ''
+  });
+  const [amountErrors, setAmountErrors] = useState({
+    vetAmount: '',
+    vthoAmount: '',
+    b3trAmount: ''
+  });
+  const [gasEstimate, setGasEstimate] = useState<string>('0');
+  const [totalValue, setTotalValue] = useState<string>('0');
+
   // Age validation function
   const validateAge = (age: string): { isValid: boolean; error: string } => {
     if (!age.trim()) {
@@ -277,6 +292,141 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     });
     
     return recipientValidation.isValid && percentageValidation.isValid && ageValidation.isValid;
+  };
+
+  // Amount validation functions
+  const validateVETAmount = (amount: string): { isValid: boolean; error: string } => {
+    if (!amount.trim()) {
+      return { isValid: false, error: 'Amount is required' };
+    }
+    
+    const amountNum = parseFloat(amount);
+    
+    if (isNaN(amountNum)) {
+      return { isValid: false, error: 'Please enter a valid number' };
+    }
+    
+    if (amountNum <= 0) {
+      return { isValid: false, error: 'Amount must be greater than 0' };
+    }
+    
+    if (amountNum > 1000000) {
+      return { isValid: false, error: 'Amount cannot exceed 1,000,000 VET' };
+    }
+    
+    // Check if user has enough balance
+    if (account && amountNum > parseFloat(account.balance)) {
+      return { isValid: false, error: `Insufficient balance. You have ${parseFloat(account.balance).toFixed(2)} VET` };
+    }
+    
+    // Minimum deposit check
+    if (amountNum < 0.1) {
+      return { isValid: false, error: 'Minimum deposit is 0.1 VET' };
+    }
+    
+    return { isValid: true, error: '' };
+  };
+
+  const validateVTHOAmount = (amount: string): { isValid: boolean; error: string } => {
+    if (!amount.trim()) {
+      return { isValid: true, error: '' }; // VTHO is optional
+    }
+    
+    const amountNum = parseFloat(amount);
+    
+    if (isNaN(amountNum)) {
+      return { isValid: false, error: 'Please enter a valid number' };
+    }
+    
+    if (amountNum < 0) {
+      return { isValid: false, error: 'Amount cannot be negative' };
+    }
+    
+    if (amountNum > 1000000) {
+      return { isValid: false, error: 'Amount cannot exceed 1,000,000 VTHO' };
+    }
+    
+    // Check if user has enough energy
+    if (account && amountNum > parseFloat(account.energy)) {
+      return { isValid: false, error: `Insufficient energy. You have ${parseFloat(account.energy).toFixed(2)} VTHO` };
+    }
+    
+    return { isValid: true, error: '' };
+  };
+
+  const validateB3TRAmount = (amount: string): { isValid: boolean; error: string } => {
+    if (!amount.trim()) {
+      return { isValid: true, error: '' }; // B3TR is optional
+    }
+    
+    const amountNum = parseFloat(amount);
+    
+    if (isNaN(amountNum)) {
+      return { isValid: false, error: 'Please enter a valid number' };
+    }
+    
+    if (amountNum < 0) {
+      return { isValid: false, error: 'Amount cannot be negative' };
+    }
+    
+    if (amountNum > 1000000) {
+      return { isValid: false, error: 'Amount cannot exceed 1,000,000 B3TR' };
+    }
+    
+    return { isValid: true, error: '' };
+  };
+
+  // Handle amount form changes
+  const handleAmountFormChange = (field: string, value: string) => {
+    setAmountForm(prev => ({ ...prev, [field]: value }));
+    
+    // Clear error for this field when user starts typing
+    setAmountErrors(prev => ({ ...prev, [field]: '' }));
+    
+    // Update total value calculation
+    updateTotalValue({ ...amountForm, [field]: value });
+  };
+
+  // Calculate total value in VET equivalent
+  const updateTotalValue = (formData: typeof amountForm) => {
+    const vetValue = parseFloat(formData.vetAmount) || 0;
+    const vthoValue = (parseFloat(formData.vthoAmount) || 0) * 0.0001; // VTHO to VET conversion
+    const b3trValue = (parseFloat(formData.b3trAmount) || 0) * 0.001; // B3TR to VET conversion
+    
+    const total = vetValue + vthoValue + b3trValue;
+    setTotalValue(total.toFixed(4));
+    
+    // Estimate gas (rough calculation)
+    const gasEstimate = Math.max(0.01, total * 0.001); // 0.1% of total, minimum 0.01 VET
+    setGasEstimate(gasEstimate.toFixed(4));
+  };
+
+  // Validate entire amount form
+  const validateAmountForm = (): boolean => {
+    const vetValidation = validateVETAmount(amountForm.vetAmount);
+    const vthoValidation = validateVTHOAmount(amountForm.vthoAmount);
+    const b3trValidation = validateB3TRAmount(amountForm.b3trAmount);
+    
+    setAmountErrors({
+      vetAmount: vetValidation.error,
+      vthoAmount: vthoValidation.error,
+      b3trAmount: b3trValidation.error
+    });
+    
+    return vetValidation.isValid && vthoValidation.isValid && b3trValidation.isValid;
+  };
+
+  // Set maximum amounts
+  const setMaxAmount = (field: string) => {
+    if (field === 'vetAmount' && account) {
+      const maxVET = Math.max(0, parseFloat(account.balance) - 0.1); // Leave 0.1 VET for gas
+      setAmountForm(prev => ({ ...prev, vetAmount: maxVET.toFixed(4) }));
+      updateTotalValue({ ...amountForm, vetAmount: maxVET.toFixed(4) });
+    } else if (field === 'vthoAmount' && account) {
+      const maxVTHO = parseFloat(account.energy);
+      setAmountForm(prev => ({ ...prev, vthoAmount: maxVTHO.toFixed(4) }));
+      updateTotalValue({ ...amountForm, vthoAmount: maxVTHO.toFixed(4) });
+    }
   };
 
   useEffect(() => {
@@ -566,47 +716,79 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       return;
     }
     
+    // Show the amount form
+    setShowAmountForm(true);
+    setAmountForm({
+      vetAmount: '',
+      vthoAmount: '',
+      b3trAmount: ''
+    });
+    setAmountErrors({
+      vetAmount: '',
+      vthoAmount: '',
+      b3trAmount: ''
+    });
+    setGasEstimate('0');
+    setTotalValue('0');
+  };
+
+  // Save Amount Handler
+  const handleSaveAmount = async () => {
+    if (!account || !connex || !sarcophagusData) {
+      alert('Please connect your wallet and ensure you have an active vault.');
+      return;
+    }
+    
+    // Validate the form
+    if (!validateAmountForm()) {
+      return;
+    }
+    
     setIsLoading(true);
     try {
       console.log('Starting add funds process...');
       
-      // Mock add funds process
+      // Convert amounts to wei (18 decimals)
+      const vetAmountWei = BigInt(Math.floor(parseFloat(amountForm.vetAmount) * 1e18));
+      const vthoAmountWei = BigInt(Math.floor(parseFloat(amountForm.vthoAmount || '0') * 1e18));
+      const b3trAmountWei = BigInt(Math.floor(parseFloat(amountForm.b3trAmount || '0') * 1e18));
+      
+      // Update the sarcophagus data with new funds
+      const currentVETAmount = sarcophagusData?.vetAmount ? BigInt(sarcophagusData.vetAmount) : BigInt('0');
+      const newVETAmount = currentVETAmount + vetAmountWei;
+      
+      const updatedSarcophagusData = {
+        ...sarcophagusData,
+        vetAmount: newVETAmount.toString()
+      };
+      
+      setSarcophagusData(updatedSarcophagusData);
+      
+      // Update parent component with new sarcophagus data
+      if (onUserDataUpdate) {
+        onUserDataUpdate({
+          isVerified: userVerification?.isVerified || false,
+          hasSarcophagus: true,
+          userSarcophagus: updatedSarcophagusData,
+          userBeneficiaries: updatedSarcophagusData.beneficiaries,
+          obolRewards: obolBalance
+        });
+      }
+      
+      // Close the form
+      setShowAmountForm(false);
+      
+      // Show success message
+      const successMessage = document.createElement('div');
+      successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      successMessage.textContent = `✅ Funds added successfully! ${amountForm.vetAmount} VET added to your vault.`;
+      document.body.appendChild(successMessage);
+      
       setTimeout(() => {
-        console.log('Mock add funds successful!');
-        
-        // Update the sarcophagus data with more funds
-        const currentAmount = sarcophagusData?.vetAmount ? BigInt(sarcophagusData.vetAmount) : BigInt('0');
-        const newAmount = currentAmount + BigInt('500000000000000000'); // Add 0.5 VET
-        const updatedSarcophagusData = {
-          ...sarcophagusData,
-          vetAmount: newAmount.toString()
-        };
-        
-        setSarcophagusData(updatedSarcophagusData);
-        
-        // Update parent component with new sarcophagus data
-        if (onUserDataUpdate) {
-          onUserDataUpdate({
-            isVerified: true,
-            hasSarcophagus: true,
-            userSarcophagus: updatedSarcophagusData,
-            userBeneficiaries: updatedSarcophagusData.beneficiaries,
-            obolRewards: '1500000000000000000' // Increase OBOL rewards to 1.5
-          });
-        }
-        
-        // Show success message
-        const successMessage = document.createElement('div');
-        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-        successMessage.textContent = '✅ Funds added successfully! 0.5 VET added to your vault.';
-        document.body.appendChild(successMessage);
-        
-        setTimeout(() => {
+        if (document.body.contains(successMessage)) {
           document.body.removeChild(successMessage);
-        }, 5000);
-        
-        setIsLoading(false);
-      }, 2000);
+        }
+      }, 5000);
       
     } catch (error) {
       console.error('Error adding funds:', error);
@@ -617,11 +799,30 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       document.body.appendChild(errorMessage);
       
       setTimeout(() => {
-        document.body.removeChild(errorMessage);
+        if (document.body.contains(errorMessage)) {
+          document.body.removeChild(errorMessage);
+        }
       }, 5000);
-      
+    } finally {
       setIsLoading(false);
     }
+  };
+
+  // Cancel Amount Form
+  const handleCancelAmountForm = () => {
+    setShowAmountForm(false);
+    setAmountForm({
+      vetAmount: '',
+      vthoAmount: '',
+      b3trAmount: ''
+    });
+    setAmountErrors({
+      vetAmount: '',
+      vthoAmount: '',
+      b3trAmount: ''
+    });
+    setGasEstimate('0');
+    setTotalValue('0');
   };
 
   // Update Beneficiaries Handler
@@ -1235,43 +1436,215 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
             {sarcophagusData ? (
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Manage Your Vault</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-800 mb-2">Vault Details</h4>
-                    <p className="text-sm text-gray-600">
-                      <strong>Balance:</strong> {VECHAIN_UTILS.formatVET(sarcophagusData.vetAmount)} VET
+                
+                {showAmountForm ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                    <h4 className="font-medium text-blue-800 mb-4">Add Funds to Your Vault</h4>
+                    <p className="text-sm text-blue-700 mb-4">
+                      Deposit VET, VTHO, and B3TR tokens into your vault. These funds will be securely stored 
+                      and distributed to your beneficiaries according to your specified instructions.
                     </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Created:</strong> {new Date(sarcophagusData.createdAt * 1000).toLocaleDateString()}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Beneficiaries:</strong> {sarcophagusData.beneficiaries.length}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-800 mb-2">Quick Actions</h4>
-                    <div className="space-y-2">
-                      <button
-                        onClick={handleAddFunds}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
-                      >
-                        Add Funds
-                      </button>
-                      <button
-                        onClick={handleUpdateBeneficiaries}
-                        className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded text-sm"
-                      >
-                        Update Beneficiaries
-                      </button>
-                      <button
-                        onClick={handleEmergencyWithdraw}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
-                      >
-                        Emergency Withdraw
-                      </button>
+                    
+                    <div className="space-y-4">
+                      {/* VET Amount */}
+                      <div>
+                        <label htmlFor="vet-amount" className="block text-sm font-medium text-gray-700 mb-2">
+                          VET Amount *
+                        </label>
+                        <div className="flex space-x-2">
+                          <input
+                            id="vet-amount"
+                            type="number"
+                            min="0.1"
+                            max="1000000"
+                            step="0.01"
+                            value={amountForm.vetAmount}
+                            onChange={(e) => handleAmountFormChange('vetAmount', e.target.value)}
+                            placeholder="Enter VET amount (e.g., 10.5)"
+                            className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              amountErrors.vetAmount ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                            }`}
+                            disabled={isLoading}
+                          />
+                          <button
+                            onClick={() => setMaxAmount('vetAmount')}
+                            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+                            disabled={isLoading}
+                          >
+                            Max
+                          </button>
+                        </div>
+                        {amountErrors.vetAmount && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center">
+                            <span className="mr-1">⚠️</span>
+                            {amountErrors.vetAmount}
+                          </p>
+                        )}
+                        {!amountErrors.vetAmount && amountForm.vetAmount && (
+                          <p className="mt-1 text-sm text-blue-600">
+                            You'll deposit {amountForm.vetAmount} VET to your vault
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* VTHO Amount */}
+                      <div>
+                        <label htmlFor="vtho-amount" className="block text-sm font-medium text-gray-700 mb-2">
+                          VTHO Amount (Optional)
+                        </label>
+                        <div className="flex space-x-2">
+                          <input
+                            id="vtho-amount"
+                            type="number"
+                            min="0"
+                            max="1000000"
+                            step="0.01"
+                            value={amountForm.vthoAmount}
+                            onChange={(e) => handleAmountFormChange('vthoAmount', e.target.value)}
+                            placeholder="Enter VTHO amount (e.g., 1000)"
+                            className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              amountErrors.vthoAmount ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                            }`}
+                            disabled={isLoading}
+                          />
+                          <button
+                            onClick={() => setMaxAmount('vthoAmount')}
+                            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+                            disabled={isLoading}
+                          >
+                            Max
+                          </button>
+                        </div>
+                        {amountErrors.vthoAmount && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center">
+                            <span className="mr-1">⚠️</span>
+                            {amountErrors.vthoAmount}
+                          </p>
+                        )}
+                        {!amountErrors.vthoAmount && amountForm.vthoAmount && (
+                          <p className="mt-1 text-sm text-blue-600">
+                            You'll deposit {amountForm.vthoAmount} VTHO (≈ {(parseFloat(amountForm.vthoAmount) * 0.0001).toFixed(4)} VET equivalent)
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* B3TR Amount */}
+                      <div>
+                        <label htmlFor="b3tr-amount" className="block text-sm font-medium text-gray-700 mb-2">
+                          B3TR Amount (Optional)
+                        </label>
+                        <input
+                          id="b3tr-amount"
+                          type="number"
+                          min="0"
+                          max="1000000"
+                          step="0.01"
+                          value={amountForm.b3trAmount}
+                          onChange={(e) => handleAmountFormChange('b3trAmount', e.target.value)}
+                          placeholder="Enter B3TR amount (e.g., 500)"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            amountErrors.b3trAmount ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                          }`}
+                          disabled={isLoading}
+                        />
+                        {amountErrors.b3trAmount && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center">
+                            <span className="mr-1">⚠️</span>
+                            {amountErrors.b3trAmount}
+                          </p>
+                        )}
+                        {!amountErrors.b3trAmount && amountForm.b3trAmount && (
+                          <p className="mt-1 text-sm text-blue-600">
+                            You'll deposit {amountForm.b3trAmount} B3TR (≈ {(parseFloat(amountForm.b3trAmount) * 0.001).toFixed(4)} VET equivalent)
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* Summary */}
+                      {(amountForm.vetAmount || amountForm.vthoAmount || amountForm.b3trAmount) && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <h5 className="font-medium text-green-800 mb-2">Transaction Summary</h5>
+                          <div className="space-y-1 text-sm text-green-700">
+                            <p><strong>Total Value:</strong> {totalValue} VET equivalent</p>
+                            <p><strong>Estimated Gas:</strong> {gasEstimate} VET</p>
+                            <p><strong>Current Balance:</strong> {VECHAIN_UTILS.formatVET(sarcophagusData.vetAmount)} VET</p>
+                            <p><strong>New Balance:</strong> {(parseFloat(VECHAIN_UTILS.formatVET(sarcophagusData.vetAmount)) + parseFloat(amountForm.vetAmount || '0')).toFixed(4)} VET</p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Action Buttons */}
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={handleSaveAmount}
+                          disabled={isLoading || !amountForm.vetAmount || !!amountErrors.vetAmount || !!amountErrors.vthoAmount || !!amountErrors.b3trAmount}
+                          className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                            isLoading || !amountForm.vetAmount || !!amountErrors.vetAmount || !!amountErrors.vthoAmount || !!amountErrors.b3trAmount
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-green-600 hover:bg-green-700 text-white'
+                          }`}
+                        >
+                          {isLoading ? (
+                            <span className="flex items-center justify-center">
+                              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Adding Funds...
+                            </span>
+                          ) : (
+                            'Add Funds'
+                          )}
+                        </button>
+                        <button
+                          onClick={handleCancelAmountForm}
+                          disabled={isLoading}
+                          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-800 mb-2">Vault Details</h4>
+                      <p className="text-sm text-gray-600">
+                        <strong>Balance:</strong> {VECHAIN_UTILS.formatVET(sarcophagusData.vetAmount)} VET
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        <strong>Created:</strong> {new Date(sarcophagusData.createdAt * 1000).toLocaleDateString()}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        <strong>Beneficiaries:</strong> {sarcophagusData.beneficiaries.length}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-800 mb-2">Quick Actions</h4>
+                      <div className="space-y-2">
+                        <button
+                          onClick={handleAddFunds}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                        >
+                          Add Funds
+                        </button>
+                        <button
+                          onClick={handleUpdateBeneficiaries}
+                          className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded text-sm"
+                        >
+                          Update Beneficiaries
+                        </button>
+                        <button
+                          onClick={handleEmergencyWithdraw}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+                        >
+                          Emergency Withdraw
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-8">
