@@ -118,6 +118,21 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
   const [ageError, setAgeError] = useState<string>('');
   const [showAgeInput, setShowAgeInput] = useState(false);
 
+  // Beneficiary form state
+  const [showBeneficiaryForm, setShowBeneficiaryForm] = useState(false);
+  const [editingBeneficiaryIndex, setEditingBeneficiaryIndex] = useState<number | null>(null);
+  const [beneficiaryForm, setBeneficiaryForm] = useState({
+    recipient: '',
+    percentage: '',
+    age: '',
+    isMinor: false
+  });
+  const [beneficiaryErrors, setBeneficiaryErrors] = useState({
+    recipient: '',
+    percentage: '',
+    age: ''
+  });
+
   // Age validation function
   const validateAge = (age: string): { isValid: boolean; error: string } => {
     if (!age.trim()) {
@@ -150,6 +165,118 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     setAgeInput(value);
     const validation = validateAge(value);
     setAgeError(validation.error);
+  };
+
+  // Beneficiary validation functions
+  const validateVeChainAddress = (address: string): { isValid: boolean; error: string } => {
+    if (!address.trim()) {
+      return { isValid: false, error: 'Address is required' };
+    }
+    
+    // VeChain address format: 0x followed by 40 hex characters
+    const vechainAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+    if (!vechainAddressRegex.test(address)) {
+      return { isValid: false, error: 'Please enter a valid VeChain address (0x followed by 40 characters)' };
+    }
+    
+    // Check if it's the same as the user's address
+    if (account && address.toLowerCase() === account.address.toLowerCase()) {
+      return { isValid: false, error: 'You cannot add yourself as a beneficiary' };
+    }
+    
+    // Check if address already exists in beneficiaries
+    if (sarcophagusData && editingBeneficiaryIndex === null) {
+      const existingBeneficiary = sarcophagusData.beneficiaries.find(
+        b => b.recipient.toLowerCase() === address.toLowerCase()
+      );
+      if (existingBeneficiary) {
+        return { isValid: false, error: 'This address is already a beneficiary' };
+      }
+    }
+    
+    return { isValid: true, error: '' };
+  };
+
+  const validatePercentage = (percentage: string, currentTotal: number = 0): { isValid: boolean; error: string } => {
+    if (!percentage.trim()) {
+      return { isValid: false, error: 'Percentage is required' };
+    }
+    
+    const percentageNum = parseFloat(percentage);
+    
+    if (isNaN(percentageNum)) {
+      return { isValid: false, error: 'Please enter a valid number' };
+    }
+    
+    if (percentageNum <= 0) {
+      return { isValid: false, error: 'Percentage must be greater than 0' };
+    }
+    
+    if (percentageNum > 100) {
+      return { isValid: false, error: 'Percentage cannot exceed 100%' };
+    }
+    
+    // Check if adding this percentage would exceed 100% total
+    const otherBeneficiariesTotal = sarcophagusData 
+      ? sarcophagusData.beneficiaries.reduce((sum, b, index) => {
+          if (editingBeneficiaryIndex !== null && index === editingBeneficiaryIndex) {
+            return sum; // Exclude the one being edited
+          }
+          return sum + b.percentage;
+        }, 0)
+      : 0;
+    
+    const newTotal = otherBeneficiariesTotal + percentageNum;
+    if (newTotal > 100) {
+      return { isValid: false, error: `Total percentage would exceed 100% (current: ${otherBeneficiariesTotal}%, new total: ${newTotal}%)` };
+    }
+    
+    return { isValid: true, error: '' };
+  };
+
+  const validateBeneficiaryAge = (age: string): { isValid: boolean; error: string } => {
+    if (!age.trim()) {
+      return { isValid: false, error: 'Age is required' };
+    }
+    
+    const ageNum = parseInt(age);
+    
+    if (isNaN(ageNum)) {
+      return { isValid: false, error: 'Please enter a valid number' };
+    }
+    
+    if (ageNum < 0) {
+      return { isValid: false, error: 'Age cannot be negative' };
+    }
+    
+    if (ageNum > 120) {
+      return { isValid: false, error: 'Please enter a valid age (maximum 120 years)' };
+    }
+    
+    return { isValid: true, error: '' };
+  };
+
+  // Handle beneficiary form changes
+  const handleBeneficiaryFormChange = (field: string, value: string | boolean) => {
+    setBeneficiaryForm(prev => ({ ...prev, [field]: value }));
+    
+    // Clear error for this field when user starts typing
+    setBeneficiaryErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
+  // Validate entire beneficiary form
+  const validateBeneficiaryForm = (): boolean => {
+    const recipientValidation = validateVeChainAddress(beneficiaryForm.recipient);
+    const percentageValidation = validatePercentage(beneficiaryForm.percentage);
+    const ageValidation = validateBeneficiaryAge(beneficiaryForm.age);
+    
+    setBeneficiaryErrors({
+      recipient: recipientValidation.error,
+      percentage: percentageValidation.error,
+      age: ageValidation.error
+    });
+    
+    return recipientValidation.isValid && percentageValidation.isValid && ageValidation.isValid;
   };
 
   useEffect(() => {
@@ -636,125 +763,151 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       return;
     }
     
-    setIsLoading(true);
-    try {
-      console.log('Starting add new beneficiary process...');
-      
-      // Mock add new beneficiary process
-      setTimeout(() => {
-        console.log('Mock add new beneficiary successful!');
-        
-        // Add a new beneficiary
-        const newBeneficiary = {
-          recipient: '0x2222222222222222222222222222222222222222',
-          percentage: 20,
-          isMinor: false,
-          age: 28
-        };
-        
-        const updatedBeneficiaries = [...sarcophagusData.beneficiaries, newBeneficiary];
-        
-        // Recalculate percentages to ensure they add up to 100%
-        const totalPercentage = updatedBeneficiaries.reduce((sum, b) => sum + b.percentage, 0);
-        if (totalPercentage > 100) {
-          // Adjust the last beneficiary's percentage
-          updatedBeneficiaries[updatedBeneficiaries.length - 1].percentage = 
-            updatedBeneficiaries[updatedBeneficiaries.length - 1].percentage - (totalPercentage - 100);
-        }
-        
-        const updatedSarcophagusData = {
-          ...sarcophagusData,
-          beneficiaries: updatedBeneficiaries
-        };
-        
-        setSarcophagusData(updatedSarcophagusData);
-        
-        // Show success message
-        const successMessage = document.createElement('div');
-        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-        successMessage.textContent = '✅ New beneficiary added successfully!';
-        document.body.appendChild(successMessage);
-        
-        setTimeout(() => {
-          document.body.removeChild(successMessage);
-        }, 5000);
-        
-        setIsLoading(false);
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Error adding new beneficiary:', error);
-      
-      const errorMessage = document.createElement('div');
-      errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-      errorMessage.textContent = `❌ Error adding new beneficiary: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      document.body.appendChild(errorMessage);
-      
-      setTimeout(() => {
-        document.body.removeChild(errorMessage);
-      }, 5000);
-      
-      setIsLoading(false);
-    }
+    // Show the beneficiary form
+    setShowBeneficiaryForm(true);
+    setEditingBeneficiaryIndex(null);
+    setBeneficiaryForm({
+      recipient: '',
+      percentage: '',
+      age: '',
+      isMinor: false
+    });
+    setBeneficiaryErrors({
+      recipient: '',
+      percentage: '',
+      age: ''
+    });
   };
 
-  // Edit Beneficiary Handler
-  const handleEditBeneficiary = async (index: number) => {
+  // Save Beneficiary Handler
+  const handleSaveBeneficiary = async () => {
     if (!account || !connex || !sarcophagusData) {
       alert('Please connect your wallet and ensure you have an active vault.');
       return;
     }
     
+    // Validate the form
+    if (!validateBeneficiaryForm()) {
+      return;
+    }
+    
     setIsLoading(true);
     try {
-      console.log(`Starting edit beneficiary process for index ${index}...`);
+      console.log('Starting save beneficiary process...');
       
-      // Mock edit beneficiary process
+      const newBeneficiary = {
+        recipient: beneficiaryForm.recipient,
+        percentage: parseFloat(beneficiaryForm.percentage),
+        isMinor: beneficiaryForm.isMinor,
+        age: parseInt(beneficiaryForm.age)
+      };
+      
+      let updatedBeneficiaries;
+      
+      if (editingBeneficiaryIndex !== null) {
+        // Editing existing beneficiary
+        updatedBeneficiaries = [...sarcophagusData.beneficiaries];
+        updatedBeneficiaries[editingBeneficiaryIndex] = newBeneficiary;
+      } else {
+        // Adding new beneficiary
+        updatedBeneficiaries = [...sarcophagusData.beneficiaries, newBeneficiary];
+      }
+      
+      const updatedSarcophagusData = {
+        ...sarcophagusData,
+        beneficiaries: updatedBeneficiaries
+      };
+      
+      setSarcophagusData(updatedSarcophagusData);
+      
+      // Update parent component
+      if (onUserDataUpdate) {
+        onUserDataUpdate({
+          isVerified: userVerification?.isVerified || false,
+          hasSarcophagus: true,
+          userSarcophagus: updatedSarcophagusData,
+          userBeneficiaries: updatedBeneficiaries,
+          obolRewards: obolBalance
+        });
+      }
+      
+      // Close the form
+      setShowBeneficiaryForm(false);
+      setEditingBeneficiaryIndex(null);
+      
+      // Show success message
+      const successMessage = document.createElement('div');
+      successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      successMessage.textContent = editingBeneficiaryIndex !== null 
+        ? '✅ Beneficiary updated successfully!' 
+        : '✅ New beneficiary added successfully!';
+      document.body.appendChild(successMessage);
+      
       setTimeout(() => {
-        console.log('Mock edit beneficiary successful!');
-        
-        // Update the beneficiary at the specified index
-        const updatedBeneficiaries = [...sarcophagusData.beneficiaries];
-        updatedBeneficiaries[index] = {
-          ...updatedBeneficiaries[index],
-          percentage: updatedBeneficiaries[index].percentage + 5, // Increase percentage by 5%
-          age: updatedBeneficiaries[index].age + 1 // Increase age by 1
-        };
-        
-        const updatedSarcophagusData = {
-          ...sarcophagusData,
-          beneficiaries: updatedBeneficiaries
-        };
-        
-        setSarcophagusData(updatedSarcophagusData);
-        
-        // Show success message
-        const successMessage = document.createElement('div');
-        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-        successMessage.textContent = '✅ Beneficiary updated successfully!';
-        document.body.appendChild(successMessage);
-        
-        setTimeout(() => {
+        if (document.body.contains(successMessage)) {
           document.body.removeChild(successMessage);
-        }, 5000);
-        
-        setIsLoading(false);
-      }, 2000);
+        }
+      }, 5000);
       
     } catch (error) {
-      console.error('Error editing beneficiary:', error);
+      console.error('Error saving beneficiary:', error);
       
       const errorMessage = document.createElement('div');
       errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-      errorMessage.textContent = `❌ Error editing beneficiary: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      errorMessage.textContent = `❌ Error saving beneficiary: ${error instanceof Error ? error.message : 'Unknown error'}`;
       document.body.appendChild(errorMessage);
       
       setTimeout(() => {
-        document.body.removeChild(errorMessage);
+        if (document.body.contains(errorMessage)) {
+          document.body.removeChild(errorMessage);
+        }
       }, 5000);
-      
+    } finally {
       setIsLoading(false);
     }
+  };
+
+  // Cancel Beneficiary Form
+  const handleCancelBeneficiaryForm = () => {
+    setShowBeneficiaryForm(false);
+    setEditingBeneficiaryIndex(null);
+    setBeneficiaryForm({
+      recipient: '',
+      percentage: '',
+      age: '',
+      isMinor: false
+    });
+    setBeneficiaryErrors({
+      recipient: '',
+      percentage: '',
+      age: ''
+    });
+  };
+
+  // Edit Beneficiary Handler
+  const handleEditBeneficiary = (index: number) => {
+    if (!sarcophagusData || !sarcophagusData.beneficiaries[index]) {
+      alert('Beneficiary not found.');
+      return;
+    }
+    
+    const beneficiary = sarcophagusData.beneficiaries[index];
+    
+    // Populate the form with existing data
+    setBeneficiaryForm({
+      recipient: beneficiary.recipient,
+      percentage: beneficiary.percentage.toString(),
+      age: beneficiary.age.toString(),
+      isMinor: beneficiary.isMinor
+    });
+    
+    setEditingBeneficiaryIndex(index);
+    setShowBeneficiaryForm(true);
+    setBeneficiaryErrors({
+      recipient: '',
+      percentage: '',
+      age: ''
+    });
   };
 
   const handleTestIntegration = async () => {
@@ -1138,38 +1291,208 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
         {activeTab === 'beneficiaries' && (
           <div className="space-y-6">
             <h3 className="text-lg font-semibold text-gray-800">Manage Beneficiaries</h3>
-            {sarcophagusData && sarcophagusData.beneficiaries.length > 0 ? (
-              <div className="space-y-4">
-                {sarcophagusData.beneficiaries.map((beneficiary, index) => (
-                  <div key={index} className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium text-gray-800">{beneficiary.recipient}</p>
-                        <p className="text-sm text-gray-600">
-                          {beneficiary.percentage / 100}% • Age: {beneficiary.age}
-                          {beneficiary.isMinor && ' • Minor'}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleEditBeneficiary(index)}
-                        className="text-blue-600 hover:text-blue-800 text-sm"
-                      >
-                        Edit
-                      </button>
-                    </div>
+            
+            {showBeneficiaryForm ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h4 className="font-medium text-blue-800 mb-4">
+                  {editingBeneficiaryIndex !== null ? 'Edit Beneficiary' : 'Add New Beneficiary'}
+                </h4>
+                
+                <div className="space-y-4">
+                  {/* Recipient Address */}
+                  <div>
+                    <label htmlFor="beneficiary-address" className="block text-sm font-medium text-gray-700 mb-2">
+                      VeChain Address *
+                    </label>
+                    <input
+                      id="beneficiary-address"
+                      type="text"
+                      value={beneficiaryForm.recipient}
+                      onChange={(e) => handleBeneficiaryFormChange('recipient', e.target.value)}
+                      placeholder="0x..."
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        beneficiaryErrors.recipient ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      disabled={isLoading}
+                    />
+                    {beneficiaryErrors.recipient && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center">
+                        <span className="mr-1">⚠️</span>
+                        {beneficiaryErrors.recipient}
+                      </p>
+                    )}
                   </div>
-                ))}
-                <button
-                  onClick={handleAddNewBeneficiary}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
-                >
-                  Add New Beneficiary
-                </button>
+                  
+                  {/* Percentage */}
+                  <div>
+                    <label htmlFor="beneficiary-percentage" className="block text-sm font-medium text-gray-700 mb-2">
+                      Percentage (%) *
+                    </label>
+                    <input
+                      id="beneficiary-percentage"
+                      type="number"
+                      min="0.01"
+                      max="100"
+                      step="0.01"
+                      value={beneficiaryForm.percentage}
+                      onChange={(e) => handleBeneficiaryFormChange('percentage', e.target.value)}
+                      placeholder="Enter percentage (e.g., 25.5)"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        beneficiaryErrors.percentage ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      disabled={isLoading}
+                    />
+                    {beneficiaryErrors.percentage && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center">
+                        <span className="mr-1">⚠️</span>
+                        {beneficiaryErrors.percentage}
+                      </p>
+                    )}
+                    {!beneficiaryErrors.percentage && beneficiaryForm.percentage && (
+                      <p className="mt-1 text-sm text-blue-600">
+                        This beneficiary will receive {beneficiaryForm.percentage}% of your vault
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Age */}
+                  <div>
+                    <label htmlFor="beneficiary-age" className="block text-sm font-medium text-gray-700 mb-2">
+                      Age *
+                    </label>
+                    <input
+                      id="beneficiary-age"
+                      type="number"
+                      min="0"
+                      max="120"
+                      value={beneficiaryForm.age}
+                      onChange={(e) => handleBeneficiaryFormChange('age', e.target.value)}
+                      placeholder="Enter age"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        beneficiaryErrors.age ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      disabled={isLoading}
+                    />
+                    {beneficiaryErrors.age && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center">
+                        <span className="mr-1">⚠️</span>
+                        {beneficiaryErrors.age}
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Is Minor Checkbox */}
+                  <div className="flex items-center">
+                    <input
+                      id="beneficiary-minor"
+                      type="checkbox"
+                      checked={beneficiaryForm.isMinor}
+                      onChange={(e) => handleBeneficiaryFormChange('isMinor', e.target.checked)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      disabled={isLoading}
+                    />
+                    <label htmlFor="beneficiary-minor" className="ml-2 block text-sm text-gray-700">
+                      This beneficiary is a minor (special inheritance rules may apply)
+                    </label>
+                  </div>
+                  
+                  {/* Total Percentage Warning */}
+                  {sarcophagusData && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <p className="text-xs text-yellow-800">
+                        <strong>Current Total:</strong> {sarcophagusData.beneficiaries.reduce((sum, b, index) => {
+                          if (editingBeneficiaryIndex !== null && index === editingBeneficiaryIndex) {
+                            return sum; // Exclude the one being edited
+                          }
+                          return sum + b.percentage;
+                        }, 0)}% allocated
+                        {beneficiaryForm.percentage && (
+                          <span> • New total: {sarcophagusData.beneficiaries.reduce((sum, b, index) => {
+                            if (editingBeneficiaryIndex !== null && index === editingBeneficiaryIndex) {
+                              return sum; // Exclude the one being edited
+                            }
+                            return sum + b.percentage;
+                          }, 0) + parseFloat(beneficiaryForm.percentage || '0')}%</span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Action Buttons */}
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={handleSaveBeneficiary}
+                      disabled={isLoading || !beneficiaryForm.recipient || !beneficiaryForm.percentage || !beneficiaryForm.age}
+                      className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                        isLoading || !beneficiaryForm.recipient || !beneficiaryForm.percentage || !beneficiaryForm.age
+                          ? 'bg-gray-400 cursor-not-allowed'
+                          : 'bg-green-600 hover:bg-green-700 text-white'
+                      }`}
+                    >
+                      {isLoading ? (
+                        <span className="flex items-center justify-center">
+                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Saving...
+                        </span>
+                      ) : (
+                        editingBeneficiaryIndex !== null ? 'Update Beneficiary' : 'Add Beneficiary'
+                      )}
+                    </button>
+                    <button
+                      onClick={handleCancelBeneficiaryForm}
+                      disabled={isLoading}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-600">No beneficiaries configured yet.</p>
-              </div>
+              <>
+                {sarcophagusData && sarcophagusData.beneficiaries.length > 0 ? (
+                  <div className="space-y-4">
+                    {sarcophagusData.beneficiaries.map((beneficiary, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="font-medium text-gray-800">{beneficiary.recipient}</p>
+                            <p className="text-sm text-gray-600">
+                              {beneficiary.percentage}% • Age: {beneficiary.age}
+                              {beneficiary.isMinor && ' • Minor'}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleEditBeneficiary(index)}
+                            className="text-blue-600 hover:text-blue-800 text-sm"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      onClick={handleAddNewBeneficiary}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+                    >
+                      Add New Beneficiary
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 mb-4">No beneficiaries configured yet.</p>
+                    <button
+                      onClick={handleAddNewBeneficiary}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+                    >
+                      Add Your First Beneficiary
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
