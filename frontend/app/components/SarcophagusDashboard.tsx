@@ -179,6 +179,7 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     setIsLoading(true);
     try {
       console.log('Starting user verification process...');
+      console.log('Test mode:', isTestMode);
       
       const contractInteractions = new ContractInteractions(connex, isTestMode);
       
@@ -186,14 +187,32 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       const verificationHash = `verification-${account.address}-${Date.now()}`;
       const age = 35; // Mock age for now
       
-      // Call the contract to verify user
-      const tx = await contractInteractions.verifyUser(account.address, age, verificationHash);
+      console.log('Calling verifyUser with:', { userAddress: account.address, age, verificationHash });
+      
+      // Call the contract to verify user with timeout
+      const txPromise = contractInteractions.verifyUser(account.address, age, verificationHash);
+      const tx = await Promise.race([
+        txPromise,
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Transaction timeout after 30 seconds')), 30000)
+        )
+      ]) as Awaited<ReturnType<typeof contractInteractions.verifyUser>>;
+      
+      console.log('Transaction created:', tx);
       
       // Set transaction as pending
       setLastTransaction({ txid: tx.txid, status: 'pending' });
       
-      // Wait for transaction confirmation
-      const receipt = await tx.wait();
+      // Wait for transaction confirmation with timeout
+      const receiptPromise = tx.wait();
+      const receipt = await Promise.race([
+        receiptPromise,
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Transaction confirmation timeout after 60 seconds')), 60000)
+        )
+      ]) as Awaited<ReturnType<typeof tx.wait>>;
+      
+      console.log('Transaction receipt:', receipt);
       
       if (receipt.reverted) {
         setLastTransaction({ txid: tx.txid, status: 'failed' });
