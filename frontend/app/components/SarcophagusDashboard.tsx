@@ -1081,8 +1081,22 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       setStep('create_vault', 'Submitting vault creation', 'Sending vault creation to smart contract...');
       setProgress('create_vault', 30);
       
-      // Call the contract to create sarcophagus
-      const tx = await contractInteractions.createSarcophagus(account.address, beneficiaries, percentages);
+      console.log('About to call createSarcophagus with:', {
+        userAddress: account.address,
+        beneficiaries,
+        percentages,
+        isTestMode
+      });
+      
+      // Call the contract to create sarcophagus with timeout protection
+      const createPromise = contractInteractions.createSarcophagus(account.address, beneficiaries, percentages);
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Vault creation timeout after 30 seconds')), 30000)
+      );
+      
+      console.log('Starting createSarcophagus call...');
+      const tx = await Promise.race([createPromise, timeoutPromise]);
+      console.log('createSarcophagus call completed, txid:', tx.txid);
       
       // Step 3: Wait for confirmation
       setStep('create_vault', 'Waiting for confirmation', 'Waiting for blockchain confirmation...');
@@ -1105,8 +1119,16 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       setStep('create_vault', 'Confirming transaction', 'Confirming your vault creation on the blockchain...');
       setProgress('create_vault', 80);
       
-      // Wait for transaction confirmation
-      const receipt = await tx.wait();
+      console.log('Starting transaction confirmation for txid:', tx.txid);
+      
+      // Wait for transaction confirmation with timeout protection
+      const receiptPromise = tx.wait();
+      const receiptTimeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Transaction confirmation timeout after 60 seconds')), 60000)
+      );
+      
+      const receipt = await Promise.race([receiptPromise, receiptTimeoutPromise]);
+      console.log('Transaction confirmation completed, reverted:', receipt.reverted);
       
       if (receipt.reverted) {
         updateTransaction(tx.txid, { status: 'reverted', error: 'Transaction was reverted' });
@@ -1176,6 +1198,20 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     } catch (error) {
       console.error('Error creating sarcophagus:', error);
       
+      // Provide more specific error information
+      let errorMessage = 'Unknown error occurred during vault creation';
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          errorMessage = 'Vault creation timed out. Please try again.';
+        } else if (error.message.includes('insufficient')) {
+          errorMessage = 'Insufficient balance for vault creation. Please add more VET.';
+        } else if (error.message.includes('reverted')) {
+          errorMessage = 'Vault creation was reverted. Please check your parameters.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       // Use enhanced error handling
       showError(error, {
         action: 'create_vault',
@@ -1183,7 +1219,8 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
         userData: { 
           address: account.address, 
           beneficiaryCount: 2,
-          totalPercentage: 100
+          totalPercentage: 100,
+          errorMessage
         }
       });
       
