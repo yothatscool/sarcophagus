@@ -42,7 +42,7 @@ export default function OnboardingFlow({ isOpen, onComplete, onClose }: Onboardi
   const [errors, setErrors] = useState<string[]>([]);
   const { verifyUser } = useSarcophagusContract();
   const { showNotification } = useNotification();
-  const { isLoading, setLoading } = useLoading();
+  const { loadingStates, setLoading } = useLoading();
   const { account } = useWallet();
 
   const totalPercentage = useMemo(() => {
@@ -227,10 +227,10 @@ export default function OnboardingFlow({ isOpen, onComplete, onClose }: Onboardi
                   setLoading('verifyUser', false);
                 }
               }}
-              disabled={isLoading.verifyUser || !formData.age || !account}
+              disabled={loadingStates.verifyUser?.isLoading || !formData.age || !account}
               className="px-6 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded"
             >
-              {isLoading.verifyUser ? 'Verifying...' : 'Verify My Identity'}
+              {loadingStates.verifyUser?.isLoading ? 'Verifying...' : 'Verify My Identity'}
             </button>
           </div>
         </div>

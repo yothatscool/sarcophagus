@@ -23,7 +23,7 @@ interface ObolData {
 export default function ObolWithdrawal({ className = '' }: ObolWithdrawalProps) {
   const { account } = useWallet()
   const { showNotification } = useNotification()
-  const { isLoading, setLoading } = useLoading()
+  const { loadingStates, setLoading } = useLoading()
   
   // Initialize contracts - you'll need to provide the actual contract addresses
   const { contract: obolContract } = useContract('OBOL_CONTRACT_ADDRESS', OBOL_ABI)
@@ -141,7 +141,7 @@ export default function ObolWithdrawal({ className = '' }: ObolWithdrawalProps) 
     <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
       <h3 className="text-lg font-semibold text-gray-800 mb-4">OBOL Token Management</h3>
       
-      {isLoading.loadObolData ? (
+      {loadingStates.loadObolData?.isLoading ? (
         <div className="text-center py-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           <p className="text-gray-600 mt-2">Loading...</p>
@@ -208,10 +208,10 @@ export default function ObolWithdrawal({ className = '' }: ObolWithdrawalProps) 
               />
               <button
                 onClick={handleLockObol}
-                disabled={isLoading.lockObol || !lockAmount || BigInt(lockAmount || '0') > BigInt(obolData.balance)}
+                disabled={loadingStates.lockObol?.isLoading || !lockAmount || BigInt(lockAmount || '0') > BigInt(obolData.balance)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                {isLoading.lockObol ? 'Locking...' : 'Lock'}
+                {loadingStates.lockObol?.isLoading ? 'Locking...' : 'Lock'}
               </button>
             </div>
             
@@ -239,10 +239,10 @@ export default function ObolWithdrawal({ className = '' }: ObolWithdrawalProps) 
               />
               <button
                 onClick={handleWithdrawObol}
-                disabled={isLoading.withdrawObol || !withdrawAmount}
+                disabled={loadingStates.withdrawObol?.isLoading || !withdrawAmount}
                 className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                {isLoading.withdrawObol ? 'Withdrawing...' : 'Withdraw'}
+                {loadingStates.withdrawObol?.isLoading ? 'Withdrawing...' : 'Withdraw'}
               </button>
             </div>
             {/* OBOL Withdrawal Fee Summary */}

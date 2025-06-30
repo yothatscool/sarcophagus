@@ -9,7 +9,7 @@ import { deathVerificationApiService } from '../utils/deathVerificationApi'
 export default function ClaimInheritance() {
   const { claimInheritance } = useSarcophagusContract()
   const { showNotification } = useNotification()
-  const { isLoading, setLoading } = useLoading()
+  const { loadingStates, setLoading } = useLoading()
   const [deceasedAddress, setDeceasedAddress] = useState('')
   const [verificationStatus, setVerificationStatus] = useState<'idle' | 'pending' | 'verified' | 'failed'>('idle')
   const [verificationResult, setVerificationResult] = useState<any>(null)
@@ -179,10 +179,10 @@ export default function ClaimInheritance() {
 
           <button
             onClick={handleClaim}
-            disabled={isLoading.claimInheritance || verificationStatus !== 'verified'}
+            disabled={loadingStates.claimInheritance?.isLoading || verificationStatus !== 'verified'}
             className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 rounded-lg text-white font-semibold transition-all disabled:opacity-50"
           >
-            {isLoading.claimInheritance ? 'Claiming...' : 'Claim Inheritance'}
+            {loadingStates.claimInheritance?.isLoading ? 'Claiming...' : 'Claim Inheritance'}
           </button>
         </div>
 

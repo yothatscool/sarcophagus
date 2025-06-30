@@ -37,7 +37,7 @@ interface InputValidation {
 
 export default function VaultManagementModal({ vault, isOpen, onClose, defaultTab }: VaultManagementModalProps) {
   const { showNotification } = useNotification()
-  const { isLoading } = useLoading()
+  const { loadingStates } = useLoading()
   const [vetAmount, setVetAmount] = useState('')
   const [vthoAmount, setVthoAmount] = useState('')
   const [b3trAmount, setB3trAmount] = useState('')
@@ -727,10 +727,10 @@ export default function VaultManagementModal({ vault, isOpen, onClose, defaultTa
                   <div className="mt-6">
                     <button
                       onClick={handleDepositTokens}
-                      disabled={isLoading.depositTokens}
+                      disabled={loadingStates.depositTokens?.isLoading}
                       className="w-full bg-gradient-to-r from-accent-gold to-accent-bronze text-sarcophagus-950 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
                     >
-                      {isLoading.depositTokens ? 'Depositing...' : 'Deposit Tokens'}
+                      {loadingStates.depositTokens?.isLoading ? 'Depositing...' : 'Deposit Tokens'}
                     </button>
                   </div>
                 </div>
@@ -802,10 +802,10 @@ export default function VaultManagementModal({ vault, isOpen, onClose, defaultTa
                       
                       <button
                         onClick={handleLockObolTokens}
-                        disabled={isLoading.lockObol}
+                        disabled={loadingStates.lockObol?.isLoading}
                         className="w-full bg-gradient-to-r from-accent-gold to-accent-bronze text-sarcophagus-950 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
                       >
-                        {isLoading.lockObol ? 'Locking...' : 'Lock $OBOL Tokens'}
+                        {loadingStates.lockObol?.isLoading ? 'Locking...' : 'Lock $OBOL Tokens'}
                       </button>
                     </div>
                   </div>

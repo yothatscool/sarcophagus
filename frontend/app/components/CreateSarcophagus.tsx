@@ -13,7 +13,7 @@ interface CreateSarcophagusProps {
 export default function CreateSarcophagus({ onClose }: CreateSarcophagusProps) {
   const { createSarcophagus } = useSarcophagusContract()
   const { showNotification } = useNotification()
-  const { isLoading, setLoading } = useLoading()
+  const { loadingStates, setLoading } = useLoading()
   const [isBeneficiaryModalOpen, setBeneficiaryModalOpen] = useState(false)
   const [step, setStep] = useState(1)
   const [showFinalWarning, setShowFinalWarning] = useState(false)

@@ -72,7 +72,7 @@ export default function HomeContent() {
   const { account, disconnect } = useWallet()
   const isConnected = !!account
   const { showNotification, showTransactionNotification } = useNotification()
-  const { isLoading, setLoading } = useLoading()
+  const { loadingStates, setLoading } = useLoading()
   const [isBeneficiaryModalOpen, setBeneficiaryModalOpen] = useState(false)
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false)
   const [userAge, setUserAge] = useState('')
