@@ -24,7 +24,7 @@ export default function QuickActions({
         title: 'Start Onboarding',
         description: 'Verify your identity',
         icon: '📋',
-        color: 'bg-accent-gold hover:bg-accent-goldDark text-primary-blue',
+        color: 'bg-gradient-to-r from-accent-gold to-accent-goldMedium text-primary-blue',
         action: () => console.log('Start onboarding')
       })
     }
@@ -61,7 +61,7 @@ export default function QuickActions({
           title: 'Claim Rewards',
           description: 'Claim OBOL rewards',
           icon: '⭐',
-          color: 'bg-accent-gold hover:bg-accent-goldDark text-primary-blue',
+          color: 'bg-gradient-to-r from-accent-gold to-accent-goldMedium text-primary-blue',
           action: claimObolRewards
         })
       }
@@ -74,7 +74,7 @@ export default function QuickActions({
 
   return (
     <div className="mb-8">
-      <h3 className="text-lg font-semibold mb-4 text-white">Quick Actions</h3>
+      <h3 className="text-lg font-semibold mb-4 text-white font-serif">Quick Actions</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {actions.map((action, index) => (
           <button
@@ -85,8 +85,8 @@ export default function QuickActions({
             <div className="flex items-center space-x-3">
               <div className="text-2xl">{action.icon}</div>
               <div>
-                <p className="font-semibold">{action.title}</p>
-                <p className="text-sm opacity-80">{action.description}</p>
+                <p className="font-semibold font-serif">{action.title}</p>
+                <p className="text-sm opacity-80 font-sans">{action.description}</p>
               </div>
             </div>
           </button>

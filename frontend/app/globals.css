@@ -1,13 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 26, 54, 93;
-  --background-end-rgb: 15, 31, 46;
-  --primary-gold: 214, 158, 46;
-  --primary-blue: 26, 54, 93;
+  --background-start-rgb: 24, 28, 54;
+  --background-end-rgb: 15, 17, 31;
+  --primary-gold: 255, 215, 0;
+  --primary-blue: 24, 28, 54;
   --vechain-green: 0, 180, 180;
 }
 
@@ -27,22 +29,83 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar */
+/* Professional typography hierarchy */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.display-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 500;
+}
+
+.body-text {
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+}
+
+/* Professional card styling */
+.info-card {
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.info-card:hover {
+  border-color: rgba(255, 215, 0, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 215, 0, 0.15);
+}
+
+/* Professional button styling */
+.btn-primary {
+  background: linear-gradient(135deg, #FFD700 0%, #FFC14D 50%, #B8860B 100%);
+  color: #181C36;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px rgba(255, 215, 0, 0.2);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgba(255, 215, 0, 0.3);
+}
+
+/* Professional loading states */
+.loading-spinner {
+  border: 2px solid rgba(255, 215, 0, 0.2);
+  border-top: 2px solid #FFD700;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Professional scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgb(var(--background-start-rgb));
+  background: rgba(24, 28, 54, 0.1);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(var(--primary-gold));
+  background: linear-gradient(135deg, #FFD700, #B8860B);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(183, 121, 31);
+  background: linear-gradient(135deg, #FFC14D, #B8860B);
 }
 
 /* Custom selection */
@@ -52,10 +115,6 @@ body {
 }
 
 /* Professional button styles */
-.btn-primary {
-  @apply bg-gradient-to-r from-accent-gold to-accent-goldDark text-white px-6 py-3 rounded-lg font-semibold shadow-gold transition-all duration-200 hover:shadow-gold-lg hover:scale-105 active:scale-95 border border-accent-gold;
-}
-
 .btn-secondary {
   @apply bg-primary-blue text-white px-6 py-3 rounded-lg font-semibold border border-accent-gold shadow-sarcophagus transition-all duration-200 hover:bg-accent-blueLight hover:border-accent-goldLight;
 }

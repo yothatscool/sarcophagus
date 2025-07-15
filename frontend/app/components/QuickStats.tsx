@@ -49,8 +49,8 @@ export default function QuickStats({
       <div className="info-card bg-primary-blue/20 backdrop-blur-sm border border-accent-gold/30 rounded-xl p-6 hover:border-accent-gold/50 transition-all duration-300 shadow-sarcophagus hover:shadow-gold">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-300 font-medium">Status</p>
-            <p className={`text-2xl font-bold ${getStatusColor()}`}>
+            <p className="text-sm text-gray-300 font-medium font-sans">Status</p>
+            <p className={`text-2xl font-bold ${getStatusColor()} font-serif`}>
               {getStatusText()}
             </p>
           </div>
@@ -60,24 +60,24 @@ export default function QuickStats({
 
       {/* TVL Card */}
       <div className="info-card bg-primary-blue/20 backdrop-blur-sm border border-accent-gold/30 rounded-xl p-6 hover:border-accent-gold/50 transition-all duration-300 shadow-sarcophagus hover:shadow-gold">
-        <p className="text-sm text-gray-300 font-medium">Total Value Locked</p>
-        <p className="text-2xl font-bold text-accent-gold">
+        <p className="text-sm text-gray-300 font-medium font-sans">Total Value Locked</p>
+        <p className="text-2xl font-bold text-accent-gold font-serif">
           {getTotalValueLocked()} VET
         </p>
       </div>
 
       {/* Beneficiaries Card */}
       <div className="info-card bg-primary-blue/20 backdrop-blur-sm border border-accent-gold/30 rounded-xl p-6 hover:border-accent-gold/50 transition-all duration-300 shadow-sarcophagus hover:shadow-gold">
-        <p className="text-sm text-gray-300 font-medium">Beneficiaries</p>
-        <p className="text-2xl font-bold text-vechain-green">
+        <p className="text-sm text-gray-300 font-medium font-sans">Beneficiaries</p>
+        <p className="text-2xl font-bold text-vechain-green font-serif">
           {userBeneficiaries?.length || 0}
         </p>
       </div>
 
       {/* Rewards Card */}
       <div className="info-card bg-primary-blue/20 backdrop-blur-sm border border-accent-gold/30 rounded-xl p-6 hover:border-accent-gold/50 transition-all duration-300 shadow-sarcophagus hover:shadow-gold">
-        <p className="text-sm text-gray-300 font-medium">Pending Rewards</p>
-        <p className="text-2xl font-bold text-accent-gold">
+        <p className="text-sm text-gray-300 font-medium font-sans">Pending Rewards</p>
+        <p className="text-2xl font-bold text-accent-gold font-serif">
           {obolRewards ? 
             (Number(obolRewards) / 1e18).toFixed(2) : '0'} OBOL
         </p>
@@ -86,8 +86,8 @@ export default function QuickStats({
       {/* Token Prices Card */}
       {tokenPrices && (
         <div className="info-card bg-primary-blue/20 backdrop-blur-sm border border-accent-gold/30 rounded-xl p-6 hover:border-accent-gold/50 transition-all duration-300 shadow-sarcophagus hover:shadow-gold col-span-1 md:col-span-2 lg:col-span-1">
-          <p className="text-sm text-gray-300 font-medium">Token Prices (USD)</p>
-          <div className="text-xs text-accent-gold space-y-1 mt-2">
+          <p className="text-sm text-gray-300 font-medium font-sans">Token Prices (USD)</p>
+          <div className="text-xs text-accent-gold space-y-1 mt-2 font-sans">
             <div>VET: ${tokenPrices.vet?.current_price ?? 'N/A'}</div>
             <div>VTHO: ${tokenPrices.vtho?.current_price ?? 'N/A'}</div>
             <div>B3TR: ${tokenPrices.b3tr?.current_price ?? 'N/A'}</div>
@@ -99,8 +99,8 @@ export default function QuickStats({
       {/* Carbon Footprint Card */}
       {environmentalData && (
         <div className="info-card bg-primary-blue/20 backdrop-blur-sm border border-accent-gold/30 rounded-xl p-6 hover:border-accent-gold/50 transition-all duration-300 shadow-sarcophagus hover:shadow-gold col-span-1 md:col-span-2 lg:col-span-1">
-          <p className="text-sm text-gray-300 font-medium">Carbon Footprint</p>
-          <div className="text-2xl font-bold text-vechain-green mt-2">
+          <p className="text-sm text-gray-300 font-medium font-sans">Carbon Footprint</p>
+          <div className="text-2xl font-bold text-vechain-green mt-2 font-serif">
             {environmentalData.carbonOutput} {environmentalData.unit}
           </div>
         </div>
@@ -109,8 +109,8 @@ export default function QuickStats({
       {/* Life Expectancy Card */}
       {whoData && (
         <div className="info-card bg-primary-blue/20 backdrop-blur-sm border border-accent-gold/30 rounded-xl p-6 hover:border-accent-gold/50 transition-all duration-300 shadow-sarcophagus hover:shadow-gold col-span-1 md:col-span-2 lg:col-span-1">
-          <p className="text-sm text-gray-300 font-medium">Life Expectancy (WHO)</p>
-          <div className="text-xs text-accent-gold mt-2">
+          <p className="text-sm text-gray-300 font-medium font-sans">Life Expectancy (WHO)</p>
+          <div className="text-xs text-accent-gold mt-2 font-sans">
             <div>Male: {whoData.male ?? 'N/A'} yrs</div>
             <div>Female: {whoData.female ?? 'N/A'} yrs</div>
             <div>Source: {whoData.source ?? 'N/A'}</div>

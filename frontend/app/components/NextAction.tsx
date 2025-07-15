@@ -22,7 +22,7 @@ export default function NextAction({
         title: 'Complete Onboarding',
         description: 'Verify your identity and calculate life expectancy to get started',
         action: 'Start Onboarding',
-        color: 'bg-accent-gold hover:bg-accent-goldDark text-primary-blue font-semibold',
+        color: 'bg-gradient-to-r from-accent-gold to-accent-goldMedium text-primary-blue font-semibold',
         icon: '📋'
       }
     }
@@ -42,7 +42,7 @@ export default function NextAction({
         title: 'Claim Inheritance',
         description: 'The original owner has passed. You can now claim your inheritance',
         action: 'Claim Now',
-        color: 'bg-accent-gold hover:bg-accent-goldDark text-primary-blue font-semibold',
+        color: 'bg-gradient-to-r from-accent-gold to-accent-goldMedium text-primary-blue font-semibold',
         icon: '💰'
       }
     }
@@ -64,8 +64,8 @@ export default function NextAction({
         <div className="flex items-center space-x-4">
           <div className="text-3xl">{action.icon}</div>
           <div className="flex-1">
-            <h3 className="text-xl font-semibold text-white mb-2">{action.title}</h3>
-            <p className="text-gray-300 mb-4">{action.description}</p>
+            <h3 className="text-xl font-semibold text-white mb-2 font-serif">{action.title}</h3>
+            <p className="text-gray-300 mb-4 font-sans">{action.description}</p>
             <button className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 shadow-gold hover:shadow-goldDark ${action.color}`}>
               {action.action}
             </button>
