@@ -326,26 +326,26 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">
-        🔗 VeChain Wallet Connection
+    <div className="bg-sarcophagus-800/50 backdrop-blur-sm border border-accent-gold/30 rounded-lg shadow-sarcophagus p-6">
+      <h2 className="text-2xl font-bold text-accent-gold mb-4 font-serif">
+        VeChain Wallet Connection
       </h2>
       
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded mb-4">
           {error}
         </div>
       )}
 
       {!isConnected ? (
         <div className="space-y-4">
-          <p className="text-gray-600">
+          <p className="text-gray-300">
             Connect your VeChain wallet to interact with the Sarcophagus Protocol.
           </p>
           
           <div className="space-y-2">
-            <h3 className="font-semibold text-gray-700">Supported Wallets:</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
+            <h3 className="font-semibold text-accent-gold">Supported Wallets:</h3>
+            <ul className="text-sm text-gray-300 space-y-1">
               <li>• <strong>VeWorld</strong> - Mobile wallet with dApp browser</li>
               <li>• <strong>Sync2</strong> - Desktop wallet for VeChain</li>
             </ul>
@@ -354,7 +354,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           <button
             onClick={connectWallet}
             disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="w-full bg-gradient-to-r from-accent-gold to-accent-goldMedium hover:from-accent-goldMedium hover:to-accent-goldDark disabled:bg-gray-600 text-primary-blue font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-gold hover:shadow-goldDark"
           >
             {isLoading ? 'Connecting...' : 'Connect VeChain Wallet'}
           </button>
@@ -388,7 +388,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
               }
               alert('Check browser console for wallet debug info');
             }}
-            className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors mt-2"
+            className="w-full bg-primary-blue/50 hover:bg-primary-blue/70 text-accent-gold font-semibold py-2 px-4 rounded-lg transition-all duration-300 border border-accent-gold/40 mt-2"
           >
             Debug Wallet Detection
           </button>
@@ -447,26 +447,26 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
               }
               alert('Check browser console for wallet connection test results');
             }}
-            className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors mt-2"
+            className="w-full bg-gradient-to-r from-accent-gold to-accent-goldMedium hover:from-accent-goldMedium hover:to-accent-goldDark text-primary-blue font-semibold py-2 px-4 rounded-lg transition-all duration-300 shadow-gold hover:shadow-goldDark mt-2"
           >
             Test Wallet Connection
           </button>
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="bg-vechain-green/10 border border-vechain-green/30 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-green-800">Connected to VeChain</h3>
-                <p className="text-green-600 text-sm">
+                <h3 className="font-semibold text-vechain-green">Connected to VeChain</h3>
+                <p className="text-gray-300 text-sm">
                   Address: {shortenAddress(account!.address)}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-green-800 font-semibold">
+                <p className="text-vechain-green font-semibold">
                   {parseFloat(account!.balance).toFixed(2)} VET
                 </p>
-                <p className="text-green-800 font-semibold">
+                <p className="text-vechain-green font-semibold">
                   {parseFloat(account!.energy).toFixed(2)} Energy
                 </p>
               </div>
@@ -474,15 +474,15 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-sm text-gray-600">VET Balance</p>
-              <p className="font-semibold text-gray-800">
+            <div className="bg-primary-blue/20 border border-accent-gold/30 rounded-lg p-3">
+              <p className="text-sm text-gray-300">VET Balance</p>
+              <p className="font-semibold text-accent-gold">
                 {parseFloat(account!.balance).toFixed(4)}
               </p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-sm text-gray-600">Energy</p>
-              <p className="font-semibold text-gray-800">
+            <div className="bg-primary-blue/20 border border-accent-gold/30 rounded-lg p-3">
+              <p className="text-sm text-gray-300">Energy</p>
+              <p className="font-semibold text-accent-gold">
                 {parseFloat(account!.energy).toFixed(2)}
               </p>
             </div>
@@ -490,7 +490,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
 
           <button
             onClick={disconnectWallet}
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            className="w-full bg-red-500/20 hover:bg-red-500/30 text-red-400 font-semibold py-2 px-4 rounded-lg transition-all duration-300 border border-red-500/40"
           >
             Disconnect Wallet
           </button>

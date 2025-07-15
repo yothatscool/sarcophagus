@@ -70,69 +70,65 @@ export default function Home() {
         {/* Hero Section */}
         <div className="text-center mb-12">
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-4xl font-bold text-white mb-4 font-serif">
+            <h1 className="text-4xl font-bold text-accent-gold mb-4 font-serif">
               The Sarcophagus Protocol
             </h1>
             <p className="text-xl md:text-2xl text-gray-300 mb-8 leading-relaxed">
-              Revolutionary digital inheritance platform on VeChain that combines 
-              <span className="text-accent-gold font-semibold"> secure asset inheritance </span>
-              with 
-              <span className="text-accent-gold font-semibold"> environmental impact rewards</span>
+              Revolutionary digital inheritance platform on VeChain that combines secure{' '}
+              <span className="text-accent-gold font-semibold">asset inheritance</span> with{' '}
+              <span className="text-accent-gold font-semibold">environmental impact rewards</span>.
             </p>
+            
+            {/* Feature Buttons */}
             <div className="flex flex-wrap justify-center gap-4 mb-8">
-              <div className="card-gold px-6 py-3">
-                <span className="text-accent-gold font-semibold">Multi-Sig Security</span>
-              </div>
-              <div className="card-gold px-6 py-3">
-                <span className="text-accent-gold font-semibold">Environmental Rewards</span>
-              </div>
-              <div className="card-gold px-6 py-3">
-                <span className="text-accent-gold font-semibold">NFT Inheritance</span>
-              </div>
+              <button className="px-6 py-3 bg-primary-blue/50 border border-accent-gold/30 text-accent-gold rounded-lg hover:bg-primary-blue/70 transition-all duration-300 shadow-sarcophagus hover:shadow-gold">
+                Multi-Sig Security
+              </button>
+              <button className="px-6 py-3 bg-primary-blue/50 border border-accent-gold/30 text-accent-gold rounded-lg hover:bg-primary-blue/70 transition-all duration-300 shadow-sarcophagus hover:shadow-gold">
+                Environmental Rewards
+              </button>
+              <button className="px-6 py-3 bg-primary-blue/50 border border-accent-gold/30 text-accent-gold rounded-lg hover:bg-primary-blue/70 transition-all duration-300 shadow-sarcophagus hover:shadow-gold">
+                NFT Inheritance
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Wallet Connection */}
-          <div className="lg:col-span-1">
-            <div className="card-hover p-6">
-              <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
-                <svg className="w-5 h-5 text-accent-gold mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"/>
-                </svg>
-                Connect Wallet
-              </h2>
-              <VeChainConnect onAccountUpdate={handleAccountUpdate} />
-            </div>
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          {/* Connect Wallet Panel */}
+          <div className="bg-sarcophagus-800/50 backdrop-blur-sm border border-accent-gold/30 rounded-lg shadow-sarcophagus p-6">
+            <h2 className="text-xl font-semibold text-accent-gold mb-4 flex items-center font-serif">
+              Connect Wallet
+            </h2>
+            <VeChainConnect onAccountUpdate={handleAccountUpdate} />
           </div>
 
-          {/* Right Column - Sarcophagus Dashboard */}
-          <div className="lg:col-span-2">
-            <div className="card-hover p-6">
-              <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
-                <svg className="w-5 h-5 text-accent-gold mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
-                </svg>
-                Inheritance Dashboard
-              </h2>
+          {/* Inheritance Dashboard Panel */}
+          <div className="bg-sarcophagus-800/50 backdrop-blur-sm border border-accent-gold/30 rounded-lg shadow-sarcophagus p-6">
+            <h2 className="text-xl font-semibold text-accent-gold mb-4 flex items-center font-serif">
+              Inheritance Dashboard
+            </h2>
+            {account ? (
               <SarcophagusDashboard 
-                account={account}
+                account={account} 
                 connex={connex}
                 onUserDataUpdate={handleUserDataUpdate}
               />
-            </div>
+            ) : (
+              <div className="bg-sarcophagus-800/50 backdrop-blur-sm border border-accent-gold/30 rounded-lg p-6 text-center">
+                <h3 className="text-lg font-semibold text-accent-gold mb-2 font-serif">Sarcophagus Dashboard</h3>
+                <p className="text-gray-300">Please connect your VeChain wallet to access the dashboard.</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Stats and Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-          <div className="card-hover p-6">
-            <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
-              <svg className="w-5 h-5 text-accent-gold mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/>
-                <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/>
-              </svg>
+        {/* Stats and Activity Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          {/* Quick Stats Panel */}
+          <div className="bg-sarcophagus-800/50 backdrop-blur-sm border border-accent-gold/30 rounded-lg shadow-sarcophagus p-6">
+            <h2 className="text-xl font-semibold text-accent-gold mb-4 flex items-center font-serif">
               Quick Stats
             </h2>
             <QuickStats 
@@ -143,53 +139,40 @@ export default function Home() {
               obolRewards={userData.obolRewards}
             />
           </div>
-          <div className="card-hover p-6">
-            <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
-              <svg className="w-5 h-5 text-accent-gold mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
-              </svg>
+
+          {/* Recent Activity Panel */}
+          <div className="bg-sarcophagus-800/50 backdrop-blur-sm border border-accent-gold/30 rounded-lg shadow-sarcophagus p-6">
+            <h2 className="text-xl font-semibold text-accent-gold mb-4 flex items-center font-serif">
               Recent Activity
             </h2>
-            <RecentActivity userData={userData} />
+            <RecentActivity />
           </div>
         </div>
 
-        {/* VeChain Integration Info */}
-        <div className="mt-8 card-gold p-6">
-          <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
-            <svg className="w-5 h-5 text-accent-gold mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd"/>
-            </svg>
-            Built for VeChain
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        {/* Built for VeChain Section */}
+        <div className="bg-sarcophagus-800/50 backdrop-blur-sm border border-accent-gold/30 rounded-lg shadow-sarcophagus p-8 text-center">
+          <h2 className="text-2xl font-bold text-accent-gold mb-8 font-serif">Built for VeChain</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
-              <div className="w-12 h-12 bg-vechain-green/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-                <svg className="w-6 h-6 text-vechain-green" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd"/>
-                </svg>
+              <div className="w-16 h-16 bg-vechain-green/20 border border-vechain-green/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-8 h-8 bg-vechain-green rounded-full"></div>
               </div>
-              <h3 className="font-semibold text-accent-gold">Native Integration</h3>
-              <p className="text-gray-300">Built specifically for VeChain using Connex framework</p>
+              <h3 className="text-lg font-semibold text-accent-gold mb-2 font-serif">Native Integration</h3>
+              <p className="text-gray-300">Built specifically for VeChain's energy-efficient blockchain</p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 bg-vechain-green/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-                <svg className="w-6 h-6 text-vechain-green" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
-                </svg>
+              <div className="w-16 h-16 bg-vechain-green/20 border border-vechain-green/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-8 h-8 bg-vechain-green rounded-full"></div>
               </div>
-              <h3 className="font-semibold text-accent-gold">Energy Efficient</h3>
-              <p className="text-gray-300">Leverages VeChain's dual-token model (VET + Energy)</p>
+              <h3 className="text-lg font-semibold text-accent-gold mb-2 font-serif">Energy Efficient</h3>
+              <p className="text-gray-300">Low-cost transactions with VeChain's dual-token model</p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 bg-vechain-green/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-                <svg className="w-6 h-6 text-vechain-green" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/>
-                </svg>
+              <div className="w-16 h-16 bg-vechain-green/20 border border-vechain-green/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-8 h-8 bg-vechain-green rounded-full"></div>
               </div>
-              <h3 className="font-semibold text-accent-gold">Secure & Fast</h3>
-              <p className="text-gray-300">Powered by VeChain's Proof of Authority consensus</p>
+              <h3 className="text-lg font-semibold text-accent-gold mb-2 font-serif">Secure & Fast</h3>
+              <p className="text-gray-300">Enterprise-grade security with lightning-fast confirmations</p>
             </div>
           </div>
         </div>
