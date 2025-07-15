@@ -87,7 +87,7 @@ export default function RecentActivity({ userData }: RecentActivityProps) {
       case 'claim': return '🎁'
       case 'reward': return '⭐'
       case 'verification': return '✅'
-      case 'vault_creation': return '🏺'
+      case 'vault_creation': return ''
       case 'beneficiary_update': return '👥'
       case 'funds_added': return '💎'
       default: return '📝'
