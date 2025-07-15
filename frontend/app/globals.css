@@ -3,21 +3,24 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 245, 245, 245;
-  --background-start-rgb: 15, 20, 25;
-  --background-end-rgb: 10, 13, 16;
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 26, 54, 93;
+  --background-end-rgb: 15, 31, 46;
+  --primary-gold: 214, 158, 46;
+  --primary-blue: 26, 54, 93;
+  --vechain-green: 0, 180, 180;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(
-    to bottom right,
+    135deg,
     rgb(var(--background-start-rgb)),
     rgb(var(--background-end-rgb))
   );
   background-attachment: fixed;
   min-height: 100vh;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -30,49 +33,57 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgb(15, 20, 25);
+  background: rgb(var(--background-start-rgb));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(139, 115, 85);
+  background: rgb(var(--primary-gold));
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(205, 127, 50);
+  background: rgb(183, 121, 31);
 }
 
 /* Custom selection */
 ::selection {
-  background: rgba(212, 175, 55, 0.3);
-  color: rgb(245, 245, 245);
+  background: rgba(var(--primary-gold), 0.3);
+  color: rgb(var(--foreground-rgb));
 }
 
 /* Professional button styles */
 .btn-primary {
-  @apply bg-gradient-to-r from-accent-gold to-accent-bronze text-sarcophagus-950 px-6 py-3 rounded-lg font-semibold shadow-sarcophagus transition-all duration-200 hover:shadow-sarcophagus-lg hover:scale-105 active:scale-95;
+  @apply bg-gradient-to-r from-accent-gold to-accent-goldDark text-white px-6 py-3 rounded-lg font-semibold shadow-gold transition-all duration-200 hover:shadow-gold-lg hover:scale-105 active:scale-95 border border-accent-gold;
 }
 
 .btn-secondary {
-  @apply bg-sarcophagus-700 text-sarcophagus-100 px-6 py-3 rounded-lg font-semibold border border-sarcophagus-600 shadow-sarcophagus transition-all duration-200 hover:bg-sarcophagus-600 hover:border-sarcophagus-500;
+  @apply bg-primary-blue text-white px-6 py-3 rounded-lg font-semibold border border-accent-gold shadow-sarcophagus transition-all duration-200 hover:bg-accent-blueLight hover:border-accent-goldLight;
 }
 
 .btn-ghost {
-  @apply bg-transparent text-sarcophagus-300 px-6 py-3 rounded-lg font-semibold border border-sarcophagus-600 transition-all duration-200 hover:bg-sarcophagus-800 hover:text-sarcophagus-100;
+  @apply bg-transparent text-accent-gold px-6 py-3 rounded-lg font-semibold border border-accent-gold transition-all duration-200 hover:bg-accent-gold/10 hover:text-white;
+}
+
+.btn-vechain {
+  @apply bg-vechain-green text-white px-6 py-3 rounded-lg font-semibold shadow-lg transition-all duration-200 hover:bg-vechain-green/90 hover:scale-105 active:scale-95;
 }
 
 /* Card styles */
 .card {
-  @apply bg-sarcophagus-800/80 backdrop-blur-sm border border-sarcophagus-700 rounded-lg shadow-sarcophagus;
+  @apply bg-primary-blue/90 backdrop-blur-sm border border-accent-gold/30 rounded-lg shadow-sarcophagus;
 }
 
 .card-hover {
-  @apply card transition-all duration-200 hover:shadow-sarcophagus-lg hover:border-sarcophagus-600;
+  @apply card transition-all duration-200 hover:shadow-sarcophagus-lg hover:border-accent-gold/50;
+}
+
+.card-gold {
+  @apply bg-gradient-to-br from-accent-gold/20 to-accent-goldDark/20 backdrop-blur-sm border border-accent-gold/50 rounded-lg shadow-gold;
 }
 
 /* Input styles */
 .input-field {
-  @apply w-full px-4 py-3 bg-sarcophagus-700 border border-sarcophagus-600 rounded-lg text-sarcophagus-100 placeholder-sarcophagus-400 focus:outline-none focus:ring-2 focus:ring-accent-gold/50 focus:border-accent-gold transition-all duration-200;
+  @apply w-full px-4 py-3 bg-primary-blue/50 border border-accent-gold/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-gold/50 focus:border-accent-gold transition-all duration-200;
 }
 
 /* Modal backdrop */
@@ -89,7 +100,44 @@ body {
   animation: slideUp 0.3s ease-out;
 }
 
-/* Stone texture overlay */
-.stone-texture {
-  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+/* Temple texture overlay */
+.temple-texture {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d69e2e' fill-opacity='0.05'%3E%3Cpath d='M30 10 L50 20 L50 40 L30 50 L10 40 L10 20 Z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Shield pattern */
+.shield-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d69e2e' fill-opacity='0.03'%3E%3Cpath d='M20 5 L35 10 L35 25 L20 35 L5 25 L5 10 Z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Logo-inspired decorative elements */
+.temple-border {
+  @apply border-t-2 border-accent-gold/50 relative;
+}
+
+.temple-border::before {
+  content: '';
+  @apply absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-accent-gold;
+}
+
+.keyhole-decoration {
+  @apply relative;
+}
+
+.keyhole-decoration::after {
+  content: '';
+  @apply absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-6 border-2 border-accent-gold/50 rounded-b-full;
+}
+
+/* Professional gradients */
+.gradient-gold {
+  background: linear-gradient(135deg, rgb(var(--primary-gold)), rgb(183, 121, 31));
+}
+
+.gradient-blue {
+  background: linear-gradient(135deg, rgb(var(--primary-blue)), rgb(45, 90, 135));
+}
+
+.gradient-vechain {
+  background: linear-gradient(135deg, rgb(var(--vechain-green)), rgb(0, 150, 150));
 } 

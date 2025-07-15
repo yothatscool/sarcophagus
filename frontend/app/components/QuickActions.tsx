@@ -24,7 +24,7 @@ export default function QuickActions({
         title: 'Start Onboarding',
         description: 'Verify your identity',
         icon: '📋',
-        color: 'bg-purple-600 hover:bg-purple-700',
+        color: 'bg-accent-gold hover:bg-accent-goldDark text-primary-blue',
         action: () => console.log('Start onboarding')
       })
     }
@@ -34,7 +34,7 @@ export default function QuickActions({
         title: 'Create Vault',
         description: 'Set up inheritance vault',
         icon: '⚰️',
-        color: 'bg-green-600 hover:bg-green-700',
+        color: 'bg-vechain-green hover:bg-vechain-greenDark text-white',
         action: () => console.log('Create vault')
       })
     }
@@ -44,7 +44,7 @@ export default function QuickActions({
         title: 'Add Funds',
         description: 'Deposit VET, VTHO, B3TR',
         icon: '💰',
-        color: 'bg-blue-600 hover:bg-blue-700',
+        color: 'bg-primary-blue hover:bg-primary-blueDark text-accent-gold',
         action: () => console.log('Add funds')
       })
 
@@ -52,7 +52,7 @@ export default function QuickActions({
         title: 'Manage Beneficiaries',
         description: 'Update beneficiary list',
         icon: '👥',
-        color: 'bg-indigo-600 hover:bg-indigo-700',
+        color: 'bg-sarcophagus-700 hover:bg-sarcophagus-600 text-accent-gold',
         action: () => console.log('Manage beneficiaries')
       })
 
@@ -61,7 +61,7 @@ export default function QuickActions({
           title: 'Claim Rewards',
           description: 'Claim OBOL rewards',
           icon: '⭐',
-          color: 'bg-yellow-600 hover:bg-yellow-700',
+          color: 'bg-accent-gold hover:bg-accent-goldDark text-primary-blue',
           action: claimObolRewards
         })
       }
@@ -74,19 +74,19 @@ export default function QuickActions({
 
   return (
     <div className="mb-8">
-      <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+      <h3 className="text-lg font-semibold mb-4 text-white">Quick Actions</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {actions.map((action, index) => (
           <button
             key={index}
             onClick={action.action}
-            className={`${action.color} rounded-lg p-4 text-left transition-colors`}
+            className={`${action.color} rounded-xl p-4 text-left transition-all duration-300 font-medium shadow-sarcophagus hover:shadow-gold`}
           >
             <div className="flex items-center space-x-3">
               <div className="text-2xl">{action.icon}</div>
               <div>
-                <p className="font-medium text-white">{action.title}</p>
-                <p className="text-sm text-gray-200">{action.description}</p>
+                <p className="font-semibold">{action.title}</p>
+                <p className="text-sm opacity-80">{action.description}</p>
               </div>
             </div>
           </button>

@@ -22,7 +22,7 @@ export default function NextAction({
         title: 'Complete Onboarding',
         description: 'Verify your identity and calculate life expectancy to get started',
         action: 'Start Onboarding',
-        color: 'bg-purple-600 hover:bg-purple-700',
+        color: 'bg-accent-gold hover:bg-accent-goldDark text-primary-blue font-semibold',
         icon: '📋'
       }
     }
@@ -32,7 +32,7 @@ export default function NextAction({
         title: 'Create Your Sarcophagus',
         description: 'Set up your digital inheritance vault with beneficiaries',
         action: 'Create Vault',
-        color: 'bg-green-600 hover:bg-green-700',
+        color: 'bg-vechain-green hover:bg-vechain-greenDark text-white font-semibold',
         icon: '⚰️'
       }
     }
@@ -42,7 +42,7 @@ export default function NextAction({
         title: 'Claim Inheritance',
         description: 'The original owner has passed. You can now claim your inheritance',
         action: 'Claim Now',
-        color: 'bg-yellow-600 hover:bg-yellow-700',
+        color: 'bg-accent-gold hover:bg-accent-goldDark text-primary-blue font-semibold',
         icon: '💰'
       }
     }
@@ -51,7 +51,7 @@ export default function NextAction({
       title: 'Manage Your Vault',
       description: 'Add funds, update beneficiaries, or check your rewards',
       action: 'Manage Vault',
-      color: 'bg-blue-600 hover:bg-blue-700',
+      color: 'bg-primary-blue hover:bg-primary-blueDark text-accent-gold font-semibold',
       icon: '🔧'
     }
   }
@@ -60,13 +60,13 @@ export default function NextAction({
 
   return (
     <div className="mb-8">
-      <div className="bg-gradient-to-r from-purple-900/20 to-pink-900/20 border border-purple-500/30 rounded-lg p-6">
+      <div className="bg-gradient-to-r from-primary-blue/30 to-sarcophagus-800/30 border border-accent-gold/40 rounded-xl p-6 backdrop-blur-sm shadow-sarcophagus">
         <div className="flex items-center space-x-4">
           <div className="text-3xl">{action.icon}</div>
           <div className="flex-1">
             <h3 className="text-xl font-semibold text-white mb-2">{action.title}</h3>
             <p className="text-gray-300 mb-4">{action.description}</p>
-            <button className={`px-6 py-2 rounded-lg text-white font-medium transition-colors ${action.color}`}>
+            <button className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 shadow-gold hover:shadow-goldDark ${action.color}`}>
               {action.action}
             </button>
           </div>
