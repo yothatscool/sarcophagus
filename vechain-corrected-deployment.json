@@ -1,0 +1,34 @@
+{
+  "network": "VeChain Testnet (Corrected Deployment)",
+  "deployer": "0x0BD562C50eDD56e2627a3078d02A3782fF03F67D",
+  "timestamp": "2025-07-16T23:28:58.592Z",
+  "contracts": {
+    "deathVerifier": "0xd97D799F09b1D0B950210Bf2726856b578B85caC",
+    "obol": "0x05459899FE7274Bb043532B8cE7AadE809165da3",
+    "multiSig": "0xACE75E2f990860c6614a1DB4d2BbB5bf6105fFcE",
+    "sarcophagus": "0x80f0e023555063617D1671CF560335Cbd8d40bB0",
+    "b3trRewards": "0xD711E420B76fAB9b034F58c742E1b23E92e0B930"
+  },
+  "transactions": {
+    "deathVerifier": "0xaa44f2eebcc949af9f6d0898b75a9c8e531538a4501085766c950167776c3468",
+    "obol": "0x896552b20ba0f9b64fca16d53c6e98c0b04db4636f3c16f9aed335a78088cba4",
+    "multiSig": "0xe810e31be56fe8d7bf55fe7e9e5f8392ef8243072f42961b9a823fcf982ff1a8",
+    "sarcophagus": "0x270c3622e59564e92e7b4b32f466d95da2b112aa2102323abbbefc2e7cbad08c",
+    "b3trRewards": "0xada27bdedde011fbdc7dad5d2f2ba555e923ed7587e8ff24da38f7630f187652"
+  },
+  "tokens": {
+    "vtho": "0x0000000000000000000000000000456E65726779",
+    "b3tr": "0x5ef79995FE8a89e0812330E4378eB2660ceDe699",
+    "glo": "0x29c630cCe4DdB23900f5Fe66Ab55e488C15b9F5e"
+  },
+  "status": "Successfully deployed with correct VeChain address handling",
+  "features": [
+    "Enhanced DeathVerifier with environmental API integration",
+    "Updated Sarcophagus with GLO conversion fixes",
+    "B3TR Rewards with bonus system",
+    "Security patches (reentrancy protection, pause functionality)",
+    "NFT integration support",
+    "Minimum deposit requirements"
+  ],
+  "note": "VeChain uses different address calculation than Ethereum - actual addresses retrieved from transaction receipts"
+}

@@ -1,6 +1,7 @@
 require('solidity-coverage');
 require("@vechain/hardhat-vechain");
-require("@vechain/hardhat-ethers");
+require("@nomicfoundation/hardhat-ethers");
+require("@nomicfoundation/hardhat-chai-matchers");
 require("hardhat-gas-reporter");
 require("hardhat-contract-sizer");
 require("dotenv").config();
@@ -48,8 +49,8 @@ module.exports = {
     // Local hardhat network for testing
     hardhat: {
       chainId: 31337,
-      gas: 5000000,
-      gasPrice: 0,
+      gas: 30000000, // 30 million
+      gasPrice: 1000000000, // 1 gwei
     }
   },
   etherscan: {

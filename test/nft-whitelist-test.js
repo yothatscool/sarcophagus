@@ -46,7 +46,7 @@ describe("NFT Whitelist and Value Cap Tests", function () {
 
         const MockGLO = await ethers.getContractFactory("MockGLO");
         try {
-            mockGLO = await MockGLO.deploy("Mock GLO", "GLO");
+            mockGLO = await MockGLO.deploy();
             await mockGLO.waitForDeployment();
             console.log('MockGLO deployed successfully:', mockGLO.target);
         } catch (error) {

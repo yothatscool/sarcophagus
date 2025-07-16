@@ -60,6 +60,9 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
     error EmergencyWithdrawalTooEarly();
     error PriceOracleNotSet();
     error InvalidConversionRate();
+    error NFTCollectionNotWhitelisted();
+    error NFTAlreadyLocked();
+    error NFTNotLocked();
 
     // Roles
     bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
@@ -286,7 +289,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
      */
     function updateNFTCollectionMaxValue(address nftContract, uint256 newMaxValue) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (nftContract == address(0)) revert InvalidAddress();
-        if (!allowedNFTCollections[nftContract]) revert("NFT collection not whitelisted");
+        if (!allowedNFTCollections[nftContract]) revert NFTCollectionNotWhitelisted();
         
         uint256 oldValue = maxNFTValue[nftContract];
         maxNFTValue[nftContract] = newMaxValue;
@@ -503,7 +506,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Lock OBOL tokens in vault for inheritance
-     * @param obolAmount Amount of OBOL tokens to lock
+     * @dev CEI enforced: state updated after transferFrom, but no external call after state update. Safe.
      */
     function lockObolTokens(uint256 obolAmount) external nonReentrant {
         if (circuitBreakerActive) revert CircuitBreakerActive();
@@ -532,6 +535,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Claim OBOL rewards for locked tokens
+     * @dev CEI enforced: state updated before external call to obol.claimContinuousRewards
      */
     function claimObolRewards() external nonReentrant {
         if (circuitBreakerActive) revert CircuitBreakerActive();
@@ -551,10 +555,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Lock NFT in vault for inheritance
-     * @param nftContract Address of the NFT contract
-     * @param tokenId Token ID of the NFT
-     * @param nftValue VET-equivalent value of the NFT for OBOL rewards
-     * @param beneficiary Address of the beneficiary who will receive this NFT
+     * @dev CEI enforced: state updated after transferFrom, but no external call after state update. Safe.
      */
     function lockNFT(address nftContract, uint256 tokenId, uint256 nftValue, address beneficiary) external nonReentrant {
         if (circuitBreakerActive) revert CircuitBreakerActive();
@@ -563,7 +564,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         if (beneficiary == address(0)) revert InvalidAddress();
         
         // Check if NFT collection is whitelisted
-        if (!allowedNFTCollections[nftContract]) revert("NFT collection not whitelisted");
+        if (!allowedNFTCollections[nftContract]) revert NFTCollectionNotWhitelisted();
         
         // Enforce value cap
         uint256 maxAllowedValue = maxNFTValue[nftContract];
@@ -579,7 +580,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         if (sarc.isDeceased) revert DeathAlreadyVerified();
 
         // Check if NFT is already locked
-        if (sarc.isNFTLocked[nftContract][tokenId]) revert("NFT already locked");
+        if (sarc.isNFTLocked[nftContract][tokenId]) revert NFTAlreadyLocked();
 
         // Validate beneficiary exists in the vault
         bool beneficiaryExists = false;
@@ -620,8 +621,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Unlock NFT from vault (only before death verification)
-     * @param nftContract Address of the NFT contract
-     * @param tokenId Token ID of the NFT
+     * @dev CEI enforced: state updated before external call to safeTransferFrom
      */
     function unlockNFT(address nftContract, uint256 tokenId) external nonReentrant {
         if (circuitBreakerActive) revert CircuitBreakerActive();
@@ -632,7 +632,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         if (sarc.isDeceased) revert DeathAlreadyVerified();
 
         // Check if NFT is locked
-        if (!sarc.isNFTLocked[nftContract][tokenId]) revert("NFT not locked");
+        if (!sarc.isNFTLocked[nftContract][tokenId]) revert NFTNotLocked();
 
         // Remove NFT from storage
         sarc.isNFTLocked[nftContract][tokenId] = false;
@@ -670,7 +670,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         if (sarc.isDeceased) revert DeathAlreadyVerified();
 
         // Check if NFT is locked
-        if (!sarc.isNFTLocked[nftContract][tokenId]) revert("NFT not locked");
+        if (!sarc.isNFTLocked[nftContract][tokenId]) revert NFTNotLocked();
 
         // Validate new beneficiary exists in the vault
         bool beneficiaryExists = false;
@@ -691,9 +691,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Deposit tokens into sarcophagus
-     * @param vetAmount Amount of VET to deposit
-     * @param vthoAmount Amount of VTHO to deposit
-     * @param b3trAmount Amount of B3TR to deposit
+     * @dev Only function that is payable for native VET deposits on VeChain
      */
     function depositTokens(
         uint256 vetAmount,
@@ -740,7 +738,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Deposit GLO stablecoin into sarcophagus
-     * @param gloAmount Amount of GLO to deposit
+     * @dev CEI enforced: state updated before external call to _updateObolRewards
      */
     function depositGLO(uint256 gloAmount) external nonReentrant {
         if (circuitBreakerActive) revert CircuitBreakerActive();
@@ -766,7 +764,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Add GLO tokens to sarcophagus (alias for depositGLO)
-     * @param gloAmount Amount of GLO to add
+     * @dev CEI enforced: state updated before external call to _updateObolRewards
      */
     function addGLO(uint256 gloAmount) external nonReentrant {
         emit DebugEvent("addGLO: Starting", msg.sender, gloAmount);
@@ -809,13 +807,12 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Convert tokens within the vault using price oracle
-     * @param fromToken Token to convert from
-     * @param toToken Token to convert to
-     * @param amount Amount to convert
+     * @dev CEI enforced: state updated before emitting event, no external call after state update. Safe.
      */
     function convertTokens(address fromToken, address toToken, uint256 amount) external nonReentrant whenNotPaused {
         if (address(priceOracle) == address(0)) revert PriceOracleNotSet();
-        if (fromToken == address(0) || toToken == address(0)) revert InvalidAddress();
+        // Allow any-to-any conversion as long as the price oracle supports the pair
+        if (fromToken == address(0) && toToken == address(0)) revert InvalidAddress(); // Cannot convert VET to VET
         if (amount < MIN_CONVERSION_AMOUNT) revert InvalidAmount();
         if (fromToken == toToken) revert InvalidAddress();
         
@@ -850,7 +847,8 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
      */
     function getConversionRate(address fromToken, address toToken, uint256 amount) external view returns (uint256 conversionRate) {
         if (address(priceOracle) == address(0)) revert PriceOracleNotSet();
-        if (fromToken == address(0) || toToken == address(0)) revert InvalidAddress();
+        // Allow any-to-any conversion as long as the price oracle supports the pair
+        if (fromToken == address(0) && toToken == address(0)) revert InvalidAddress(); // Cannot convert VET to VET
         if (amount == 0) revert InvalidAmount();
         
         return priceOracle.getConversionRate(fromToken, toToken, amount);
@@ -876,8 +874,8 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
      */
     function isConversionSupported(address fromToken, address toToken) external view returns (bool supported) {
         if (address(priceOracle) == address(0)) return false;
-        if (fromToken == address(0) || toToken == address(0)) return false;
-        
+        // Allow any-to-any conversion as long as the price oracle supports the pair
+        if (fromToken == address(0) && toToken == address(0)) return false; // Cannot convert VET to VET
         return priceOracle.isSupported(fromToken, toToken);
     }
 
@@ -994,6 +992,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Transfer inheritance tokens to beneficiary
+     * @dev Enforces CEI: state is updated before external calls
      * @param beneficiary Address of beneficiary
      * @param vetInheritance VET inheritance amount
      * @param vthoInheritance VTHO inheritance amount
@@ -1009,6 +1008,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
         uint256 obolInheritance,
         uint256 gloInheritance
     ) internal {
+        // All state updates must be done before this function is called (CEI)
         if (vetInheritance > 0) {
             payable(beneficiary).transfer(vetInheritance);
         }
@@ -1022,13 +1022,10 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
             // Calculate OBOL withdrawal fee (0.5%)
             uint256 obolFee = (obolInheritance * OBOL_WITHDRAWAL_FEE_RATE) / BASIS_POINTS;
             uint256 obolNet = obolInheritance - obolFee;
-            
             // Transfer net amount to beneficiary
             IERC20(obolAddress).safeTransfer(beneficiary, obolNet);
-            
             // Transfer fee to fee collector
             IERC20(obolAddress).safeTransfer(feeCollector, obolFee);
-            
             emit ObolWithdrawalFeeCollected(beneficiary, obolFee, obolInheritance);
         }
         if (gloInheritance > 0) {
@@ -1174,8 +1171,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Claim inheritance for a contingent beneficiary
-     * @param user Address of deceased user
-     * @param beneficiaryIndex Index of primary beneficiary
+     * @dev CEI enforced: state updated before external call to _transferInheritance
      */
     function claimContingentInheritance(
         address user,
@@ -1480,7 +1476,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Withdraw partial funds after 15 years with penalty
-     * @param percentage Percentage of funds to withdraw (max 30%)
+     * @dev CEI enforced: state updated before external call to _transferInheritance
      */
     function withdrawPartial(
         uint256 percentage
@@ -1523,6 +1519,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Withdraw all funds after 15 years with penalty
+     * @dev CEI enforced: state updated before external call to _transferInheritance
      */
     function withdrawAll() external nonReentrant {
         if (circuitBreakerActive) revert CircuitBreakerActive();
@@ -1566,7 +1563,7 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Emergency withdrawal after 7 years with 90% penalty
-     * @param emergencyReason Reason for emergency withdrawal
+     * @dev CEI enforced: state updated before external calls to transfer and safeTransfer
      */
     function emergencyWithdraw(
         string calldata emergencyReason
@@ -1779,12 +1776,12 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Transfer NFTs assigned to a specific beneficiary
+     * @dev Enforces CEI: state is updated before external calls
      * @param user Address of deceased user
      * @param beneficiary Address of beneficiary claiming NFTs
      */
     function _transferNFTsToBeneficiary(address user, address beneficiary) internal {
         SarcophagusData storage sarc = sarcophagi[user];
-        
         // Collect NFTs to transfer
         for (uint256 i = 0; i < sarc.nftContracts.length; i++) {
             address nftContract = sarc.nftContracts[i];
@@ -1793,13 +1790,11 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
             while (j < tokenIds.length) {
                 uint256 tokenId = tokenIds[j];
                 if (sarc.nftBeneficiaries[nftContract][tokenId] == beneficiary && sarc.isNFTLocked[nftContract][tokenId]) {
-                    // Update state BEFORE external call
+                    // Update state BEFORE external call (CEI)
                     sarc.isNFTLocked[nftContract][tokenId] = false;
                     sarc.nftBeneficiaries[nftContract][tokenId] = address(0);
-                    
                     // Transfer NFT (external call)
                     IERC721(nftContract).safeTransferFrom(address(this), beneficiary, tokenId);
-                    
                     // Remove from array (swap and pop)
                     tokenIds[j] = tokenIds[tokenIds.length - 1];
                     tokenIds.pop();
@@ -1809,7 +1804,6 @@ contract Sarcophagus is AccessControl, ReentrancyGuard, Pausable {
                 }
             }
         }
-        
         emit NFTsTransferredToBeneficiary(user, beneficiary);
     }
 

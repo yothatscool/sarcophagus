@@ -1,24 +1,38 @@
 const { ethers } = require("hardhat");
+const realEthers = require("ethers"); // Always import the actual ethers library
+
+// For v5
+const v5utils = realEthers.utils || {};
+const keccak256 = v5utils.keccak256 || realEthers.keccak256;
+const toUtf8Bytes = v5utils.toUtf8Bytes || realEthers.toUtf8Bytes;
+
+let AddressZero, MaxUint256;
+try {
+  ({ AddressZero, MaxUint256 } = realEthers.constants);
+} catch (e) {
+  AddressZero = realEthers.ZeroAddress;
+  MaxUint256 = realEthers.MaxUint256;
+}
 
 /**
  * Helper functions for test files
  */
 const TestUtils = {
     // Constants
-    ZERO_ADDRESS: ethers.ZeroAddress,
-    MAX_UINT256: ethers.MaxUint256,
+    ZERO_ADDRESS: AddressZero,
+    MAX_UINT256: MaxUint256,
 
     // Role constants
     ROLES: {
-        ORACLE_ROLE: ethers.keccak256(ethers.toUtf8Bytes("ORACLE_ROLE")),
-        MEDIATOR_ROLE: ethers.keccak256(ethers.toUtf8Bytes("MEDIATOR_ROLE")),
-        STORAGE_WRITE: ethers.keccak256(ethers.toUtf8Bytes("STORAGE_WRITE")),
-        STORAGE_READ: ethers.keccak256(ethers.toUtf8Bytes("STORAGE_READ"))
+        ORACLE_ROLE: keccak256(toUtf8Bytes("ORACLE_ROLE")),
+        MEDIATOR_ROLE: keccak256(toUtf8Bytes("MEDIATOR_ROLE")),
+        STORAGE_WRITE: keccak256(toUtf8Bytes("STORAGE_WRITE")),
+        STORAGE_READ: keccak256(toUtf8Bytes("STORAGE_READ"))
     },
 
     // Helper functions
-    generateProofHash: (proofString) => ethers.keccak256(ethers.toUtf8Bytes(proofString)),
-    generateOracleKey: (keyString) => ethers.keccak256(ethers.toUtf8Bytes(keyString)),
+    generateProofHash: (proofString) => keccak256(toUtf8Bytes(proofString)),
+    generateOracleKey: (keyString) => keccak256(toUtf8Bytes(keyString)),
 
     // Contract deployment helpers
     deployContract: async (name, args = []) => {

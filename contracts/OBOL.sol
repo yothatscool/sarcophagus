@@ -25,6 +25,8 @@ contract OBOL is ERC20, AccessControl, Pausable, ReentrancyGuard, IOBOL {
     error VestingNotReady();
     error NoRewardsToClaim();
     error InvalidUser();
+    error DailyRewardCapExceeded();
+    error TotalRewardSupplyExceeded();
 
     // Roles
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -159,12 +161,12 @@ contract OBOL is ERC20, AccessControl, Pausable, ReentrancyGuard, IOBOL {
         // Check daily cap
         uint256 currentDay = block.timestamp / 1 days;
         if (dailyRewardsMinted[currentDay] + pendingRewards > DAILY_REWARD_CAP) {
-            revert("Daily reward cap exceeded");
+            revert DailyRewardCapExceeded();
         }
         
         // Check total supply cap
         if (totalMintedRewards + pendingRewards > REWARD_SUPPLY) {
-            revert("Total reward supply exceeded");
+            revert TotalRewardSupplyExceeded();
         }
         
         // Update tracking

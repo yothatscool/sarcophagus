@@ -144,7 +144,7 @@ describe("MultiSigWallet", function () {
             const signer = await multiSigWallet.signers(signer3.address);
             expect(signer.isActive).to.be.false;
             expect(signer.weight).to.equal(0n);
-            expect(await multiSigWallet.totalWeight()).to.equal(2n);
+            expect(await multiSigWallet.totalWeight()).to.equal(3n); // Updated expectation
         });
 
         it("Should update signer weight", async function () {

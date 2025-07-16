@@ -15,36 +15,42 @@ describe("Hybrid OBOL Earning System", function () {
     // Deploy mock tokens
     const MockVTHO = await ethers.getContractFactory("MockVTHO");
     mockVTHO = await MockVTHO.deploy();
+    await mockVTHO.waitForDeployment();
     
     const MockB3TR = await ethers.getContractFactory("MockB3TR");
     mockB3TR = await MockB3TR.deploy();
+    await mockB3TR.waitForDeployment();
 
     const MockGLO = await ethers.getContractFactory("MockGLO");
     mockGLO = await MockGLO.deploy();
+    await mockGLO.waitForDeployment();
 
     // Deploy OBOL token
     const OBOL = await ethers.getContractFactory("OBOL");
     obol = await OBOL.deploy();
+    await obol.waitForDeployment();
 
     // Deploy Death Verifier
     const DeathVerifier = await ethers.getContractFactory("DeathVerifier");
     deathVerifier = await DeathVerifier.deploy();
+    await deathVerifier.waitForDeployment();
 
     // Deploy Sarcophagus
     const Sarcophagus = await ethers.getContractFactory("Sarcophagus");
     sarcophagus = await Sarcophagus.deploy(
-      mockVTHO.target,
-      mockB3TR.target,
-      obol.target,
-      mockGLO.target,
-      deathVerifier.target,
-      obol.target,
+      await mockVTHO.getAddress(),
+      await mockB3TR.getAddress(),
+      await obol.getAddress(),
+      await mockGLO.getAddress(),
+      await deathVerifier.getAddress(),
+      await obol.getAddress(),
       owner.address // feeCollector
     );
+    await sarcophagus.waitForDeployment();
 
     // Setup roles
     const vaultRole = await obol.VAULT_ROLE();
-    await obol.grantRole(vaultRole, sarcophagus.target);
+    await obol.grantRole(vaultRole, await sarcophagus.getAddress());
     
     const oracleRole = await deathVerifier.ORACLE_ROLE();
     await deathVerifier.grantRole(oracleRole, oracle.address);
@@ -59,10 +65,10 @@ describe("Hybrid OBOL Earning System", function () {
     await mockB3TR.mint(user2Address, ethers.parseEther("1000"));
 
     // Approve tokens
-    await mockVTHO.connect(user1).approve(sarcophagus.target, ethers.parseEther("1000"));
-    await mockB3TR.connect(user1).approve(sarcophagus.target, ethers.parseEther("1000"));
-    await mockVTHO.connect(user2).approve(sarcophagus.target, ethers.parseEther("1000"));
-    await mockB3TR.connect(user2).approve(sarcophagus.target, ethers.parseEther("1000"));
+    await mockVTHO.connect(user1).approve(await sarcophagus.getAddress(), ethers.parseEther("1000"));
+    await mockB3TR.connect(user1).approve(await sarcophagus.getAddress(), ethers.parseEther("1000"));
+    await mockVTHO.connect(user2).approve(await sarcophagus.getAddress(), ethers.parseEther("1000"));
+    await mockB3TR.connect(user2).approve(await sarcophagus.getAddress(), ethers.parseEther("1000"));
   });
 
   describe("Initial Setup", function () {
@@ -73,7 +79,7 @@ describe("Hybrid OBOL Earning System", function () {
     });
 
     it("Should have correct tokenomics", async function () {
-      expect(await obol.balanceOf(obol.address)).to.equal(ethers.parseEther("5000000"));
+      expect(await obol.balanceOf(await obol.getAddress())).to.equal(ethers.parseEther("5000000"));
     });
 
     it("Should have correct earning rates", async function () {
@@ -106,7 +112,13 @@ describe("Hybrid OBOL Earning System", function () {
       expect(initialBalance).to.equal(BigInt(0));
       // Make deposit - msg.value must match vetAmount
       await sarcophagus.connect(user1).depositTokens(depositAmount, 0, 0, { value: depositAmount });
-      // There may be a need to claim rewards if OBOL is not minted automatically
+      
+      // Check if there are any rewards to claim
+      const pendingRewards = await obol.getPendingRewards(user1Address);
+      if (pendingRewards > 0) {
+          await obol.connect(user1).claimContinuousRewards(user1Address);
+      }
+      
       // Check final balance
       const finalBalance = await obol.balanceOf(user1Address);
       // Accept either 0 or a positive value depending on contract logic
@@ -129,6 +141,13 @@ describe("Hybrid OBOL Earning System", function () {
       const totalValue = vthoAmount + b3trAmount;
       // Make deposit - no VET, so no value needed
       await sarcophagus.connect(user1).depositTokens(0, vthoAmount, b3trAmount);
+      
+      // Check if there are any rewards to claim
+      const pendingRewards = await obol.getPendingRewards(user1Address);
+      if (pendingRewards > 0) {
+          await obol.connect(user1).claimContinuousRewards(user1Address);
+      }
+      
       // Check balance
       const balance = await obol.balanceOf(user1Address);
       expect(balance >= BigInt(0)).to.be.true;

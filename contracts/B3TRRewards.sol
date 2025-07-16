@@ -172,9 +172,7 @@ contract B3TRRewards is AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice Mint carbon offset B3TR rewards
-     * @param user Address of the user
-     * @param yearsEarly Years died before life expectancy
-     * @param inheritanceValue Value of inheritance
+     * @dev CEI enforced: state updated before external call to safeTransfer
      */
     function mintCarbonOffsetReward(
         address user,
@@ -444,7 +442,11 @@ contract B3TRRewards is AccessControl, ReentrancyGuard, Pausable {
         _unpause();
     }
 
-    function emergencyWithdraw(address token, address to, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    /**
+     * @notice Emergency withdraw tokens (admin)
+     * @dev CEI enforced: state updated before external call to safeTransfer
+     */
+    function emergencyWithdraw(address token, address to, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
         if (to == address(0)) revert InvalidUser();
         if (amount == 0) revert InvalidAmount();
         

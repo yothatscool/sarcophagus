@@ -1,12 +1,12 @@
 // Auto-generated from deployment
 export const CONTRACT_ADDRESSES = {
-  // Testnet addresses (VeChain Testnet) - Updated with actual deployed contracts
+  // Testnet addresses (VeChain Testnet) - Updated with corrected deployed contracts
   testnet: {
-    sarcophagus: '0xDdC3EA7774D8159cA36941Cd8C2242f0BddDDD86',
-    obolToken: '0x7Bf213e820f681BcdEDB2595B1Aeb304A6638dB9',
-    b3trRewards: '0x354f8114254f985fB5ebc4401B4330bB6393ed18',
-    deathVerifier: '0xe010129bE20F85845d169BF656310e9F695687A7',
-    multiSigWallet: '0x8077A68349049658f5d8E387AaD7475422E04aF7',
+    sarcophagus: '0x80f0e023555063617D1671CF560335Cbd8d40bB0',
+    obolToken: '0x05459899FE7274Bb043532B8cE7AadE809165da3',
+    b3trRewards: '0xD711E420B76fAB9b034F58c742E1b23E92e0B930',
+    deathVerifier: '0xd97D799F09b1D0B950210Bf2726856b578B85caC',
+    multiSigWallet: '0xACE75E2f990860c6614a1DB4d2BbB5bf6105fFcE',
     // Token addresses for deposits
     vet: '0x0000000000000000000000000000000000000000', // Native VET
     vtho: '0x0000000000000000000000000000000000000000', // Native VTHO

@@ -29,7 +29,7 @@ describe("NFT Locking Comprehensive Tests", function () {
         await mockObol.waitForDeployment();
 
         const MockGLO = await ethers.getContractFactory("MockGLO");
-        mockGLO = await MockGLO.deploy("Mock GLO", "GLO");
+        mockGLO = await MockGLO.deploy();
         await mockGLO.waitForDeployment();
 
         const MockNFT = await ethers.getContractFactory("MockNFT");
@@ -154,7 +154,7 @@ describe("NFT Locking Comprehensive Tests", function () {
             
             await expect(
                 sarcophagus.connect(user1).lockNFT(mockNFT2.target, 1, ethers.parseEther("5"), beneficiary1Address)
-            ).to.be.revertedWith("NFT collection not whitelisted");
+            ).to.be.revertedWithCustomError(sarcophagus, "NFTCollectionNotWhitelisted");
         });
 
         it("Should prevent locking already locked NFT", async function () {
@@ -165,7 +165,7 @@ describe("NFT Locking Comprehensive Tests", function () {
             
             await expect(
                 sarcophagus.connect(user1).lockNFT(mockNFT.target, tokenId, nftValue, beneficiary2Address)
-            ).to.be.revertedWith("NFT already locked");
+            ).to.be.revertedWithCustomError(sarcophagus, "NFTAlreadyLocked");
         });
 
         it("Should prevent locking NFT to non-beneficiary", async function () {
@@ -206,7 +206,7 @@ describe("NFT Locking Comprehensive Tests", function () {
         it("Should prevent unlocking non-locked NFT", async function () {
             await expect(
                 sarcophagus.connect(user1).unlockNFT(mockNFT.target, 999)
-            ).to.be.revertedWith("NFT not locked");
+            ).to.be.revertedWithCustomError(sarcophagus, "NFTNotLocked");
         });
 
         it("Should prevent unlocking after death verification", async function () {
@@ -387,7 +387,7 @@ describe("NFT Locking Comprehensive Tests", function () {
             // Should not be able to lock new NFTs
             await expect(
                 sarcophagus.connect(user1).lockNFT(mockNFT.target, 1, ethers.parseEther("5"), beneficiary1Address)
-            ).to.be.revertedWith("NFT collection not whitelisted");
+            ).to.be.revertedWithCustomError(sarcophagus, "NFTCollectionNotWhitelisted");
         });
     });
 }); 

@@ -246,7 +246,7 @@ describe("Sarcophagus Protocol", function () {
       const smallAmount = ethers.parseEther("50"); // Below 100 VET minimum
       
       await expect(
-        sarcophagus.connect(user1).depositTokens(0, 0, 0, { value: smallAmount })
+        sarcophagus.connect(user1).depositTokens(0, 0, 0)
       ).to.be.revertedWithCustomError(sarcophagus, "InvalidVETAmount");
     });
 
