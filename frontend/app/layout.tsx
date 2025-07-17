@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} bg-gray-900 min-h-screen`}>
+      <body className="min-h-screen">
         <NotificationProvider>
           <LoadingProvider>
             {children}
