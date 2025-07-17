@@ -67,6 +67,14 @@ export default function Home() {
       <Header />
       
       <main className="container mx-auto px-4 py-8">
+        {/* Test Section - Hardcoded Colors */}
+        <div style={{backgroundColor:'#1a12', color: '#d4f37', padding: '20px', marginBottom: '20px', border: '2px solid #d4af37'}}>         <h1 style={{color: '#d4af37', fontFamily: 'Poppins, sans-serif'}}>TEST: New Design System</h1>
+          <p style={{color: '#e9ecef'}}>This should show the new gold color (#d4) and Poppins font</p>
+          <button style={{backgroundColor:'#d4af37', color: '#1a1a2e', padding: '10px 20px', border: '1px solid #d4af37', borderRadius: '5px'}}>
+            Test Button
+          </button>
+        </div>
+
         {/* Hero Section */}
         <div className="text-center mb-12">
           <div className="max-w-4xl mx-auto">
