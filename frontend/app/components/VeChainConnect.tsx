@@ -19,6 +19,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connex, setConnex] = useState<any>(null);
+  const [userCancelled, setUserCancelled] = useState(false);
 
   // Initialize Connex
   useEffect(() => {
@@ -53,6 +54,8 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
       return;
     }
 
+    // Reset cancellation state when starting new connection
+    setUserCancelled(false);
     setIsLoading(true);
     setError(null);
 
@@ -70,7 +73,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
       });
 
       // Check for ConnexWalletBuddy first (seems to work better)
-      if (typeof window !== 'undefined' && (window as any).ConnexWalletBuddy) {
+      if (typeof window !== 'undefined' && (window as any).ConnexWalletBuddy && !userCancelled) {
         try {
           console.log('Attempting ConnexWalletBuddy connection first...');
           const buddy = (window as any).ConnexWalletBuddy;
@@ -113,6 +116,14 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                   }
                 } catch (certError) {
                   console.log('ConnexWalletBuddy certificate signing failed:', (certError as Error).message);
+                  // Check if user cancelled
+                  if ((certError as Error).message.includes('cancelled') || 
+                      (certError as Error).message.includes('rejected') ||
+                      (certError as Error).message.includes('denied')) {
+                    setUserCancelled(true);
+                    setError('Connection cancelled by user');
+                    return;
+                  }
                 }
               }
             } catch (createErr) {
@@ -125,7 +136,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
       }
 
       // Check for VeChain wallet (VeWorld/Sync2) as fallback
-      if (!walletAccount && typeof window !== 'undefined' && (window as any).vechain) {
+      if (!walletAccount && !userCancelled && typeof window !== 'undefined' && (window as any).vechain) {
         try {
           console.log('Attempting VeChain wallet connection...');
           const vechain = (window as any).vechain;
@@ -146,6 +157,8 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
             ];
             
             for (const method of requestMethods) {
+              if (userCancelled) break; // Stop if user cancelled
+              
               try {
                 console.log(`Trying vechain.request with method: ${method}`);
                 const result = await vechain.request({ method });
@@ -158,6 +171,15 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                 }
               } catch (requestError) {
                 console.log(`Request failed for ${method}:`, (requestError as Error).message);
+                // Check if user cancelled
+                if ((requestError as Error).message.includes('cancelled') || 
+                    (requestError as Error).message.includes('rejected') ||
+                    (requestError as Error).message.includes('denied') ||
+                    (requestError as Error).message.includes('User rejected')) {
+                  setUserCancelled(true);
+                  setError('Connection cancelled by user');
+                  return;
+                }
               }
             }
           } catch (directRequestError) {
@@ -165,7 +187,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           }
           
           // Step 2: If direct request didn't work, try creating Connex instance
-          if (!walletAccount) {
+          if (!walletAccount && !userCancelled) {
             console.log('Direct request failed, trying Connex instance...');
             
             // Use the correct configuration that matches what VeWorld is using (testnet)
@@ -180,7 +202,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
             console.log('Connex instance created:', connexInstance);
             
             // Try to get account through vendor request
-            if (connexInstance.vendor && connexInstance.vendor.request) {
+            if (connexInstance.vendor && connexInstance.vendor.request && !userCancelled) {
               try {
                 console.log('Trying vendor.request to get account...');
                 const result = await connexInstance.vendor.request({ method: 'eth_requestAccounts' });
@@ -192,16 +214,21 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                 }
               } catch (vendorRequestError) {
                 console.log('Vendor request failed:', (vendorRequestError as Error).message);
+                // Check if user cancelled
+                if ((vendorRequestError as Error).message.includes('cancelled') || 
+                    (vendorRequestError as Error).message.includes('rejected') ||
+                    (vendorRequestError as Error).message.includes('denied')) {
+                  setUserCancelled(true);
+                  setError('Connection cancelled by user');
+                  return;
+                }
               }
             }
             
             // Step 3: If vendor request didn't work, try certificate signing with proper parameters
-            if (!walletAccount) {
+            if (!walletAccount && !userCancelled) {
               try {
                 console.log('Trying certificate signing with proper parameters...');
-                
-                // Try to get a dummy address first to use in certificate signing
-                const dummyAddress = '0x0000000000000000000000000000000000000000';
                 
                 const certService = await connexInstance.vendor.sign('cert', {
                   purpose: 'identification',
@@ -214,8 +241,8 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                 console.log('Certificate service obtained:', certService);
                 
                 if (certService && typeof certService.signer === 'function') {
-                  console.log('Calling certificate signer with dummy address...');
-                  const signedCert = await certService.signer(dummyAddress);
+                  console.log('Calling certificate signer...');
+                  const signedCert = await certService.signer();
                   console.log('Certificate signed:', signedCert);
                   
                   // Try to extract signer address from certificate
@@ -232,6 +259,15 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                 }
               } catch (certError) {
                 console.log('Certificate signing failed:', (certError as Error).message);
+                // Check if user cancelled
+                if ((certError as Error).message.includes('cancelled') || 
+                    (certError as Error).message.includes('rejected') ||
+                    (certError as Error).message.includes('denied') ||
+                    (certError as Error).message.includes('User rejected')) {
+                  setUserCancelled(true);
+                  setError('Connection cancelled by user');
+                  return;
+                }
               }
             }
           }
@@ -242,7 +278,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
       }
 
       // Check for legacy wallet objects as final fallback
-      if (!walletAccount && typeof window !== 'undefined' && (window as any).veworld) {
+      if (!walletAccount && !userCancelled && typeof window !== 'undefined' && (window as any).veworld) {
         try {
           console.log('Attempting VeWorld legacy connection...');
           const veworld = (window as any).veworld;
@@ -254,7 +290,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         }
       }
 
-      if (typeof window !== 'undefined' && (window as any).sync2) {
+      if (!walletAccount && !userCancelled && typeof window !== 'undefined' && (window as any).sync2) {
         try {
           console.log('Attempting Sync2 connection...');
           const sync2 = (window as any).sync2;
@@ -266,7 +302,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
         }
       }
 
-      if (walletAccount && walletAccount.address) {
+      if (walletAccount && walletAccount.address && !userCancelled) {
         // Get account balance and energy
         try {
           const accountInfo = await connex.thor.account(walletAccount.address).get();
@@ -289,7 +325,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
           setIsConnected(true);
           setError(null);
         }
-      } else {
+      } else if (!userCancelled) {
         // Check if we're still waiting for the account change event
         console.log('No wallet account found yet. Available objects:', {
           veworld: typeof window !== 'undefined' ? (window as any).veworld : 'N/A',
@@ -309,7 +345,9 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
       }
     } catch (err) {
       console.error('Wallet connection error:', err);
-      setError('Failed to connect wallet. Please try again.');
+      if (!userCancelled) {
+        setError('Failed to connect wallet. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -319,6 +357,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
     setAccount(null);
     setIsConnected(false);
     setError(null);
+    setUserCancelled(false); // Reset cancellation state
   };
 
   const shortenAddress = (address: string) => {
@@ -353,11 +392,23 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
 
           <button
             onClick={connectWallet}
-            disabled={isLoading}
+            disabled={isLoading || userCancelled}
             className="w-full bg-gradient-to-r from-accent-gold to-accent-goldMedium hover:from-accent-goldMedium hover:to-accent-goldDark disabled:bg-gray-600 text-primary-blue font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-gold hover:shadow-goldDark"
           >
-            {isLoading ? 'Connecting...' : 'Connect VeChain Wallet'}
+            {isLoading ? 'Connecting...' : userCancelled ? 'Connection Cancelled' : 'Connect VeChain Wallet'}
           </button>
+
+          {userCancelled && (
+            <button
+              onClick={() => {
+                setUserCancelled(false);
+                setError(null);
+              }}
+              className="w-full bg-primary-blue/50 hover:bg-primary-blue/70 text-accent-gold font-semibold py-2 px-4 rounded-lg transition-all duration-300 border border-accent-gold/40"
+            >
+              Try Again
+            </button>
+          )}
 
           {/* Debug button for development */}
           <button
