@@ -80,13 +80,37 @@ export default function Home() {
           
           {/* Feature Buttons */}
           <div className="flex flex-wrap justify-center gap-4">
-            <button className="bg-accent-gold hover:bg-accent-goldMedium text-primary-blue font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-gold">
+            <button 
+              onClick={() => {
+                const dashboard = document.querySelector('[data-section="dashboard"]');
+                if (dashboard) {
+                  dashboard.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+              className="bg-accent-gold hover:bg-accent-goldMedium text-primary-blue font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-gold"
+            >
               Multi-Sig Security
             </button>
-            <button className="bg-accent-gold hover:bg-accent-goldMedium text-primary-blue font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-gold">
+            <button 
+              onClick={() => {
+                const stats = document.querySelector('[data-section="stats"]');
+                if (stats) {
+                  stats.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+              className="bg-accent-gold hover:bg-accent-goldMedium text-primary-blue font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-gold"
+            >
               Environmental Rewards
             </button>
-            <button className="bg-accent-gold hover:bg-accent-goldMedium text-primary-blue font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-gold">
+            <button 
+              onClick={() => {
+                const activity = document.querySelector('[data-section="activity"]');
+                if (activity) {
+                  activity.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+              className="bg-accent-gold hover:bg-accent-goldMedium text-primary-blue font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-gold"
+            >
               NFT Inheritance
             </button>
           </div>
@@ -101,7 +125,7 @@ export default function Home() {
           </div>
 
           {/* Inheritance Dashboard Panel */}
-          <div className="bg-background-card border border-accent-gold rounded-xl p-6 shadow-sarcophagus">
+          <div data-section="dashboard" className="bg-background-card border border-accent-gold rounded-xl p-6 shadow-sarcophagus">
             <h2 className="text-2xl font-heading font-semibold text-accent-gold mb-6">Inheritance Dashboard</h2>
             {account ? (
               <SarcophagusDashboard 
@@ -121,7 +145,7 @@ export default function Home() {
         {/* Stats and Activity Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
           {/* Quick Stats Panel */}
-          <div className="bg-background-card border border-accent-gold rounded-xl p-6 shadow-sarcophagus">
+          <div data-section="stats" className="bg-background-card border border-accent-gold rounded-xl p-6 shadow-sarcophagus">
             <h2 className="text-2xl font-heading font-semibold text-accent-gold mb-6">Quick Stats</h2>
             <QuickStats 
               isUserVerified={userData.isVerified}
@@ -133,7 +157,7 @@ export default function Home() {
           </div>
 
           {/* Recent Activity Panel */}
-          <div className="bg-background-card border border-accent-gold rounded-xl p-6 shadow-sarcophagus">
+          <div data-section="activity" className="bg-background-card border border-accent-gold rounded-xl p-6 shadow-sarcophagus">
             <h2 className="text-2xl font-heading font-semibold text-accent-gold mb-6">Recent Activity</h2>
             <RecentActivity />
           </div>

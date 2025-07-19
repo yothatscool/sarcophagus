@@ -1805,13 +1805,7 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
             >
               {isTestMode ? 'Test Mode' : 'Live Mode'}
             </button>
-            <button
-              onClick={handleTestIntegration}
-              disabled={isLoading}
-              className="px-3 py-1 rounded-full text-xs font-medium bg-primary-blue/50 text-accent-gold border border-accent-gold/40 hover:bg-primary-blue/70 disabled:opacity-50"
-            >
-              {isLoading ? 'Testing...' : 'Test Integration'}
-            </button>
+
           </div>
         </div>
         <p className="text-gray-300">Manage your digital inheritance on VeChain</p>
@@ -2103,8 +2097,8 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
                       value={ageInput}
                       onChange={(e) => handleAgeChange(e.target.value)}
                       placeholder="Enter your age (18-120)"
-                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        ageError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${
+                        ageError ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white'
                       }`}
                       disabled={isLoading}
                     />
@@ -2660,8 +2654,8 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
                           value={ageInput}
                           onChange={(e) => handleAgeChange(e.target.value)}
                           placeholder="Enter your age (18-120)"
-                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            ageError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 ${
+                            ageError ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white'
                           }`}
                           disabled={isLoading}
                         />

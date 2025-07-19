@@ -410,98 +410,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
             </button>
           )}
 
-          {/* Debug button for development */}
-          <button
-            onClick={() => {
-              console.log('=== WALLET DEBUG INFO ===');
-              console.log('Window object:', typeof window !== 'undefined' ? 'Available' : 'Not available');
-              if (typeof window !== 'undefined') {
-                console.log('VeWorld:', (window as any).veworld);
-                console.log('Sync2:', (window as any).sync2);
-                console.log('Sync:', (window as any).sync);
-                console.log('Connex:', (window as any).connex);
-                console.log('VeChain:', (window as any).vechain);
-                console.log('ConnexWalletBuddy:', (window as any).ConnexWalletBuddy);
-                
-                if ((window as any).vechain) {
-                  console.log('VeChain methods:', Object.keys((window as any).vechain));
-                }
-                if ((window as any).ConnexWalletBuddy) {
-                  console.log('ConnexWalletBuddy methods:', Object.keys((window as any).ConnexWalletBuddy));
-                }
-                
-                console.log('All window properties:', Object.keys(window).filter(key => 
-                  key.toLowerCase().includes('vechain') || 
-                  key.toLowerCase().includes('veworld') || 
-                  key.toLowerCase().includes('sync') || 
-                  key.toLowerCase().includes('connex')
-                ));
-              }
-              alert('Check browser console for wallet debug info');
-            }}
-            className="w-full bg-primary-blue/50 hover:bg-primary-blue/70 text-accent-gold font-semibold py-2 px-4 rounded-lg transition-all duration-300 border border-accent-gold/40 mt-2"
-          >
-            Debug Wallet Detection
-          </button>
 
-          {/* Test wallet connection button */}
-          <button
-            onClick={async () => {
-              console.log('=== TESTING WALLET CONNECTION ===');
-              if (typeof window !== 'undefined' && (window as any).vechain) {
-                const vechain = (window as any).vechain;
-                console.log('Testing VeChain wallet methods...');
-                
-                try {
-                  // Test 1: Try to create a vendor with testnet config
-                  if (vechain.newConnexVendor) {
-                    console.log('Test 1: Creating vendor...');
-                    const vendor = vechain.newConnexVendor({
-                      node: 'https://testnet.vechain.org',
-                      network: 'test'
-                    });
-                    console.log('Vendor created:', vendor);
-                    if (vendor) {
-                      console.log('Vendor methods:', Object.keys(vendor));
-                    }
-                  }
-                  
-                  // Test 2: Try to create a connex with testnet config
-                  if (vechain.newConnex) {
-                    console.log('Test 2: Creating connex...');
-                    const connex = vechain.newConnex({
-                      node: 'https://testnet.vechain.org',
-                      network: 'test'
-                    });
-                    console.log('Connex created:', connex);
-                    if (connex) {
-                      console.log('Connex methods:', Object.keys(connex));
-                    }
-                  }
-                  
-                  // Test 3: Try to create a signer with testnet config
-                  if (vechain.newConnexSigner) {
-                    console.log('Test 3: Creating signer...');
-                    const signer = vechain.newConnexSigner({
-                      node: 'https://testnet.vechain.org',
-                      network: 'test'
-                    });
-                    console.log('Signer created:', signer);
-                    if (signer) {
-                      console.log('Signer methods:', Object.keys(signer));
-                    }
-                  }
-                  
-                } catch (err) {
-                  console.log('Test failed:', err);
-                }
-              }
-              alert('Check browser console for wallet connection test results');
-            }}
-            className="w-full bg-gradient-to-r from-accent-gold to-accent-goldMedium hover:from-accent-goldMedium hover:to-accent-goldDark text-primary-blue font-semibold py-2 px-4 rounded-lg transition-all duration-300 shadow-gold hover:shadow-goldDark mt-2"
-          >
-            Test Wallet Connection
-          </button>
         </div>
       ) : (
         <div className="space-y-4">
@@ -518,7 +427,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
                   {parseFloat(account!.balance).toFixed(2)} VET
                 </p>
                 <p className="text-vechain-green font-semibold">
-                  {parseFloat(account!.energy).toFixed(2)} Energy
+                  {parseFloat(account!.energy).toFixed(2)} VTHO
                 </p>
               </div>
             </div>
@@ -532,7 +441,7 @@ export default function VeChainConnect({ onAccountUpdate }: VeChainConnectProps)
               </p>
             </div>
             <div className="bg-primary-blue/20 border border-accent-gold/30 rounded-lg p-3">
-              <p className="text-sm text-gray-300">Energy</p>
+              <p className="text-sm text-gray-300">VTHO</p>
               <p className="font-semibold text-accent-gold">
                 {parseFloat(account!.energy).toFixed(2)}
               </p>

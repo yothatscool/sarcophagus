@@ -12,7 +12,7 @@ export default function Header() {
             <img 
               src="/logo.png" 
               alt="Sarcophagus Protocol" 
-              className="h-8 w-auto"
+              className="h-12 w-auto"
             />
             <div className="hidden sm:block">
               <h1 className="text-lg font-heading font-bold text-text-primary m-0">Sarcophagus Protocol</h1>
@@ -27,10 +27,7 @@ export default function Header() {
               <span className="text-xs text-vechain-green font-medium">VeChain Testnet</span>
             </div>
             
-            {/* Connect Wallet Button */}
-            <button className="btn-primary text-sm">
-              Connect Wallet
-            </button>
+
           </div>
         </div>
       </div>
