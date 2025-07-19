@@ -187,12 +187,16 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
   const [amountForm, setAmountForm] = useState({
     vetAmount: '',
     vthoAmount: '',
-    b3trAmount: ''
+    b3trAmount: '',
+    gloAmount: '',
+    obolAmount: ''
   });
   const [amountErrors, setAmountErrors] = useState({
     vetAmount: '',
     vthoAmount: '',
-    b3trAmount: ''
+    b3trAmount: '',
+    gloAmount: '',
+    obolAmount: ''
   });
   const [gasEstimate, setGasEstimate] = useState<string>('0');
   const [totalValue, setTotalValue] = useState<string>('0');
@@ -431,6 +435,50 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     return { isValid: true, error: '' };
   };
 
+  const validateGLOAmount = (amount: string): { isValid: boolean; error: string } => {
+    if (!amount.trim()) {
+      return { isValid: true, error: '' }; // GLO is optional
+    }
+    
+    const amountNum = parseFloat(amount);
+    
+    if (isNaN(amountNum)) {
+      return { isValid: false, error: 'Please enter a valid number' };
+    }
+    
+    if (amountNum < 0) {
+      return { isValid: false, error: 'Amount cannot be negative' };
+    }
+    
+    if (amountNum > 1000000) {
+      return { isValid: false, error: 'Amount cannot exceed 1,000,000 GLO' };
+    }
+    
+    return { isValid: true, error: '' };
+  };
+
+  const validateOBOLAmount = (amount: string): { isValid: boolean; error: string } => {
+    if (!amount.trim()) {
+      return { isValid: true, error: '' }; // OBOL is optional
+    }
+    
+    const amountNum = parseFloat(amount);
+    
+    if (isNaN(amountNum)) {
+      return { isValid: false, error: 'Please enter a valid number' };
+    }
+    
+    if (amountNum < 0) {
+      return { isValid: false, error: 'Amount cannot be negative' };
+    }
+    
+    if (amountNum > 1000000) {
+      return { isValid: false, error: 'Amount cannot exceed 1,000,000 OBOL' };
+    }
+    
+    return { isValid: true, error: '' };
+  };
+
   // Handle amount form changes
   const handleAmountFormChange = (field: string, value: string) => {
     setAmountForm(prev => ({ ...prev, [field]: value }));
@@ -447,8 +495,10 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     const vetValue = parseFloat(formData.vetAmount) || 0;
     const vthoValue = (parseFloat(formData.vthoAmount) || 0) * 0.0001; // VTHO to VET conversion
     const b3trValue = (parseFloat(formData.b3trAmount) || 0) * 0.001; // B3TR to VET conversion
+    const gloValue = (parseFloat(formData.gloAmount) || 0) * 1.0; // GLO is 1:1 with VET (stablecoin)
+    const obolValue = (parseFloat(formData.obolAmount) || 0) * 0.01; // OBOL to VET conversion
     
-    const total = vetValue + vthoValue + b3trValue;
+    const total = vetValue + vthoValue + b3trValue + gloValue + obolValue;
     setTotalValue(total.toFixed(4));
     
     // Estimate gas (rough calculation)
@@ -461,14 +511,18 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     const vetValidation = validateVETAmount(amountForm.vetAmount);
     const vthoValidation = validateVTHOAmount(amountForm.vthoAmount);
     const b3trValidation = validateB3TRAmount(amountForm.b3trAmount);
+    const gloValidation = validateGLOAmount(amountForm.gloAmount);
+    const obolValidation = validateOBOLAmount(amountForm.obolAmount);
     
     setAmountErrors({
       vetAmount: vetValidation.error,
       vthoAmount: vthoValidation.error,
-      b3trAmount: b3trValidation.error
+      b3trAmount: b3trValidation.error,
+      gloAmount: gloValidation.error,
+      obolAmount: obolValidation.error
     });
     
-    return vetValidation.isValid && vthoValidation.isValid && b3trValidation.isValid;
+    return vetValidation.isValid && vthoValidation.isValid && b3trValidation.isValid && gloValidation.isValid && obolValidation.isValid;
   };
 
   // Set maximum amounts
@@ -1247,12 +1301,16 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     setAmountForm({
       vetAmount: '',
       vthoAmount: '',
-      b3trAmount: ''
+      b3trAmount: '',
+      gloAmount: '',
+      obolAmount: ''
     });
     setAmountErrors({
       vetAmount: '',
       vthoAmount: '',
-      b3trAmount: ''
+      b3trAmount: '',
+      gloAmount: '',
+      obolAmount: ''
     });
     setGasEstimate('0');
     setTotalValue('0');
@@ -1278,6 +1336,8 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
       const vetAmountWei = BigInt(Math.floor(parseFloat(amountForm.vetAmount) * 1e18));
       const vthoAmountWei = BigInt(Math.floor(parseFloat(amountForm.vthoAmount || '0') * 1e18));
       const b3trAmountWei = BigInt(Math.floor(parseFloat(amountForm.b3trAmount || '0') * 1e18));
+      const gloAmountWei = BigInt(Math.floor(parseFloat(amountForm.gloAmount || '0') * 1e18));
+      const obolAmountWei = BigInt(Math.floor(parseFloat(amountForm.obolAmount || '0') * 1e18));
       
       // Add transaction to tracking system (simulated for now)
       const transaction = addTransaction({
@@ -1360,12 +1420,16 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
     setAmountForm({
       vetAmount: '',
       vthoAmount: '',
-      b3trAmount: ''
+      b3trAmount: '',
+      gloAmount: '',
+      obolAmount: ''
     });
     setAmountErrors({
       vetAmount: '',
       vthoAmount: '',
-      b3trAmount: ''
+      b3trAmount: '',
+      gloAmount: '',
+      obolAmount: ''
     });
     setGasEstimate('0');
     setTotalValue('0');
@@ -2181,7 +2245,7 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                     <h4 className="font-medium text-blue-800 mb-4">Add Funds to Your Vault</h4>
                     <p className="text-sm text-blue-700 mb-4">
-                      Deposit VET, VTHO, and B3TR tokens into your vault. These funds will be securely stored 
+                      Deposit VET, VTHO, B3TR, GLO, and OBOL tokens into your vault. These funds will be securely stored 
                       and distributed to your beneficiaries according to your specified instructions.
                     </p>
                     
@@ -2300,8 +2364,72 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
                         )}
                       </div>
                       
+                      {/* GLO Amount */}
+                      <div>
+                        <label htmlFor="glo-amount" className="block text-sm font-medium text-gray-700 mb-2">
+                          GLO Amount (Optional)
+                        </label>
+                        <input
+                          id="glo-amount"
+                          type="number"
+                          min="0"
+                          max="1000000"
+                          step="0.01"
+                          value={amountForm.gloAmount}
+                          onChange={(e) => handleAmountFormChange('gloAmount', e.target.value)}
+                          placeholder="Enter GLO amount (e.g., 100)"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            amountErrors.gloAmount ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                          }`}
+                          disabled={isLoading}
+                        />
+                        {amountErrors.gloAmount && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center">
+                            <span className="mr-1">⚠️</span>
+                            {amountErrors.gloAmount}
+                          </p>
+                        )}
+                        {!amountErrors.gloAmount && amountForm.gloAmount && (
+                          <p className="mt-1 text-sm text-blue-600">
+                            You'll deposit {amountForm.gloAmount} GLO (≈ {(parseFloat(amountForm.gloAmount) * 1.0).toFixed(4)} VET equivalent)
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* OBOL Amount */}
+                      <div>
+                        <label htmlFor="obol-amount" className="block text-sm font-medium text-gray-700 mb-2">
+                          OBOL Amount (Optional)
+                        </label>
+                        <input
+                          id="obol-amount"
+                          type="number"
+                          min="0"
+                          max="1000000"
+                          step="0.01"
+                          value={amountForm.obolAmount}
+                          onChange={(e) => handleAmountFormChange('obolAmount', e.target.value)}
+                          placeholder="Enter OBOL amount (e.g., 50)"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            amountErrors.obolAmount ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                          }`}
+                          disabled={isLoading}
+                        />
+                        {amountErrors.obolAmount && (
+                          <p className="mt-1 text-sm text-red-600 flex items-center">
+                            <span className="mr-1">⚠️</span>
+                            {amountErrors.obolAmount}
+                          </p>
+                        )}
+                        {!amountErrors.obolAmount && amountForm.obolAmount && (
+                          <p className="mt-1 text-sm text-blue-600">
+                            You'll deposit {amountForm.obolAmount} OBOL (≈ {(parseFloat(amountForm.obolAmount) * 0.01).toFixed(4)} VET equivalent)
+                          </p>
+                        )}
+                      </div>
+                      
                       {/* Summary */}
-                      {(amountForm.vetAmount || amountForm.vthoAmount || amountForm.b3trAmount) && (
+                      {(amountForm.vetAmount || amountForm.vthoAmount || amountForm.b3trAmount || amountForm.gloAmount || amountForm.obolAmount) && (
                         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                           <h5 className="font-medium text-green-800 mb-2">Transaction Summary</h5>
                           <div className="space-y-1 text-sm text-green-700">
@@ -2317,9 +2445,9 @@ export default function SarcophagusDashboard({ account, connex, onUserDataUpdate
                       <div className="flex space-x-3">
                         <button
                           onClick={handleSaveAmount}
-                          disabled={isLoading || !amountForm.vetAmount || !!amountErrors.vetAmount || !!amountErrors.vthoAmount || !!amountErrors.b3trAmount}
+                          disabled={isLoading || !amountForm.vetAmount || !!amountErrors.vetAmount || !!amountErrors.vthoAmount || !!amountErrors.b3trAmount || !!amountErrors.gloAmount || !!amountErrors.obolAmount}
                           className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                            isLoading || !amountForm.vetAmount || !!amountErrors.vetAmount || !!amountErrors.vthoAmount || !!amountErrors.b3trAmount
+                            isLoading || !amountForm.vetAmount || !!amountErrors.vetAmount || !!amountErrors.vthoAmount || !!amountErrors.b3trAmount || !!amountErrors.gloAmount || !!amountErrors.obolAmount
                               ? 'bg-gray-400 cursor-not-allowed'
                               : 'bg-green-600 hover:bg-green-700 text-white'
                           }`}
