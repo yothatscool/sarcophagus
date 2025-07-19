@@ -53,70 +53,48 @@ export default function Home() {
 
   if (!isClient) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-blue to-primary-blueDark flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-gold mx-auto"></div>
-          <p className="mt-4 text-accent-gold font-medium">Loading Sarcophagus Protocol...</p>
+      <div style={{minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+        <div style={{textAlign: 'center'}}>
+          <div style={{width: '50px', height: '50px', border: '3px solid #d4af37', borderTop: '3px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite'}}></div>
+          <p style={{marginTop: '20px', color: '#d4af37'}}>Loading Sarcophagus Protocol...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-blue to-primary-blueDark">
+    <div>
       <Header />
       
-      <main className="container mx-auto px-4 py-8">
-        {/* Test Section - Hardcoded Colors */}
-        <div style={{backgroundColor:'#1a12', color: '#d4f37', padding: '20px', marginBottom: '20px', border: '2px solid #d4af37'}}>         <h1 style={{color: '#d4af37', fontFamily: 'Poppins, sans-serif'}}>TEST: New Design System</h1>
-          <p style={{color: '#e9ecef'}}>This should show the new gold color (#d4) and Poppins font</p>
-          <button style={{backgroundColor:'#d4af37', color: '#1a1a2e', padding: '10px 20px', border: '1px solid #d4af37', borderRadius: '5px'}}>
-            Test Button
-          </button>
-        </div>
-
+      <main className="container">
         {/* Hero Section */}
-        <div className="text-center mb-12">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-4xl font-bold text-accent-gold mb-4 font-serif">
-              The Sarcophagus Protocol
-            </h1>
-            <p className="text-xl md:text-2xl text-text-secondary mb-8 leading-relaxed">
-              Revolutionary digital inheritance platform on VeChain that combines secure{' '}
-              <span className="text-accent-gold font-semibold">asset inheritance</span> with{' '}
-              <span className="text-accent-gold font-semibold">environmental impact rewards</span>.
-            </p>
-            
-            {/* Feature Buttons */}
-            <div className="flex flex-wrap justify-center gap-4 mb-8">
-              <button className="px-6 py-3 bg-background-card border border-accent-gold/30 text-accent-gold rounded-lg hover:bg-primary-blueLight transition-all duration-300 shadow-sarcophagus hover:shadow-gold">
-                Multi-Sig Security
-              </button>
-              <button className="px-6 py-3 bg-background-card border border-accent-gold/30 text-accent-gold rounded-lg hover:bg-primary-blueLight transition-all duration-300 shadow-sarcophagus hover:shadow-gold">
-                Environmental Rewards
-              </button>
-              <button className="px-6 py-3 bg-background-card border border-accent-gold/30 text-accent-gold rounded-lg hover:bg-primary-blueLight transition-all duration-300 shadow-sarcophagus hover:shadow-gold">
-                NFT Inheritance
-              </button>
-            </div>
+        <div className="hero">
+          <h1>The Sarcophagus Protocol</h1>
+          <p>
+            Revolutionary digital inheritance platform on VeChain that combines secure{' '}
+            <span style={{color: '#d4af37', fontWeight: 'bold'}}>asset inheritance</span> with{' '}
+            <span style={{color: '#d4af37', fontWeight: 'bold'}}>environmental impact rewards</span>.
+          </p>
+          
+          {/* Feature Buttons */}
+          <div>
+            <button className="button">Multi-Sig Security</button>
+            <button className="button">Environmental Rewards</button>
+            <button className="button">NFT Inheritance</button>
           </div>
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+        <div className="grid">
           {/* Connect Wallet Panel */}
-          <div className="bg-background-card backdrop-blur-sm border border-accent-gold/30 rounded-lg shadow-sarcophagus p-6">
-            <h2 className="text-xl font-semibold text-accent-gold mb-4 flex items-center font-heading">
-              Connect Wallet
-            </h2>
+          <div className="card">
+            <h2>Connect Wallet</h2>
             <VeChainConnect onAccountUpdate={handleAccountUpdate} />
           </div>
 
           {/* Inheritance Dashboard Panel */}
-          <div className="bg-background-card backdrop-blur-sm border border-accent-gold/30 rounded-lg shadow-sarcophagus p-6">
-            <h2 className="text-xl font-semibold text-accent-gold mb-4 flex items-center font-heading">
-              Inheritance Dashboard
-            </h2>
+          <div className="card">
+            <h2>Inheritance Dashboard</h2>
             {account ? (
               <SarcophagusDashboard 
                 account={account} 
@@ -124,21 +102,19 @@ export default function Home() {
                 onUserDataUpdate={handleUserDataUpdate}
               />
             ) : (
-              <div className="bg-background-card backdrop-blur-sm border border-accent-gold/30 rounded-lg p-6 text-center">
-                <h3 className="text-lg font-semibold text-accent-gold mb-2 font-heading">Sarcophagus Dashboard</h3>
-                <p className="text-text-secondary">Please connect your VeChain wallet to access the dashboard.</p>
+              <div className="card" style={{textAlign: 'center'}}>
+                <h3 style={{color: '#d4af37', marginBottom: '10px'}}>Sarcophagus Dashboard</h3>
+                <p style={{color: '#e9ecef'}}>Please connect your VeChain wallet to access the dashboard.</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Stats and Activity Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+        <div className="grid">
           {/* Quick Stats Panel */}
-          <div className="bg-background-card backdrop-blur-sm border border-accent-gold/30 rounded-lg shadow-sarcophagus p-6">
-            <h2 className="text-xl font-semibold text-accent-gold mb-4 flex items-center font-heading">
-              Quick Stats
-            </h2>
+          <div className="card">
+            <h2>Quick Stats</h2>
             <QuickStats 
               isUserVerified={userData.isVerified}
               hasSarcophagus={userData.hasSarcophagus}
@@ -149,38 +125,36 @@ export default function Home() {
           </div>
 
           {/* Recent Activity Panel */}
-          <div className="bg-background-card backdrop-blur-sm border border-accent-gold/30 rounded-lg shadow-sarcophagus p-6">
-            <h2 className="text-xl font-semibold text-accent-gold mb-4 flex items-center font-heading">
-              Recent Activity
-            </h2>
+          <div className="card">
+            <h2>Recent Activity</h2>
             <RecentActivity />
           </div>
         </div>
 
         {/* Built for VeChain Section */}
-        <div className="bg-background-card backdrop-blur-sm border border-accent-gold/30 rounded-lg shadow-sarcophagus p-8 text-center">
-          <h2 className="text-2xl font-bold text-accent-gold mb-8 font-heading">Built for VeChain</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-vechain-green/20 border border-vechain-green/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                <div className="w-8 h-8 bg-vechain-green rounded-full"></div>
+        <div className="card" style={{textAlign: 'center'}}>
+          <h2 style={{fontSize: '2rem', marginBottom: '30px'}}>Built for VeChain</h2>
+          <div className="grid">
+            <div style={{textAlign: 'center'}}>
+              <div style={{width: '60px', height: '60px', backgroundColor: 'rgba(0, 180, 180, 0.2)', border: '1px solid rgba(0, 180, 180, 0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px'}}>
+                <div style={{width: '30px', height: '30px', backgroundColor: '#00b4b4', borderRadius: '50%'}}></div>
               </div>
-              <h3 className="text-lg font-semibold text-accent-gold mb-2 font-heading">Native Integration</h3>
-              <p className="text-text-secondary">Built specifically for VeChain's energy-efficient blockchain</p>
+              <h3 style={{color: '#d4af37', marginBottom: '10px'}}>Native Integration</h3>
+              <p style={{color: '#e9ecef'}}>Built specifically for VeChain's energy-efficient blockchain</p>
             </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-vechain-green/20 border border-vechain-green/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                <div className="w-8 h-8 bg-vechain-green rounded-full"></div>
+            <div style={{textAlign: 'center'}}>
+              <div style={{width: '60px', height: '60px', backgroundColor: 'rgba(0, 180, 180, 0.2)', border: '1px solid rgba(0, 180, 180, 0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px'}}>
+                <div style={{width: '30px', height: '30px', backgroundColor: '#00b4b4', borderRadius: '50%'}}></div>
               </div>
-              <h3 className="text-lg font-semibold text-accent-gold mb-2 font-heading">Energy Efficient</h3>
-              <p className="text-text-secondary">Low-cost transactions with VeChain's dual-token model</p>
+              <h3 style={{color: '#d4af37', marginBottom: '10px'}}>Energy Efficient</h3>
+              <p style={{color: '#e9ecef'}}>Low-cost transactions with VeChain's dual-token model</p>
             </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-vechain-green/20 border border-vechain-green/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                <div className="w-8 h-8 bg-vechain-green rounded-full"></div>
+            <div style={{textAlign: 'center'}}>
+              <div style={{width: '60px', height: '60px', backgroundColor: 'rgba(0, 180, 180, 0.2)', border: '1px solid rgba(0, 180, 180, 0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px'}}>
+                <div style={{width: '30px', height: '30px', backgroundColor: '#00b4b4', borderRadius: '50%'}}></div>
               </div>
-              <h3 className="text-lg font-semibold text-accent-gold mb-2 font-heading">Secure & Fast</h3>
-              <p className="text-text-secondary">Enterprise-grade security with lightning-fast confirmations</p>
+              <h3 style={{color: '#d4af37', marginBottom: '10px'}}>Secure & Fast</h3>
+              <p style={{color: '#e9ecef'}}>Enterprise-grade security with lightning-fast confirmations</p>
             </div>
           </div>
         </div>
