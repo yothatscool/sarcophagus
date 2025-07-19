@@ -1,76 +1,114 @@
-/* Simple, basic CSS to test if styling works at all */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-body {
-  margin: 0;
-  padding: 0;
-  font-family: Arial, sans-serif;
-  background: linear-gradient(135deg, #1a1a2e 0%, #0f0f11 100%);
-  color: white;
-  min-height: 100vh;
-}
+/* Import Google Fonts for professional typography */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap');
 
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-.hero {
-  text-align: center;
-  margin-bottom: 40px;
-}
-
-.hero h1 {
-  font-size: 3rem;
-  color: #d4af37;
-  margin-bottom: 20px;
-}
-
-.hero p {
-  font-size: 1.2rem;
-  color: #e9ecef;
-  margin-bottom: 30px;
-}
-
-.button {
-  background: #d4af37;
-  color: #1a1a2e;
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  margin: 5px;
-}
-
-.button:hover {
-  background: #b8860b;
-}
-
-.card {
-  background: rgba(26, 26, 46, 0.9);
-  border: 1px solid #d4af37;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
-}
-
-.card h2 {
-  color: #d4af37;
-  font-size: 1.5rem;
-  margin-bottom: 15px;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 40px;
-}
-
-@media (max-width: 768px) {
-  .grid {
-    grid-template-columns: 1fr;
+/* Base styles for the Sarcophagus Protocol */
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
   }
+  
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #0f0f11 100%);
+    color: #f8f9fa;
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Focus styles for accessibility */
+  *:focus {
+    outline: 2px solid #d4af37;
+    outline-offset: 2px;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #1a1a2e;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #d4af37;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #b8860b;
+  }
+}
+
+/* Custom component styles */
+@layer components {
+  .btn-primary {
+    @apply bg-accent-gold hover:bg-accent-goldMedium text-primary-blue font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-gold;
+  }
+
+  .btn-secondary {
+    @apply bg-transparent border border-accent-gold text-accent-gold hover:bg-accent-gold hover:text-primary-blue font-semibold py-3 px-6 rounded-lg transition-colors duration-200;
+  }
+
+  .card-sarcophagus {
+    @apply bg-background-card border border-accent-gold rounded-xl p-6 shadow-sarcophagus;
+  }
+
+  .text-heading {
+    @apply font-heading font-semibold text-accent-gold;
+  }
+
+  .text-body {
+    @apply font-body text-text-secondary;
+  }
+}
+
+/* Animation keyframes */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-gold {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(212, 175, 55, 0);
+  }
+}
+
+/* Utility classes */
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.animate-pulse-gold {
+  animation: pulse-gold 2s infinite;
 } 

@@ -16,15 +16,15 @@ export function LoadingSpinner({ size = 'md', color = 'primary', className = '' 
   };
 
   const colorClasses = {
-    primary: 'text-blue-600',
-    secondary: 'text-gray-600',
-    success: 'text-green-600',
-    warning: 'text-yellow-600',
-    error: 'text-red-600'
+    primary: 'text-accent-gold',
+    secondary: 'text-text-muted',
+    success: 'text-vechain-green',
+    warning: 'text-accent-amber',
+    error: 'text-red-400'
   };
 
   return (
-    <div className={`animate-spin rounded-full border-2 border-gray-300 border-t-current ${sizeClasses[size]} ${colorClasses[color]} ${className}`} />
+    <div className={`animate-spin rounded-full border-2 border-accent-gold/30 border-t-current ${sizeClasses[size]} ${colorClasses[color]} ${className}`} />
   );
 }
 
@@ -50,23 +50,25 @@ export function ProgressBar({
   };
 
   const colorClasses = {
-    primary: 'bg-blue-600',
-    secondary: 'bg-gray-600',
-    success: 'bg-green-600',
-    warning: 'bg-yellow-600',
-    error: 'bg-red-600'
+    primary: 'bg-accent-gold',
+    secondary: 'bg-text-muted',
+    success: 'bg-vechain-green',
+    warning: 'bg-accent-amber',
+    error: 'bg-red-400'
   };
+
+  const progressWidth = Math.min(100, Math.max(0, progress));
 
   return (
     <div className={`w-full ${className}`}>
-      <div className={`w-full bg-gray-200 rounded-full ${sizeClasses[size]}`}>
+      <div className={`w-full bg-primary-blue/30 rounded-full ${sizeClasses[size]}`}>
         <div 
           className={`${colorClasses[color]} ${sizeClasses[size]} rounded-full transition-all duration-300 ease-out`}
-          style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+          style={{ width: `${progressWidth}%` }}
         />
       </div>
       {showPercentage && (
-        <div className="text-xs text-gray-600 mt-1 text-right">
+        <div className="text-xs text-text-muted mt-1 text-right font-body">
           {Math.round(progress)}%
         </div>
       )}
@@ -112,13 +114,13 @@ export function LoadingCard({
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-lg border border-gray-200 p-6 ${className}`}>
+    <div className={`bg-background-card border border-accent-gold/30 rounded-xl shadow-sarcophagus p-6 ${className}`}>
       <div className="flex items-center space-x-3 mb-4">
         <LoadingSpinner size="md" color="primary" />
         <div className="flex-1">
-          <h3 className="font-medium text-gray-900">{title}</h3>
+          <h3 className="font-heading font-semibold text-accent-gold">{title}</h3>
           {message && (
-            <p className="text-sm text-gray-600 mt-1">{message}</p>
+            <p className="text-sm text-text-secondary mt-1 font-body">{message}</p>
           )}
         </div>
       </div>
@@ -131,13 +133,13 @@ export function LoadingCard({
 
       {showStep && step && (
         <div className="mb-3">
-          <p className="text-sm font-medium text-gray-700">Current Step:</p>
-          <p className="text-sm text-gray-600">{step}</p>
+          <p className="text-sm font-medium text-accent-gold font-body">Current Step:</p>
+          <p className="text-sm text-text-secondary font-body">{step}</p>
         </div>
       )}
 
       {showTimer && (estimatedTime || startTime) && (
-        <div className="flex justify-between text-xs text-gray-500">
+        <div className="flex justify-between text-xs text-text-muted font-body">
           <span>Elapsed: {formatTime(elapsedTime)}</span>
           {estimatedTime && (
             <span>Estimated: {formatTime(estimatedTime)}</span>
@@ -166,7 +168,7 @@ export function SkeletonLoader({ type, lines = 1, className = '' }: SkeletonLoad
             {Array.from({ length: lines }).map((_, i) => (
               <div 
                 key={i} 
-                className="h-4 bg-gray-200 rounded animate-pulse"
+                className="h-4 bg-accent-gold/20 rounded animate-pulse"
                 style={{ width: `${Math.random() * 40 + 60}%` }}
               />
             ))}
@@ -175,23 +177,23 @@ export function SkeletonLoader({ type, lines = 1, className = '' }: SkeletonLoad
       
       case 'title':
         return (
-          <div className="h-6 bg-gray-200 rounded animate-pulse w-3/4" />
+          <div className="h-6 bg-accent-gold/20 rounded animate-pulse w-3/4" />
         );
       
       case 'button':
         return (
-          <div className="h-10 bg-gray-200 rounded animate-pulse w-24" />
+          <div className="h-10 bg-accent-gold/20 rounded animate-pulse w-24" />
         );
       
       case 'card':
         return (
-          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-            <div className="h-6 bg-gray-200 rounded animate-pulse w-1/2 mb-4" />
+          <div className="bg-background-card border border-accent-gold/30 rounded-xl shadow-sarcophagus p-6">
+            <div className="h-6 bg-accent-gold/20 rounded animate-pulse w-1/2 mb-4" />
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div 
                   key={i} 
-                  className="h-4 bg-gray-200 rounded animate-pulse"
+                  className="h-4 bg-accent-gold/20 rounded animate-pulse"
                   style={{ width: `${Math.random() * 30 + 70}%` }}
                 />
               ))}
@@ -203,11 +205,11 @@ export function SkeletonLoader({ type, lines = 1, className = '' }: SkeletonLoad
         return (
           <div className="space-y-3">
             {Array.from({ length: lines }).map((_, i) => (
-              <div key={i} className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />
-                <div className="flex-1">
-                  <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4 mb-1" />
-                  <div className="h-3 bg-gray-200 rounded animate-pulse w-1/2" />
+              <div key={i} className="flex items-center space-x-3 p-3 bg-primary-blue/20 rounded-lg border border-accent-gold/20">
+                <div className="w-8 h-8 bg-accent-gold/20 rounded-full animate-pulse" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-accent-gold/20 rounded animate-pulse w-3/4" />
+                  <div className="h-3 bg-accent-gold/20 rounded animate-pulse w-1/2" />
                 </div>
               </div>
             ))}

@@ -87,7 +87,7 @@ export default function RecentActivity({ userData }: RecentActivityProps) {
       case 'claim': return '🎁'
       case 'reward': return '⭐'
       case 'verification': return '✅'
-      case 'vault_creation': return ''
+      case 'vault_creation': return '🏛️'
       case 'beneficiary_update': return '👥'
       case 'funds_added': return '💎'
       default: return '📝'
@@ -96,35 +96,35 @@ export default function RecentActivity({ userData }: RecentActivityProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'text-green-400'
-      case 'pending': return 'text-yellow-400'
+      case 'completed': return 'text-vechain-green'
+      case 'pending': return 'text-accent-gold'
       case 'failed': return 'text-red-400'
-      default: return 'text-gray-400'
+      default: return 'text-text-muted'
     }
   }
 
   return (
-    <div className="mb-8">
-      <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
-      <div className="bg-black/20 backdrop-blur-sm border border-purple-500/20 rounded-lg p-4">
+    <div className="space-y-4">
+      <h3 className="text-lg font-heading font-semibold text-accent-gold">Recent Activity</h3>
+      <div className="bg-background-card/50 backdrop-blur-sm border border-accent-gold/30 rounded-xl p-4 shadow-sarcophagus">
         {activities.length === 0 ? (
-          <p className="text-gray-400 text-center py-4">No recent activity</p>
+          <p className="text-text-muted text-center py-8 font-body">No recent activity</p>
         ) : (
           <div className="space-y-3">
             {activities.slice(0, 5).map((activity) => (
-              <div key={activity.id} className="flex items-center space-x-3 p-3 bg-gray-800/50 rounded-lg">
-                <div className="text-xl">{getActivityIcon(activity.type)}</div>
+              <div key={activity.id} className="flex items-center space-x-4 p-4 bg-primary-blue/20 rounded-lg border border-accent-gold/20 hover:border-accent-gold/40 transition-colors duration-200">
+                <div className="text-2xl">{getActivityIcon(activity.type)}</div>
                 <div className="flex-1">
-                  <p className="text-sm text-white">{activity.description}</p>
+                  <p className="text-sm text-text-primary font-body">{activity.description}</p>
                   {activity.amount && (
-                    <p className="text-xs text-purple-400">{activity.amount}</p>
+                    <p className="text-xs text-accent-gold font-medium">{activity.amount}</p>
                   )}
                 </div>
                 <div className="text-right">
-                  <p className={`text-xs ${getStatusColor(activity.status)}`}>
+                  <p className={`text-xs font-medium ${getStatusColor(activity.status)}`}>
                     {activity.status}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-text-muted font-body">
                     {activity.timestamp.toLocaleTimeString()}
                   </p>
                 </div>
