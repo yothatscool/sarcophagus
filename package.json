@@ -56,7 +56,9 @@
     "@vechain/dapp-kit": "^2.0.2",
     "@vechain/dapp-kit-react": "^2.0.2",
     "@vechain/dapp-kit-ui": "^2.0.2",
+    "chart.js": "^4.5.0",
     "connex": "^0.0.1",
+    "react-chartjs-2": "^5.3.0",
     "thorify": "^1.6.2",
     "web3": "^1.10.0",
     "web3-core-subscriptions": "^1.10.3"

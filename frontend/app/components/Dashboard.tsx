@@ -11,6 +11,7 @@ import NextAction from './NextAction'
 import RecentActivity from './RecentActivity'
 import QuickActions from './QuickActions'
 import WithdrawalManager from './WithdrawalManager'
+import DashboardAnalytics from './DashboardAnalytics'
 
 export default function Dashboard() {
   const { account } = useWallet()
@@ -59,6 +60,8 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Analytics Charts */}
+      <DashboardAnalytics />
       {/* API Status Indicator */}
       {Object.values(apiHealth).some((health: any) => !health.available) && (
         <div className="mb-6 p-4 bg-accent-gold/10 border border-accent-gold/30 rounded-xl backdrop-blur-sm">

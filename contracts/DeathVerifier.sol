@@ -99,6 +99,7 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
     event OracleSlashed(address indexed oracle, uint256 amount, string reason);
     event ConsensusTimeoutUpdated(uint256 newTimeout);
     event MinConfirmationsUpdated(uint256 newMin);
+    event DeceasedMarked(address indexed user, address indexed oracle, uint256 timestamp);
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -483,6 +484,32 @@ contract DeathVerifier is IDeathVerifier, AccessControl, ReentrancyGuard {
         
         emit DeathVerificationCompleted(user, 1, block.timestamp);
         emit OracleReputationUpdated(msg.sender, reputation.reputationScore);
+    }
+
+    /**
+     * @notice Mark a user as deceased (for automated oracle integration)
+     * @param user Address of the user to mark as deceased
+     */
+    function markDeceased(address user) external onlyRole(ORACLE_ROLE) {
+        DeathVerification storage verification = deathVerifications[user];
+        if (verification.isVerified) revert DeathAlreadyVerified();
+        verification.isVerified = true;
+        verification.deathTimestamp = block.timestamp;
+        verification.confirmations = 1;
+        verification.consensusStartTime = block.timestamp;
+        verification.isExpired = false;
+        verification.confirmingOracles.push(msg.sender);
+        verification.oracleConfirmations[msg.sender] = true;
+        emit DeceasedMarked(user, msg.sender, block.timestamp);
+    }
+
+    /**
+     * @notice Check if a user is marked as deceased
+     * @param user Address of the user
+     * @return True if user is deceased, false otherwise
+     */
+    function isDeceased(address user) external view returns (bool) {
+        return deathVerifications[user].isVerified;
     }
 
     // Stub for interface compatibility
