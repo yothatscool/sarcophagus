@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { getCurrentNetworkAddresses } from '../config/contracts';
-import SARCOPHAGUS_ABI from '../../../artifacts/contracts/Sarcophagus.sol/Sarcophagus.json';
-import DEATH_VERIFIER_ABI from '../../../artifacts/contracts/DeathVerifier.sol/DeathVerifier.json';
+import SARCOPHAGUS_ABI from '../config/abis/Sarcophagus.json';
+import DEATH_VERIFIER_ABI from '../config/abis/DeathVerifier.json';
 
 // Helper to decode event logs
 function decodeEvent(
